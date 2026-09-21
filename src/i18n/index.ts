@@ -47,7 +47,7 @@ export const talentDesc = (def: TalentDef, rank: number): string => {
 /** Строка краткой сводки класса. */
 export const describeTrait = (trait: Trait): string => {
   if (trait.id === 'mech') return t(`trait.mech.${trait.lineage}` as TKey);
-  if (trait.id === 'ability') return t('trait.ability', { name: trait.text ?? '' });
+  if (trait.id === 'ability') return t('trait.ability', { name: trait.name ? tr(trait.name) : '' });
   return t(`trait.${trait.id}` as TKey, { n: trait.n ?? 0 });
 };
 

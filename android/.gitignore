@@ -1,0 +1,6 @@
+.gradle/
+build/
+local.properties
+app/build/
+# Собранная игра копируется сюда скриптом `npm run apk:assets`
+app/src/main/assets/www/

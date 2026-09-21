@@ -1,0 +1,50 @@
+# Собирает APK на раннере GitHub (там уже стоит Android SDK) и отдаёт готовый файл
+# во вкладке Actions -> нужный запуск -> Artifacts. Устанавливать что-либо локально не нужно.
+name: Сборка APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Проверки и сборка игры
+        run: |
+          npm ci
+          npm run typecheck
+          npm run selftest
+          npx vite build --mode apk
+          node tools/apk-assets.mjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Сборка APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+
+      - name: Переименовать APK
+        run: cp android/app/build/outputs/apk/release/*.apk evil-tower-2.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evil-tower-2-apk
+          path: evil-tower-2.apk
+          if-no-files-found: error

@@ -12,7 +12,9 @@
     "sim": "tsx tools/sim.ts",
     "selftest": "tsx tools/selftest.ts",
     "store": "tsx tools/store-assets.ts && python store/render.py",
-    "zip": "node tools/zip-dist.mjs"
+    "zip": "node tools/zip-dist.mjs",
+    "apk:assets": "vite build --mode apk && node tools/apk-assets.mjs",
+    "apk": "npm run apk:assets && node tools/build-apk.mjs"
   },
   "dependencies": {
     "@fontsource/alegreya-sc": "^5.3.0",
