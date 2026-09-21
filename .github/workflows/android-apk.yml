@@ -3,9 +3,21 @@
 name: Сборка APK
 
 on:
+  # Кнопка «Run workflow» появляется, когда файл есть в ветке по умолчанию.
   workflow_dispatch:
   push:
     tags: ['v*']
+    # Чтобы APK можно было получить и с рабочей ветки, не дожидаясь слияния.
+    branches: ['claude/**']
+    paths:
+      - 'src/**'
+      - 'android/**'
+      - 'tools/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
