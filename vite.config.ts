@@ -10,10 +10,15 @@ const yandexSdkTag = (): Plugin => ({
   },
 });
 
-export default defineConfig({
+/**
+ * Режим `apk` — офлайн-сборка для Android-обёртки: платформы Яндекса там нет,
+ * поэтому тег /sdk.js не внедряется (иначе WebView ругался бы на отсутствующий файл).
+ * Запуск: `vite build --mode apk` (см. `npm run apk`).
+ */
+export default defineConfig(({ mode }) => ({
   // Относительные пути: index.html лежит в корне архива, без абсолютных URL.
   base: './',
-  plugins: [yandexSdkTag()],
+  plugins: mode === 'apk' ? [] : [yandexSdkTag()],
   server: { host: true, port: 5173 },
   build: {
     target: 'es2020',
@@ -26,4 +31,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

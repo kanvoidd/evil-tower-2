@@ -14,8 +14,8 @@ export interface Trait {
   id: TraitId;
   /** Главное число для подстановки в текст. */
   n?: number;
-  /** Готовая строка (название способности). */
-  text?: string;
+  /** Название способности — переводится при выводе. */
+  name?: { ru: string; en: string };
   /** Для 'mech' — линейка, механику которой описываем. */
   lineage?: LineageId;
 }
@@ -43,7 +43,7 @@ export const classTraits = (classId: ClassId, max = MAX_TRAITS): Trait[] => {
 
   // стартовая способность класса
   const start = perkOf(classId, 'start');
-  if (start && !start.basic) out.push({ id: 'ability', text: start.name.ru });
+  if (start && !start.basic) out.push({ id: 'ability', name: start.name });
 
   // характеристики, которыми класс выделяется
   if (s.crit >= TRAIT_LIMITS.crit) out.push({ id: 'crit', n: Math.round(s.crit) });

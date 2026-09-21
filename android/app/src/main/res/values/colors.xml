@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Тот же фон, что и у страницы игры, — при запуске нет белой вспышки. -->
+  <color name="bg">#FF0D0F14</color>
+</resources>
