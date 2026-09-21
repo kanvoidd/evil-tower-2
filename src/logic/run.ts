@@ -1,7 +1,9 @@
-import type { CardKind, ConsumableId, EquipmentSave } from '../types';
-import { ENEMIES, type EnemyDef, type RoomDef } from '../data/levels';
+import type { CardKind, ConsumableId, EquipmentSave, StatusKind } from '../types';
+import { ENEMIES, isHolyTarget, type EnemyDef } from '../data/enemies';
+import { ELITE, rollRoom, type RoomDef, type RoomModifier, type RoomPlan } from '../data/levels';
 import { ITEM_BY_ID } from '../data/items';
-import { LINEAGES, CLASSES } from '../data/classes';
+import { FULL_BAR, PERK_BY_ID, type AbilityId, type PerkDef } from '../data/perks';
+import { LINEAGES } from '../data/classes';
 import { GAMEPLAY } from '../config';
 import type { PlayerStats } from './stats';
 import type { Rng } from './rng';
@@ -13,29 +15,59 @@ export interface Card {
   hp: number;
   maxHp: number;
   atk: number;
+  baseAtk: number;
   value: number;
+  elite: boolean;
+  /** Не отвечает на следующий удар. */
+  stun: number;
+  /** Ходы горения и урон за ход. */
+  burn: number;
+  burnDmg: number;
+  /** Ходы яда и урон за ход. */
+  poison: number;
+  poisonDmg: number;
+  /** Клеймо смерти: ходов до гибели. */
+  mark: number;
+  /** Кукла вуду: половина полученного урона расходится по остальным. */
+  link: boolean;
+  /** Приговор: получает больше урона. */
+  vuln: number;
+  /** Сколько раз герой по нему попал. */
+  hits: number;
+  /** Сколько раз он ударил героя. */
+  swings: number;
 }
 
 export type Loot = { kind: 'gold'; amount: number } | { kind: ConsumableId; amount: 1 };
 
+export type FxStyle = 'bolt' | 'beam' | 'arrows' | 'fire' | 'shock' | 'smoke' | 'holy' | 'dark' | 'quake' | 'blades';
+
 export type GameEvent =
   | { type: 'spawn'; cell: number; card: Card }
-  /** style: 'shot' — выстрел (лучник), 'backstab' — телепорт за спину и удар критом (наёмник). */
-  | { type: 'attack'; from: number; to: number; ranged: boolean; by: 'player' | 'enemy'; style?: 'shot' | 'backstab' }
+  /** style: 'shot' — выстрел, 'backstab' — телепорт за спину, 'bolt' — молния мага. */
+  | { type: 'attack'; from: number; to: number; ranged: boolean; by: 'player' | 'enemy'; style?: 'shot' | 'backstab' | 'bolt' }
   | { type: 'hit'; cell: number; amount: number; crit: boolean; target: 'player' | 'enemy'; hp: number; absorbed?: boolean }
-  | { type: 'miss'; cell: number; kind: 'dodge' | 'parry' }
+  | { type: 'miss'; cell: number; kind: 'dodge' | 'parry' | 'evade' | 'block' | 'stun' | 'smoke' }
   | { type: 'kill'; cell: number; uid: number }
   | { type: 'move'; from: number; to: number }
   | { type: 'slide'; uid: number; from: number; to: number }
+  | { type: 'swap'; a: number; b: number }
   | { type: 'gold'; cell: number; amount: number }
   | { type: 'souls'; cell: number; amount: number }
+  | { type: 'spend'; amount: number }
   | { type: 'heal'; amount: number; hp: number; source: 'potion' | 'perk' | 'lifesteal' | 'revive' }
   | { type: 'resource'; now: number; max: number }
   | { type: 'shield'; now: number }
   | { type: 'chest'; cell: number; loot: Loot[] }
   | { type: 'pickup'; cell: number; item: ConsumableId; count: number }
   | { type: 'break'; slot: 'weapon' | 'armor'; id: string }
-  | { type: 'burst' }
+  | { type: 'status'; cell: number; uid: number; kind: StatusKind; turns: number }
+  | { type: 'fx'; cells: number[]; style: FxStyle }
+  /** Способность применена (для всплывающей подписи и звука). */
+  | { type: 'perk'; id: string; ability: AbilityId }
+  /** Способность «заряжена» или снята с зарядки (null). */
+  | { type: 'armed'; id: string | null }
+  | { type: 'rewind' }
   | { type: 'artifact'; cells: number[] }
   | { type: 'boost'; turns: number }
   | { type: 'win' }
@@ -48,12 +80,15 @@ export interface RunInit {
   armor: EquipmentSave | null;
   consumables: Record<ConsumableId, number>;
   rng: Rng;
+  /** Готовый расклад (для повторов и тестов); иначе набирается случайно. */
+  plan?: RoomPlan;
 }
 
 export type Action =
   | { kind: 'melee' }
   | { kind: 'move' }
   | { kind: 'ranged' }
+  | { kind: 'perk' }
   | { kind: 'none'; reason: 'invalid' | 'resource' | 'range' };
 
 const NEIGHBORS: number[][] = Array.from({ length: 9 }, (_, i) => {
@@ -67,9 +102,36 @@ const NEIGHBORS: number[][] = Array.from({ length: 9 }, (_, i) => {
   return out;
 });
 
+const DIAGONALS: number[][] = Array.from({ length: 9 }, (_, i) => {
+  const r = Math.floor(i / 3);
+  const c = i % 3;
+  const out: number[] = [];
+  for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    const nr = r + dr;
+    const nc = c + dc;
+    if (nr >= 0 && nr < 3 && nc >= 0 && nc < 3) out.push(nr * 3 + nc);
+  }
+  return out;
+});
+
 export const neighborsOf = (cell: number): number[] => NEIGHBORS[cell];
-const dist = (a: number, b: number): number =>
-  Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
+const rowOf = (c: number): number => Math.floor(c / 3);
+const colOf = (c: number): number => c % 3;
+const dist = (a: number, b: number): number => Math.abs(rowOf(a) - rowOf(b)) + Math.abs(colOf(a) - colOf(b));
+const sameLine = (a: number, b: number): boolean => rowOf(a) === rowOf(b) || colOf(a) === colOf(b);
+
+/** Снимок состояния для «Отката времени». */
+interface Snapshot {
+  cards: string;
+  playerCell: number;
+  hp: number;
+  shield: number;
+  res: number;
+  pool: string;
+  totals: string;
+  consumables: string;
+  flags: string;
+}
 
 export class Run {
   cards: Array<Card | null> = Array(9).fill(null);
@@ -87,6 +149,38 @@ export class Run {
   consumables: Record<ConsumableId, number>;
   totals = { gold: 0, souls: 0, kills: 0, damageTaken: 0, turns: 0 };
   readonly room: RoomDef;
+  readonly plan: RoomPlan;
+  readonly mod: RoomModifier;
+
+  /** Заряженная способность: следующее касание поля применит её. */
+  armed: PerkDef | null = null;
+  /** Первая из двух карт для «Перестановки». */
+  private swapFirst: number | null = null;
+  /** Уже потраченные «один раз за комнату» способности. */
+  private usedOnce = new Set<string>();
+
+  // ---- временные состояния героя
+  private noCounter = 0;      // дымовая завеса
+  private madness = 0;        // безумие берсерка
+  private reaping = 0;        // жнец
+  private ghosts = 0;         // призрачные слуги
+  private killStreak = 0;     // резня
+  private killsRoom = 0;
+  private defTurn = 0;        // «+защита на ход» после убийства
+  private perkGuard = 0;      // «после перка следующий удар слабее»
+  private counterReady = false; // контрудар после парирования
+  private cheatLeft = 0;
+  private reviveLeft = 0;
+  private roomGuardLeft = 0;
+  private roomCritLeft = 0;
+  private freePerkLeft = 0;
+  private corpseBlast = false;
+  private hitCounter = 0;     // для «Суда» (каждый третий удар)
+  private playerPoison = 0;
+  private playerPoisonDmg = 0;
+  private warCry = 0;         // накопленное ослабление атаки врагов
+  private snapshot: Snapshot | null = null;
+
   private rng: Rng;
   private uid = 1;
   private vacated: number[] = [];
@@ -98,13 +192,24 @@ export class Run {
     this.weapon = init.weapon ? { ...init.weapon } : null;
     this.armor = init.armor ? { ...init.armor } : null;
     this.consumables = { ...init.consumables };
+    this.plan = init.plan ?? rollRoom(init.room, init.rng);
+    this.mod = this.plan.mod;
     this.hp = this.stats.maxHp;
     this.res = Math.ceil(this.stats.resMax * 0.5);
+    this.cheatLeft = this.stats.cheatDeath;
+    this.reviveLeft = this.stats.reviveHp > 0 ? 1 : 0;
+    this.roomGuardLeft = this.stats.roomGuard > 0 ? 1 : 0;
+    this.roomCritLeft = this.stats.roomCrit ? 1 : 0;
+    this.freePerkLeft = this.stats.freePerk ? 1 : 0;
     this.buildPool();
   }
 
   get lineage() {
-    return CLASSES[this.stats.classId].lineage;
+    return this.stats.lineage;
+  }
+
+  get lineageDef() {
+    return LINEAGES[this.lineage];
   }
 
   get enemiesLeft(): number {
@@ -112,35 +217,51 @@ export class Run {
   }
 
   get totalEnemies(): number {
-    return Object.values(this.room.enemies).reduce((a, b) => a + b, 0);
+    return this.plan.enemies.length;
   }
 
-  private mkEnemy(def: EnemyDef): Card {
-    return { uid: this.uid++, kind: 'enemy', defId: def.id, hp: def.hp, maxHp: def.hp, atk: def.atk, value: 0 };
+  // ------------------------------------------------------------------ подготовка
+
+  private mkEnemy(def: EnemyDef, elite: boolean): Card {
+    const m = this.mod;
+    const hpMul = (m.hpMul ?? 1) * (elite ? ELITE.hp : 1);
+    const atkMul = (m.atkMul ?? 1) * (elite ? ELITE.atk : 1);
+    const hp = Math.max(1, Math.round(def.hp * hpMul));
+    const atk = Math.max(1, Math.round(def.atk * atkMul));
+    return {
+      uid: this.uid++, kind: 'enemy', defId: def.id, hp, maxHp: hp, atk, baseAtk: atk, value: 0, elite,
+      stun: 0, burn: 0, burnDmg: 0, poison: 0, poisonDmg: 0, mark: 0, link: false, vuln: 0, hits: 0, swings: 0,
+    };
   }
 
   private mkCard(kind: CardKind, value = 0): Card {
-    return { uid: this.uid++, kind, defId: kind, hp: 0, maxHp: 0, atk: 0, value };
+    return {
+      uid: this.uid++, kind, defId: kind, hp: 0, maxHp: 0, atk: 0, baseAtk: 0, value, elite: false,
+      stun: 0, burn: 0, burnDmg: 0, poison: 0, poisonDmg: 0, mark: 0, link: false, vuln: 0, hits: 0, swings: 0,
+    };
   }
 
   private goldAmount(lo: number, hi: number): number {
     const s = this.stats;
-    return Math.max(1, Math.round(this.rng.int(lo, hi) * this.room.goldScale * (1 + s.luck * 0.05 + s.goldBonus)));
+    const mul = this.room.goldScale * (this.mod.goldMul ?? 1) * (1 + s.luck * 0.05 + s.goldBonus);
+    return Math.max(1, Math.round(this.rng.int(lo, hi) * mul));
   }
 
   private buildPool(): void {
-    const { room, rng } = this;
+    const { plan, rng } = this;
     const list: Card[] = [];
     const bosses: Card[] = [];
-    for (const [id, n] of Object.entries(room.enemies)) {
-      const def = ENEMIES[id];
-      for (let i = 0; i < n; i++) (def.boss ? bosses : list).push(this.mkEnemy(def));
+    for (const e of plan.enemies) {
+      const def = ENEMIES[e.id];
+      if (!def) continue;
+      const card = this.mkEnemy(def, e.elite);
+      (def.boss ? bosses : list).push(card);
     }
-    for (let i = 0; i < room.gold; i++) list.push(this.mkCard('gold', this.goldAmount(5, 12)));
-    for (let i = 0; i < room.chests; i++) list.push(this.mkCard('chest'));
-    for (let i = 0; i < room.healPotions; i++) list.push(this.mkCard('potion_heal'));
-    for (let i = 0; i < room.regenPotions; i++) list.push(this.mkCard('potion_regen'));
-    if (this.lineage === 'mage' && rng.chance(0.7)) list.push(this.mkCard('artifact'));
+    for (let i = 0; i < plan.gold; i++) list.push(this.mkCard('gold', this.goldAmount(4, 9)));
+    for (let i = 0; i < plan.chests; i++) list.push(this.mkCard('chest'));
+    for (let i = 0; i < plan.heal; i++) list.push(this.mkCard('potion_heal'));
+    for (let i = 0; i < plan.regen; i++) list.push(this.mkCard('potion_regen'));
+    if (this.lineageDef.artifacts && rng.chance(0.7)) list.push(this.mkCard('artifact'));
     rng.shuffle(list);
     for (const b of bosses) {
       const from = Math.floor(list.length * 0.7);
@@ -151,7 +272,7 @@ export class Run {
 
   start(): GameEvent[] {
     const events: GameEvent[] = [];
-    this.shield = this.stats.startShield;
+    this.shield = Math.round(this.stats.maxHp * (this.stats.startShieldPct + (this.mod.shieldPct ?? 0)));
     for (let i = 0; i < 9; i++) {
       if (i === this.playerCell) continue;
       const card = this.pool.shift();
@@ -163,9 +284,12 @@ export class Run {
     return events;
   }
 
+  // ------------------------------------------------------------------ действия
+
   /** Что произойдёт при нажатии на клетку (для подсветки и подсказок). */
   actionFor(cell: number): Action {
     if (this.over || cell === this.playerCell) return { kind: 'none', reason: 'invalid' };
+    if (this.armed) return this.perkTargetOk(this.armed, cell) ? { kind: 'perk' } : { kind: 'none', reason: 'range' };
     const card = this.cards[cell];
     if (!card) return { kind: 'none', reason: 'invalid' };
     const d = dist(this.playerCell, cell);
@@ -173,99 +297,237 @@ export class Run {
     if (card.kind !== 'enemy') return { kind: 'none', reason: 'range' };
     const s = this.stats;
     if (s.ranged === 'none') return { kind: 'none', reason: 'range' };
-    if (s.ranged === 'skip') {
-      const sameLine = Math.floor(cell / 3) === Math.floor(this.playerCell / 3) || cell % 3 === this.playerCell % 3;
-      if (!(d === 2 && sameLine)) return { kind: 'none', reason: 'range' };
-    }
+    if (s.ranged === 'skip' && !this.archerReach(cell)) return { kind: 'none', reason: 'range' };
     if (this.res < s.rangedCost) return { kind: 'none', reason: 'resource' };
     return { kind: 'ranged' };
   }
 
-  /** Наёмник бьёт из-за спины и всегда критом — у остальных дальняя атака обычная. */
-  get backstabs(): boolean {
-    return this.stats.ranged === 'any';
+  /** Досягаемость выстрела лучника: через карту по прямой, а с «Косым прицелом» — ещё и по диагонали. */
+  private archerReach(cell: number): boolean {
+    const p = this.playerCell;
+    if (dist(p, cell) === 2 && sameLine(p, cell)) return true;
+    if (this.stats.passives.has('diagonal') && DIAGONALS[p].includes(cell)) return true;
+    if (this.stats.passives.has('eagle_eye') && NEIGHBORS[p].includes(cell)) return true;
+    return false;
   }
 
-  /** Убьёт ли ближайшая атака врага (обычный крит не учитывается, гарантированный крит наёмника — учитывается) — для подсветки. */
+  get backstabs(): boolean {
+    return this.stats.rangedCrit;
+  }
+
+  /** Убьёт ли ближайшая атака врага — для подсветки карточки. */
   wouldKill(cell: number): boolean {
     const card = this.cards[cell];
     if (!card || card.kind !== 'enemy') return false;
     const a = this.actionFor(cell);
     if (a.kind !== 'melee' && a.kind !== 'ranged') return false;
-    let dmg = this.stats.damage;
+    let dmg = this.currentDamage();
     if (a.kind === 'ranged') {
       dmg = Math.round(dmg * this.stats.rangedMul);
-      if (this.backstabs) dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
-    } else if (this.stats.attackCost > 0) {
-      dmg = this.res >= this.stats.attackCost
-        ? Math.round(dmg * this.stats.spellMul)
-        : Math.max(1, Math.round(dmg * GAMEPLAY.weakAttackRatio));
+      if (this.backstabs || this.reaping > 0) dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
+    } else {
+      dmg = Math.round(dmg * this.stats.meleeMul);
     }
-    return dmg >= card.hp;
+    dmg = this.contextDamage(dmg, card);
+    return this.afterArmor(dmg, card) >= card.hp;
   }
 
   tap(cell: number): { ok: boolean; reason?: string; events: GameEvent[] } {
     const events: GameEvent[] = [];
+    if (this.armed) return this.aimPerk(cell);
     const action = this.actionFor(cell);
     if (action.kind === 'none') return { ok: false, reason: action.reason, events };
+    this.takeSnapshot();
     this.vacated = [];
     if (action.kind === 'melee') this.melee(cell, events);
-    else if (action.kind === 'ranged') this.ranged(cell, events);
+    else if (action.kind === 'ranged') this.basicRanged(cell, events);
     else this.collect(cell, events);
     this.finishTurn(events);
     return { ok: true, events };
   }
 
-  useItem(id: ConsumableId): { ok: boolean; events: GameEvent[] } {
-    const events: GameEvent[] = [];
-    if (this.over || this.consumables[id] <= 0) return { ok: false, events };
-    if (id === 'potion_heal') {
-      if (this.hp >= this.stats.maxHp) return { ok: false, events };
-      this.consumables[id]--;
-      const heal = Math.min(GAMEPLAY.healPotionHp, this.stats.maxHp - this.hp);
-      this.hp += heal;
-      events.push({ type: 'heal', amount: heal, hp: this.hp, source: 'potion' });
-    } else if (id === 'potion_regen') {
-      if (this.res >= this.stats.resMax && this.boost > 0) return { ok: false, events };
-      this.consumables[id]--;
-      this.res = this.stats.resMax;
-      this.boost = GAMEPLAY.regenBoostTurns;
-      events.push({ type: 'resource', now: this.res, max: this.stats.resMax });
-      events.push({ type: 'boost', turns: this.boost });
-    } else {
-      if (this.lineage !== 'mage') return { ok: false, events };
-      const targets: number[] = [];
-      this.cards.forEach((c, i) => c?.kind === 'enemy' && targets.push(i));
-      if (!targets.length) return { ok: false, events };
-      this.consumables[id]--;
-      this.vacated = [];
-      const dmg = this.artifactDamage();
-      events.push({ type: 'artifact', cells: targets });
-      for (const t of targets) this.damageEnemy(t, dmg, false, events);
-      this.refill(events);
-      this.checkWin(events);
+  // ------------------------------------------------------------------ способности
+
+  /** Доступна ли способность прямо сейчас. */
+  perkReady(p: PerkDef): { ok: boolean; reason?: 'resource' | 'once' | 'gold' | 'targets' } {
+    if (this.over) return { ok: false, reason: 'once' };
+    if (p.once && this.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
+    if (p.goldCost !== undefined) {
+      return this.totals.gold >= 5 ? { ok: true } : { ok: false, reason: 'gold' };
     }
+    const cost = this.perkCostOf(p);
+    if (cost > this.res) return { ok: false, reason: 'resource' };
+    return { ok: true };
+  }
+
+  /** Цена способности с учётом «первый перк в комнате бесплатен» и «Жнеца». */
+  perkCostOf(p: PerkDef): number {
+    if (this.freePerkLeft > 0) return 0;
+    if (p.cost === FULL_BAR) return this.stats.resMax;
+    return p.cost ?? 0;
+  }
+
+  /**
+   * Нажатие на кнопку способности: несфокусированные применяются сразу,
+   * остальные «заряжаются» — следующее касание поля наводит их на цель.
+   */
+  usePerk(id: string): { ok: boolean; reason?: string; events: GameEvent[] } {
+    const events: GameEvent[] = [];
+    const p = PERK_BY_ID[id];
+    if (!p || p.passive || p.basic) return { ok: false, reason: 'invalid', events };
+    if (!this.stats.perks.includes(id)) return { ok: false, reason: 'invalid', events };
+    if (this.armed?.id === id) {
+      this.armed = null;
+      this.swapFirst = null;
+      events.push({ type: 'armed', id: null });
+      return { ok: true, events };
+    }
+    const ready = this.perkReady(p);
+    if (!ready.ok) return { ok: false, reason: ready.reason, events };
+    if (p.target === 'self') {
+      this.takeSnapshot();
+      this.vacated = [];
+      this.payPerk(p, events);
+      events.push({ type: 'perk', id: p.id, ability: p.ability });
+      this.applyAbility(p, -1, events);
+      this.afterPerk(events);
+      this.finishTurn(events);
+      return { ok: true, events };
+    }
+    this.armed = p;
+    this.swapFirst = null;
+    events.push({ type: 'armed', id: p.id });
     return { ok: true, events };
   }
 
-  /** Сила удара артефакта по каждому врагу на поле. */
-  artifactDamage(): number {
-    return Math.max(1, Math.round(this.stats.damage * 2 * (1 + this.stats.artifactMul)));
+  cancelPerk(): GameEvent[] {
+    if (!this.armed) return [];
+    this.armed = null;
+    this.swapFirst = null;
+    return [{ type: 'armed', id: null }];
   }
 
-  /** Урон по герою от удара силой atk (без учёта уклонения, парирования и щита) — для подсказок и автоприменения. */
-  strikeDamage(atk: number): number {
-    return this.reduce(atk);
+  /** Подходит ли клетка под заряженную способность. */
+  perkTargetOk(p: PerkDef, cell: number): boolean {
+    if (cell === this.playerCell) return false;
+    const card = this.cards[cell];
+    if (!card) return false;
+    switch (p.target) {
+      case 'enemy': return card.kind === 'enemy';
+      case 'adjacent': return card.kind === 'enemy' && NEIGHBORS[this.playerCell].includes(cell);
+      case 'line': return card.kind === 'enemy' && sameLine(this.playerCell, cell);
+      case 'card': return card.kind !== 'enemy';
+      case 'any_card': return true;
+      case 'two': return true;
+      default: return false;
+    }
   }
 
-  revive(): GameEvent[] {
-    this.over = null;
-    this.revived = true;
-    this.hp = Math.max(1, Math.ceil(this.stats.maxHp * GAMEPLAY.reviveHpRatio));
-    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }];
+  private aimPerk(cell: number): { ok: boolean; reason?: string; events: GameEvent[] } {
+    const events: GameEvent[] = [];
+    const p = this.armed!;
+    if (!this.perkTargetOk(p, cell)) return { ok: false, reason: 'range', events };
+    if (p.target === 'two' && this.swapFirst === null) {
+      this.swapFirst = cell;
+      events.push({ type: 'armed', id: p.id });
+      return { ok: true, events };
+    }
+    this.armed = null;
+    this.takeSnapshot();
+    this.vacated = [];
+    this.payPerk(p, events);
+    events.push({ type: 'perk', id: p.id, ability: p.ability });
+    this.applyAbility(p, cell, events);
+    this.swapFirst = null;
+    this.afterPerk(events);
+    this.finishTurn(events);
+    return { ok: true, events };
   }
 
-  // ---------------------------------------------------------------- боевка
+  private payPerk(p: PerkDef, events: GameEvent[]): void {
+    if (p.once) this.usedOnce.add(p.id);
+    if (p.goldCost !== undefined) {
+      const pay = Math.max(5, Math.round(this.totals.gold * p.goldCost));
+      this.totals.gold = Math.max(0, this.totals.gold - pay);
+      events.push({ type: 'spend', amount: pay });
+      return;
+    }
+    const cost = this.perkCostOf(p);
+    if (this.freePerkLeft > 0) this.freePerkLeft--;
+    if (cost > 0) this.spend(cost, events);
+  }
+
+  /** «Кровавая пелена», «Дымовая шашка», «Абсолютная защита»: после способности следующий удар слабее. */
+  private afterPerk(events: GameEvent[]): void {
+    if (this.stats.perkDef > 0) this.perkGuard = Math.max(this.perkGuard, Math.min(1, this.stats.perkDef));
+    void events;
+  }
+
+  // ------------------------------------------------------------------ расчёт урона
+
+  /** Урон героя с учётом временных надбавок (резня, ярость, золото, удар щитом). */
+  currentDamage(): number {
+    const s = this.stats;
+    let d = s.damage;
+    let mul = 1;
+    if (s.rageDmg > 0 && this.hp <= this.stats.maxHp * 0.5) mul += s.rageDmg;
+    if (s.killDmg > 0) mul += Math.min(0.3, s.killDmg * this.killsRoom);
+    if (s.goldDmg > 0) mul += Math.min(0.3, s.goldDmg * Math.floor(this.totals.gold / 100));
+    if (this.stats.passives.has('carnage')) mul += Math.min(0.8, 0.2 * this.killStreak);
+    if (s.defDmg > 0) d += Math.round(this.defenseNow() * s.defDmg);
+    return Math.max(1, Math.round(d * mul));
+  }
+
+  /** Надбавки, зависящие от цели. */
+  private contextDamage(dmg: number, enemy: Card): number {
+    const s = this.stats;
+    const def = ENEMIES[enemy.defId];
+    let mul = 1;
+    if (s.fullHpDmg > 0 && enemy.hp >= enemy.maxHp) mul += s.fullHpDmg;
+    if (s.lowHpDmg > 0 && enemy.hp <= enemy.maxHp * 0.3) mul += s.lowHpDmg;
+    if (s.bossDmg > 0 && def?.boss) mul += s.bossDmg;
+    return Math.max(1, Math.round(dmg * mul));
+  }
+
+  /** Броня врага и «Приговор». */
+  private afterArmor(dmg: number, enemy: Card): number {
+    const def = ENEMIES[enemy.defId];
+    const armor = Math.max(0, Math.round((def?.armor ?? 0) * (1 - this.stats.pierce)));
+    let out = Math.max(1, dmg - armor);
+    if (enemy.vuln > 0) out = Math.round(out * (1 + enemy.vuln));
+    return Math.max(1, out);
+  }
+
+  private rollCritMul(): number {
+    const { critMin, critMax } = this.stats;
+    return critMin + this.rng.next() * (critMax - critMin);
+  }
+
+  /** Множитель силы способностей. */
+  private pp(value: number, cap = Infinity): number {
+    return Math.min(cap, value * this.stats.perkPower);
+  }
+
+  /** Урон способности: доля от базового урона героя, усиленная талантом «перк класса сильнее». */
+  private spellDamage(ratio: number): number {
+    return Math.max(1, Math.round(this.currentDamage() * ratio * this.stats.perkPower));
+  }
+
+  private rollCrit(enemy: Card | null, ranged: boolean): boolean {
+    const s = this.stats;
+    if (this.roomCritLeft > 0) {
+      this.roomCritLeft--;
+      return true;
+    }
+    if (s.passives.has('hunters_mark') && ranged && enemy && enemy.hits === 0) return true;
+    if (s.everyThird) {
+      this.hitCounter++;
+      if (this.hitCounter % 3 === 0) return true;
+    }
+    return this.rng.chance(s.crit / 100);
+  }
+
+  // ------------------------------------------------------------------ удары героя
 
   private spend(cost: number, events: GameEvent[]): void {
     this.res = Math.max(0, this.res - cost);
@@ -273,39 +535,9 @@ export class Run {
   }
 
   private gain(amount: number, events: GameEvent[]): void {
+    if (amount <= 0) return;
     this.res = Math.min(this.stats.resMax, this.res + amount);
     events.push({ type: 'resource', now: this.res, max: this.stats.resMax });
-  }
-
-  /** Множитель крита плавающий: от «среднего» до «высокого» значения, каждый раз новый. */
-  private rollCritMul(): number {
-    const { critMin, critMax } = this.stats;
-    return critMin + this.rng.next() * (critMax - critMin);
-  }
-
-  private rollDamage(ranged: boolean, events: GameEvent[], forceCrit = false): { dmg: number; crit: boolean } {
-    const s = this.stats;
-    let dmg = s.damage;
-    if (ranged) {
-      dmg = Math.round(dmg * s.rangedMul);
-    } else {
-      if (s.attackCost > 0) {
-        if (this.res >= s.attackCost) {
-          this.spend(s.attackCost, events);
-          dmg = Math.round(dmg * s.spellMul);
-        } else {
-          dmg = Math.max(1, Math.round(dmg * GAMEPLAY.weakAttackRatio));
-        }
-      }
-      if (s.burst && this.res >= s.burst.cost) {
-        this.spend(s.burst.cost, events);
-        dmg += Math.ceil(dmg * s.burst.mul);
-        events.push({ type: 'burst' });
-      }
-    }
-    const crit = forceCrit || this.rng.chance(s.crit / 100);
-    if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-    return { dmg: Math.max(1, dmg), crit };
   }
 
   private wearWeapon(events: GameEvent[]): void {
@@ -331,9 +563,279 @@ export class Run {
     }
   }
 
-  private reduce(atk: number): number {
-    const floor = Math.ceil(atk * (1 - GAMEPLAY.maxDefenseReduction));
-    return Math.max(1, floor, atk - this.stats.defense);
+  private melee(cell: number, events: GameEvent[]): void {
+    const enemy = this.cards[cell]!;
+    const s = this.stats;
+    let dmg = Math.max(1, Math.round(this.currentDamage() * s.meleeMul));
+    if (this.counterReady) {
+      dmg = Math.round(dmg * (1 + s.counterBuff));
+      this.counterReady = false;
+    }
+    const crit = this.rollCrit(enemy, false);
+    if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+    events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
+    this.wearWeapon(events);
+    let killed = this.strike(cell, dmg, crit, events);
+    // «Двойной удар» / «Град стрел»
+    if (!killed && s.doubleStrike > 0 && this.rng.chance(s.doubleStrike / 100)) {
+      killed = this.strike(cell, dmg, this.rollCrit(this.cards[cell], false), events);
+    }
+    if (this.madness > 0) this.splashNeighbors(cell, Math.round(dmg * 0.6), events);
+    if (killed) {
+      this.stepInto(cell, events);
+      return;
+    }
+    if (this.cards[cell] === enemy && this.madness <= 0) this.enemyStrike(cell, events);
+  }
+
+  /** Базовое действие линейки: выстрел через карту, удар молнии, удар в спину. */
+  private basicRanged(cell: number, events: GameEvent[]): void {
+    const s = this.stats;
+    const free = this.reaping > 0 && this.backstabs;
+    if (!free) this.spend(s.rangedCost, events);
+    const forceCrit = this.backstabs || this.reaping > 0;
+    let dmg = Math.round(this.currentDamage() * s.rangedMul);
+    const crit = forceCrit || this.rollCrit(this.cards[cell], true);
+    if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+    const style = this.backstabs ? 'backstab' : s.ranged === 'any' ? 'bolt' : 'shot';
+    events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style });
+    this.wearWeapon(events);
+    // «Жнец»: удар в спину убивает любого не-босса
+    const target = this.cards[cell];
+    if (this.reaping > 0 && this.backstabs && target && !ENEMIES[target.defId]?.boss) {
+      this.reaping++;
+      this.killEnemy(cell, events);
+      return;
+    }
+    const killed = this.strike(cell, dmg, crit, events);
+    if (crit && s.passives.has('hunter_thrill')) this.gain(s.rangedCost, events);
+    if (killed) {
+      if (s.passives.has('cold_blood')) this.gain(3, events);
+      if (s.passives.has('shadow_dance')) this.shadowChain(events);
+    } else if (target && s.passives.has('lethal_dose')) {
+      const boss = !!ENEMIES[target.defId]?.boss;
+      this.applyPoison(cell, Math.max(1, Math.round(target.maxHp * (boss ? 0.05 : 0.1))), 3, events);
+    }
+  }
+
+  /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
+  private shadowChain(events: GameEvent[]): void {
+    for (let i = 0; i < 2; i++) {
+      let best = -1;
+      let bestHp = Infinity;
+      this.cards.forEach((c, idx) => {
+        if (c?.kind === 'enemy' && c.hp < bestHp) {
+          bestHp = c.hp;
+          best = idx;
+        }
+      });
+      if (best < 0) return;
+      let dmg = Math.round(this.currentDamage() * this.stats.rangedMul);
+      dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+      events.push({ type: 'attack', from: this.playerCell, to: best, ranged: true, by: 'player', style: 'backstab' });
+      if (!this.strike(best, dmg, true, events)) return;
+    }
+  }
+
+  /** Один удар по врагу. Возвращает true, если враг погиб. */
+  private strike(cell: number, raw: number, crit: boolean, events: GameEvent[]): boolean {
+    const enemy = this.cards[cell];
+    if (!enemy || enemy.kind !== 'enemy') return false;
+    const def = ENEMIES[enemy.defId];
+    if (def?.evade && this.rng.chance(def.evade / 100)) {
+      events.push({ type: 'miss', cell, kind: 'evade' });
+      return false;
+    }
+    enemy.hits++;
+    const dmg = this.afterArmor(this.contextDamage(raw, enemy), enemy);
+    return this.damageEnemy(cell, dmg, crit, events, true);
+  }
+
+  /**
+   * Наносит врагу уже посчитанный урон. `direct` — удар героя (работают вампиризм, шипы врага, ярость врага).
+   * Возвращает true, если враг погиб.
+   */
+  private damageEnemy(cell: number, dmg: number, crit: boolean, events: GameEvent[], direct = false): boolean {
+    const enemy = this.cards[cell];
+    if (!enemy || enemy.kind !== 'enemy' || this.over) return false;
+    const s = this.stats;
+    const def = ENEMIES[enemy.defId];
+    const dealt = Math.min(dmg, enemy.hp);
+    enemy.hp -= dmg;
+    const executed = enemy.hp > 0 && s.execute > 0 && !def?.boss && enemy.hp / enemy.maxHp <= s.execute;
+    events.push({ type: 'hit', cell, amount: dealt, crit, target: 'enemy', hp: Math.max(0, executed ? 0 : enemy.hp) });
+
+    if (direct) {
+      if (s.lifesteal > 0 && dealt > 0) this.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal', events);
+      if (s.ignite > 0) this.applyBurn(cell, this.spellDamage(s.ignite), 3, events);
+      if (def?.enrage && enemy.hp > 0) {
+        enemy.atk = Math.round(enemy.atk + enemy.baseAtk * def.enrage);
+      }
+      if (def?.thorns && enemy.hp > 0) this.hurtPlayer(Math.max(1, Math.round(dealt * def.thorns)), events, cell, true);
+    }
+    // кукла вуду: половина урона расходится по остальным врагам
+    if (enemy.link && dealt > 0) {
+      const share = Math.max(1, Math.round(dealt * 0.5));
+      for (let i = 0; i < 9; i++) {
+        const other = this.cards[i];
+        if (i !== cell && other?.kind === 'enemy') this.damageEnemy(i, share, false, events);
+      }
+    }
+    if (enemy.hp <= 0 || executed) {
+      this.killEnemy(cell, events);
+      return true;
+    }
+    return false;
+  }
+
+  private killEnemy(cell: number, events: GameEvent[]): void {
+    const enemy = this.cards[cell];
+    if (!enemy || enemy.kind !== 'enemy') return;
+    const def = ENEMIES[enemy.defId];
+    const s = this.stats;
+    events.push({ type: 'kill', cell, uid: enemy.uid });
+    this.cards[cell] = null;
+    this.vacated.push(cell);
+    this.totals.kills++;
+    this.killsRoom++;
+    this.killStreak++;
+    const eliteMul = enemy.elite ? ELITE.value : 1;
+    const gold = Math.round(def.gold * eliteMul * (this.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05));
+    const souls = Math.round(def.souls * eliteMul * (this.mod.soulMul ?? 1) * (1 + s.soulBonus));
+    if (gold > 0) {
+      this.totals.gold += gold;
+      events.push({ type: 'gold', cell, amount: gold });
+    }
+    if (souls > 0) {
+      this.totals.souls += souls;
+      events.push({ type: 'souls', cell, amount: souls });
+    }
+    if (s.killHp > 0 && this.totals.kills % 10 === 0) {
+      const add = Math.round(this.stats.maxHp * Math.min(0.3, s.killHp));
+      this.stats.maxHp += add;
+      this.hp += add;
+      events.push({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
+    }
+    if (s.bossHp > 0 && def.boss) {
+      const add = Math.round(this.stats.maxHp * s.bossHp);
+      this.stats.maxHp += add;
+      this.hp += add;
+      events.push({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
+    }
+    if (s.killDefTurn > 0) this.defTurn = Math.max(this.defTurn, 1);
+    if (s.passives.has('ghosts')) this.ghosts = Math.min(3, this.ghosts + 1);
+    if (s.passives.has('chain_mark') && enemy.mark > 0) this.jumpMark(cell, events);
+    // взрыв трупа и огненная смерть
+    if (this.corpseBlast) {
+      this.corpseBlast = false;
+      const blast = Math.max(1, Math.round(enemy.maxHp * this.pp(0.5)));
+      events.push({ type: 'fx', cells: [cell], style: 'dark' });
+      this.splashNeighbors(cell, blast, events);
+    }
+    if (enemy.burn > 0) {
+      for (const n of NEIGHBORS[cell]) {
+        if (this.cards[n]?.kind === 'enemy') this.applyBurn(n, enemy.burnDmg, 2, events);
+      }
+    }
+  }
+
+  private splashNeighbors(cell: number, dmg: number, events: GameEvent[]): void {
+    for (const n of NEIGHBORS[cell]) {
+      if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, dmg, false, events);
+    }
+  }
+
+  private stepInto(cell: number, events: GameEvent[]): void {
+    this.vacated = this.vacated.filter((c) => c !== cell);
+    const from = this.playerCell;
+    events.push({ type: 'move', from, to: cell });
+    this.playerCell = cell;
+    this.vacated.push(from);
+  }
+
+  // ------------------------------------------------------------------ статусы
+
+  private applyBurn(cell: number, dmg: number, turns: number, events: GameEvent[]): void {
+    const c = this.cards[cell];
+    if (!c || c.kind !== 'enemy' || dmg <= 0) return;
+    c.burnDmg = Math.max(c.burnDmg, Math.max(1, dmg));
+    c.burn = Math.max(c.burn, turns);
+    events.push({ type: 'status', cell, uid: c.uid, kind: 'burn', turns: c.burn });
+  }
+
+  private applyPoison(cell: number, dmg: number, turns: number, events: GameEvent[]): void {
+    const c = this.cards[cell];
+    if (!c || c.kind !== 'enemy' || dmg <= 0) return;
+    c.poisonDmg = Math.max(c.poisonDmg, Math.max(1, dmg));
+    c.poison = Math.max(c.poison, turns);
+    events.push({ type: 'status', cell, uid: c.uid, kind: 'poison', turns: c.poison });
+  }
+
+  private applyStun(cell: number, events: GameEvent[], turns = 1): void {
+    const c = this.cards[cell];
+    if (!c || c.kind !== 'enemy') return;
+    c.stun = Math.max(c.stun, turns);
+    events.push({ type: 'status', cell, uid: c.uid, kind: 'stun', turns: c.stun });
+  }
+
+  private jumpMark(from: number, events: GameEvent[]): void {
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < 9; i++) {
+      const c = this.cards[i];
+      if (c?.kind !== 'enemy' || c.mark > 0) continue;
+      const d = dist(from, i);
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best < 0) return;
+    const c = this.cards[best]!;
+    c.mark = 3;
+    events.push({ type: 'status', cell: best, uid: c.uid, kind: 'mark', turns: c.mark });
+  }
+
+  private enemyCells(): number[] {
+    const out: number[] = [];
+    this.cards.forEach((c, i) => c?.kind === 'enemy' && out.push(i));
+    return out;
+  }
+
+  // ------------------------------------------------------------------ ответный удар врага
+
+  private defenseNow(): number {
+    const s = this.stats;
+    let def = s.defense;
+    if (s.highHpDef > 0 && this.hp > this.stats.maxHp * 0.7) def = Math.round(def * (1 + s.highHpDef));
+    if (s.resDef > 0 && this.res > this.stats.resMax * 0.5) def = Math.round(def * (1 + s.resDef));
+    if (s.scarDef > 0) {
+      const lost = Math.floor((1 - this.hp / this.stats.maxHp) / 0.2);
+      def = Math.round(def * (1 + s.scarDef * lost));
+    }
+    if (s.killDefStack > 0) def = Math.round(def * (1 + Math.min(0.2, s.killDefStack * this.killsRoom)));
+    if (this.defTurn > 0) def = Math.round(def * (1 + s.killDefTurn));
+    return def;
+  }
+
+  /** Урон по герою от удара силой atk (для подсказок и автоприменения). */
+  strikeDamage(atk: number): number {
+    return this.reduce(atk, null);
+  }
+
+  private reduce(atk: number, enemy: Card | null): number {
+    const s = this.stats;
+    const def = enemy ? ENEMIES[enemy.defId] : null;
+    let dmg = atk;
+    if (enemy && enemy.swings === 0 && s.firstHitDown > 0) dmg *= 1 - s.firstHitDown;
+    if (enemy && enemy.hits > 0 && s.weaken > 0) dmg *= 1 - s.weaken;
+    if (def?.magic && s.magicDr > 0) dmg *= 1 - s.magicDr;
+    if (def?.boss && s.bossDr > 0) dmg *= 1 - s.bossDr;
+    if (s.lowHpDr > 0 && this.hp <= this.stats.maxHp * 0.4) dmg *= 1 - s.lowHpDr;
+    if (s.bigHitCut > 0 && dmg > this.stats.maxHp * 0.4) dmg *= 1 - s.bigHitCut;
+    const armor = this.defenseNow();
+    const floor = Math.ceil(dmg * (1 - GAMEPLAY.maxDefenseReduction));
+    return Math.max(1, Math.round(Math.max(floor, dmg - armor)));
   }
 
   private heal(amount: number, source: 'perk' | 'lifesteal', events: GameEvent[]): void {
@@ -343,98 +845,75 @@ export class Run {
     events.push({ type: 'heal', amount: h, hp: this.hp, source });
   }
 
-  /** Возвращает true, если враг погиб. */
-  private damageEnemy(cell: number, dmg: number, crit: boolean, events: GameEvent[]): boolean {
+  private enemyStrike(cell: number, events: GameEvent[]): void {
     const enemy = this.cards[cell];
-    if (!enemy || enemy.kind !== 'enemy') return false;
-    const dealt = Math.min(dmg, enemy.hp);
-    enemy.hp -= dmg;
+    if (!enemy || enemy.kind !== 'enemy' || this.over) return;
     const s = this.stats;
-    const executed = enemy.hp > 0 && s.execute > 0 && enemy.hp / enemy.maxHp <= s.execute;
-    events.push({ type: 'hit', cell, amount: dealt, crit, target: 'enemy', hp: Math.max(0, executed ? 0 : enemy.hp) });
-    if (s.lifesteal > 0 && dealt > 0) this.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal', events);
-    if (enemy.hp <= 0 || executed) {
-      this.killEnemy(cell, events);
-      return true;
-    }
-    return false;
-  }
-
-  private killEnemy(cell: number, events: GameEvent[]): void {
-    const enemy = this.cards[cell]!;
-    const def = ENEMIES[enemy.defId];
-    const s = this.stats;
-    events.push({ type: 'kill', cell, uid: enemy.uid });
-    this.cards[cell] = null;
-    this.vacated.push(cell);
-    this.totals.kills++;
-    const gold = Math.round(def.gold * (1 + s.goldBonus + s.luck * 0.05));
-    const souls = Math.round(def.souls * (1 + s.soulBonus));
-    if (gold > 0) {
-      this.totals.gold += gold;
-      events.push({ type: 'gold', cell, amount: gold });
-    }
-    if (souls > 0) {
-      this.totals.souls += souls;
-      events.push({ type: 'souls', cell, amount: souls });
-    }
-    if (s.onKillHeal) this.heal(s.onKillHeal, 'perk', events);
-    if (s.onKillResource) this.gain(s.onKillResource, events);
-  }
-
-  private melee(cell: number, events: GameEvent[]): void {
-    const enemy = this.cards[cell]!;
-    const { dmg, crit } = this.rollDamage(false, events);
-    events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
-    this.wearWeapon(events);
-    const killed = this.damageEnemy(cell, dmg, crit, events);
-    this.applySplash(cell, dmg, events);
-    if (killed) {
-      this.vacated = this.vacated.filter((c) => c !== cell);
-      const from = this.playerCell;
-      events.push({ type: 'move', from, to: cell });
-      this.playerCell = cell;
-      this.vacated.push(from);
+    if (enemy.stun > 0) {
+      enemy.stun--;
+      events.push({ type: 'miss', cell, kind: 'stun' });
       return;
     }
-    if (this.cards[cell] === enemy) this.enemyStrike(cell, events);
-  }
-
-  private ranged(cell: number, events: GameEvent[]): void {
-    this.spend(this.stats.rangedCost, events);
-    // Наёмник: телепорт за спину и удар со 100% шансом крита; лучник просто стреляет.
-    const backstab = this.backstabs;
-    const { dmg, crit } = this.rollDamage(true, events, backstab);
-    events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: backstab ? 'backstab' : 'shot' });
-    this.wearWeapon(events);
-    this.damageEnemy(cell, dmg, crit, events);
-    this.applySplash(cell, dmg, events);
-  }
-
-  private applySplash(cell: number, dmg: number, events: GameEvent[]): void {
-    const ratio = this.stats.splash;
-    if (ratio <= 0) return;
-    const d = Math.max(1, Math.round(dmg * ratio));
-    for (const n of NEIGHBORS[cell]) {
-      if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, d, false, events);
+    if (this.noCounter > 0) {
+      events.push({ type: 'miss', cell, kind: 'smoke' });
+      return;
     }
-  }
-
-  private enemyStrike(cell: number, events: GameEvent[]): void {
-    const enemy = this.cards[cell]!;
-    const s = this.stats;
+    const atk = Math.max(1, Math.round(enemy.atk * (1 - this.warCry)));
     events.push({ type: 'attack', from: cell, to: this.playerCell, ranged: false, by: 'enemy' });
+    enemy.swings++;
     if (this.rng.chance(s.dodge / 100)) {
       events.push({ type: 'miss', cell: this.playerCell, kind: 'dodge' });
+      // «Подмена»: уворот превращается в удар из-за спины
+      if (s.passives.has('substitution')) {
+        let dmg = Math.round(this.currentDamage());
+        dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'backstab' });
+        this.strike(cell, dmg, true, events);
+      }
       return;
     }
     if (this.rng.chance(s.parry / 100)) {
       events.push({ type: 'miss', cell: this.playerCell, kind: 'parry' });
-      this.damageEnemy(cell, enemy.atk, false, events);
+      if (s.counterBuff > 0) this.counterReady = true;
+      this.strike(cell, Math.round(this.currentDamage() * 0.5), false, events);
       return;
     }
-    let dmg = this.reduce(enemy.atk);
-    if (this.shield > 0) {
+    if (s.block > 0 && this.rng.chance(s.block / 100)) {
+      events.push({ type: 'miss', cell: this.playerCell, kind: 'block' });
+      return;
+    }
+    this.hurtPlayer(this.reduce(atk, enemy), events, cell, false);
+    const def = ENEMIES[enemy.defId];
+    if (def?.venom && !this.over) {
+      const dot = Math.max(1, Math.round(atk * def.venom * (1 - s.dotDr)));
+      this.playerPoisonDmg = Math.max(this.playerPoisonDmg, dot);
+      this.playerPoison = Math.max(this.playerPoison, 2);
+    }
+  }
+
+  /** Урон по герою: щит, «первый удар комнаты», мана-щит, обман смерти, шипы. */
+  private hurtPlayer(raw: number, events: GameEvent[], fromCell: number, reflected: boolean): void {
+    if (this.over) return;
+    const s = this.stats;
+    let dmg = raw;
+    if (this.roomGuardLeft > 0) {
+      this.roomGuardLeft--;
+      dmg = Math.round(dmg * (1 - Math.min(1, s.roomGuard)));
+    }
+    if (this.perkGuard > 0) {
+      dmg = Math.round(dmg * (1 - this.perkGuard));
+      this.perkGuard = 0;
+    }
+    if (s.manaShield > 0 && this.res > 0 && dmg > 0) {
+      const want = Math.ceil(dmg * s.manaShield);
+      const paid = Math.min(this.res, want);
+      if (paid > 0) {
+        this.res -= paid;
+        dmg -= paid;
+        events.push({ type: 'resource', now: this.res, max: this.stats.resMax });
+      }
+    }
+    if (this.shield > 0 && dmg > 0) {
       const abs = Math.min(this.shield, dmg);
       this.shield -= abs;
       dmg -= abs;
@@ -446,17 +925,547 @@ export class Run {
     }
     this.hp -= dmg;
     this.totals.damageTaken += dmg;
+    // «Ярость» берсерка: боль превращается в выносливость
+    if (s.passives.has('rage')) this.gain(Math.floor(dmg / 2), events);
     events.push({ type: 'hit', cell: this.playerCell, amount: dmg, crit: false, target: 'player', hp: Math.max(0, this.hp) });
     this.wearArmor(events);
-    if (this.hp <= 0) {
+    if (this.hp <= 0 && !this.tryCheatDeath(dmg, events)) {
       this.over = 'lose';
       events.push({ type: 'lose' });
       return;
     }
-    if (s.thorns > 0) this.damageEnemy(cell, Math.max(1, Math.round(dmg * s.thorns)), false, events);
+    if (!reflected && s.thorns > 0 && fromCell >= 0) {
+      this.damageEnemy(fromCell, Math.max(1, Math.round(dmg * s.thorns)), false, events);
+    }
   }
 
-  // ---------------------------------------------------------------- подбор карт
+  /** «Несокрушимый», «Аварийный барьер», «Откупиться», «Не сдамся». */
+  private tryCheatDeath(dmg: number, events: GameEvent[]): boolean {
+    const s = this.stats;
+    const shock = s.passives.has('never_give_up') && !this.usedOnce.has('shock');
+    if (this.cheatLeft <= 0 && !shock) return false;
+    if (shock) this.usedOnce.add('shock');
+    else this.cheatLeft--;
+    this.hp = 1;
+    events.push({ type: 'heal', amount: 1, hp: 1, source: 'perk' });
+    if (s.lineage === 'mage') {
+      this.res = 0;
+      events.push({ type: 'resource', now: 0, max: this.stats.resMax });
+    }
+    if (s.lineage === 'mercenary') this.totals.gold = Math.round(this.totals.gold * 0.8);
+    if (shock) {
+      events.push({ type: 'fx', cells: this.enemyCells(), style: 'quake' });
+      const blast = Math.max(1, dmg * 2);
+      for (const c of this.enemyCells()) this.damageEnemy(c, blast, false, events);
+    }
+    return true;
+  }
+
+  // ------------------------------------------------------------------ способности: реализация
+
+  private applyAbility(p: PerkDef, cell: number, events: GameEvent[]): void {
+    const enemies = this.enemyCells();
+    const target = cell >= 0 ? this.cards[cell] : null;
+
+    switch (p.ability) {
+      // ---------------- воин
+      case 'power_strike': {
+        const enemy = target!;
+        let dmg = this.spellDamage(2);
+        const crit = this.rollCrit(enemy, false);
+        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
+        const before = enemy.hp;
+        const killed = this.strike(cell, dmg, crit, events);
+        // излишек проламывает цель и бьёт врага за ней по той же линии
+        const over = dmg - before;
+        if (killed && over > 0) {
+          const behind = this.behindCell(this.playerCell, cell);
+          if (behind >= 0 && this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, over, false, events);
+        }
+        if (killed) this.stepInto(cell, events);
+        else if (this.cards[cell]) this.enemyStrike(cell, events);
+        break;
+      }
+      case 'earthquake': {
+        const hit = enemies.filter((c) => rowOf(c) === rowOf(this.playerCell) || colOf(c) === colOf(this.playerCell));
+        events.push({ type: 'fx', cells: hit, style: 'quake' });
+        const dmg = this.spellDamage(0.6);
+        for (const c of hit) {
+          this.applyStun(c, events);
+          this.damageEnemy(c, dmg, false, events);
+        }
+        break;
+      }
+      // ---------------- рыцарь
+      case 'shield_bash': {
+        const behind = this.behindCell(this.playerCell, cell);
+        const dmg = this.spellDamage(0.9);
+        events.push({ type: 'fx', cells: [cell], style: 'quake' });
+        this.applyStun(cell, events);
+        if (behind < 0) {
+          // у края поля удар о стену вдвое сильнее
+          this.damageEnemy(cell, dmg * 2, false, events);
+        } else {
+          this.damageEnemy(cell, dmg, false, events);
+          if (this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, dmg, false, events);
+          if (this.cards[cell] && this.cards[behind]) {
+            const t = this.cards[cell]!;
+            this.cards[cell] = this.cards[behind]!;
+            this.cards[behind] = t;
+            events.push({ type: 'swap', a: cell, b: behind });
+          }
+        }
+        break;
+      }
+      case 'war_cry': {
+        this.warCry = Math.min(0.75, this.warCry + this.pp(0.4, 0.75));
+        events.push({ type: 'fx', cells: enemies, style: 'holy' });
+        for (const c of enemies) {
+          const e = this.cards[c]!;
+          events.push({ type: 'status', cell: c, uid: e.uid, kind: 'weak', turns: 99 });
+        }
+        break;
+      }
+      case 'duel': {
+        let best = -1;
+        let bestAtk = -1;
+        for (const c of enemies) {
+          if (this.cards[c]!.atk > bestAtk) {
+            bestAtk = this.cards[c]!.atk;
+            best = c;
+          }
+        }
+        if (best < 0) break;
+        const free = NEIGHBORS[this.playerCell].find((n) => !this.cards[n]) ?? NEIGHBORS[this.playerCell][0];
+        if (free !== best) {
+          const t = this.cards[free] ?? null;
+          this.cards[free] = this.cards[best];
+          this.cards[best] = t;
+          events.push({ type: 'swap', a: best, b: free });
+        }
+        this.applyStun(free, events, 2);
+        break;
+      }
+      // ---------------- берсерк
+      case 'whirlwind': {
+        const near = NEIGHBORS[this.playerCell].filter((c) => this.cards[c]?.kind === 'enemy');
+        events.push({ type: 'fx', cells: near, style: 'blades' });
+        const dmg = this.spellDamage(0.7);
+        const alive: number[] = [];
+        for (const c of near) {
+          if (!this.damageEnemy(c, dmg, this.rollCrit(this.cards[c], false), events, true)) alive.push(c);
+        }
+        for (const c of alive) {
+          const e = this.cards[c];
+          if (e?.kind === 'enemy' && e.stun <= 0 && this.noCounter <= 0) {
+            this.hurtPlayer(Math.round(this.reduce(e.atk, e) * 0.5), events, c, false);
+            e.swings++;
+          }
+        }
+        break;
+      }
+      case 'madness': {
+        this.madness = 3;
+        events.push({ type: 'fx', cells: enemies, style: 'blades' });
+        break;
+      }
+      // ---------------- паладин
+      case 'holy_wrath': {
+        const enemy = target!;
+        const holy = isHolyTarget(ENEMIES[enemy.defId].tag);
+        let dmg = this.spellDamage(holy ? 3 : 1.5);
+        const crit = this.rollCrit(enemy, false);
+        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+        events.push({ type: 'fx', cells: [cell], style: 'holy' });
+        const killed = this.strike(cell, dmg, crit, events);
+        if (killed) this.stepInto(cell, events);
+        else if (this.cards[cell]) this.enemyStrike(cell, events);
+        break;
+      }
+      case 'justice_beam': {
+        const col = colOf(cell);
+        const hit = enemies.filter((c) => colOf(c) === col);
+        events.push({ type: 'fx', cells: hit, style: 'beam' });
+        for (const c of hit) {
+          const e = this.cards[c]!;
+          const holy = isHolyTarget(ENEMIES[e.defId].tag);
+          this.damageEnemy(c, this.spellDamage(holy ? 2 : 1), false, events);
+        }
+        break;
+      }
+      case 'verdict': {
+        const limit = this.spellDamage(1.5);
+        events.push({ type: 'fx', cells: enemies, style: 'holy' });
+        for (const c of enemies) {
+          const e = this.cards[c];
+          if (e && !ENEMIES[e.defId].boss && e.hp <= limit) this.killEnemy(c, events);
+        }
+        break;
+      }
+      case 'heavens_wrath': {
+        events.push({ type: 'fx', cells: enemies, style: 'holy' });
+        for (const c of enemies) {
+          const e = this.cards[c];
+          if (!e) continue;
+          const holy = isHolyTarget(ENEMIES[e.defId].tag);
+          this.applyStun(c, events, 2);
+          this.damageEnemy(c, this.spellDamage(holy ? 4 : 2), false, events);
+        }
+        break;
+      }
+      // ---------------- маг
+      case 'magic_shot': {
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
+        const crit = this.rollCrit(target, true);
+        let dmg = this.spellDamage(2);
+        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+        this.strike(cell, dmg, crit, events);
+        break;
+      }
+      case 'chain_lightning': {
+        const chain: number[] = [cell];
+        const seen = new Set<number>([cell]);
+        for (const n of NEIGHBORS[cell]) {
+          if (this.cards[n]?.kind === 'enemy' && !seen.has(n) && chain.length < 3) {
+            chain.push(n);
+            seen.add(n);
+          }
+        }
+        events.push({ type: 'fx', cells: chain, style: 'shock' });
+        const mul = [1, 0.75, 0.5];
+        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i]), false, events));
+        break;
+      }
+      // ---------------- магистр
+      case 'swap': {
+        const a = this.swapFirst!;
+        const b = cell;
+        if (a === b) break;
+        const t = this.cards[a];
+        this.cards[a] = this.cards[b];
+        this.cards[b] = t;
+        events.push({ type: 'swap', a, b });
+        break;
+      }
+      case 'deck_draw': {
+        const c = this.cards[cell];
+        if (!c) break;
+        if (c.kind === 'enemy' && ENEMIES[c.defId].boss) break;
+        this.cards[cell] = null;
+        this.pool.push(c);
+        const next = this.pool.shift();
+        if (next) {
+          this.cards[cell] = next;
+          events.push({ type: 'spawn', cell, card: next });
+        } else {
+          this.vacated.push(cell);
+        }
+        break;
+      }
+      case 'rewind': {
+        this.restoreSnapshot();
+        events.push({ type: 'rewind' });
+        break;
+      }
+      // ---------------- некромант
+      case 'corpse_blast': {
+        this.corpseBlast = true;
+        events.push({ type: 'fx', cells: [this.playerCell], style: 'dark' });
+        break;
+      }
+      case 'voodoo': {
+        const e = target!;
+        e.link = true;
+        events.push({ type: 'status', cell, uid: e.uid, kind: 'link', turns: 99 });
+        break;
+      }
+      case 'dead_harvest': {
+        events.push({ type: 'fx', cells: enemies, style: 'dark' });
+        const bonus = this.stats.soulBonus;
+        this.stats.soulBonus = bonus + 1;
+        for (const c of enemies) {
+          const e = this.cards[c];
+          if (!e) continue;
+          const boss = ENEMIES[e.defId].boss;
+          this.damageEnemy(c, Math.max(1, Math.round(e.hp * this.pp(boss ? 0.25 : 0.5, 0.9))), false, events);
+        }
+        this.stats.soulBonus = bonus;
+        break;
+      }
+      // ---------------- пиромант
+      case 'ignite': {
+        events.push({ type: 'fx', cells: [cell], style: 'fire' });
+        this.applyBurn(cell, this.spellDamage(0.3), 3, events);
+        break;
+      }
+      case 'fireball': {
+        const near = NEIGHBORS[cell].filter((c) => this.cards[c]?.kind === 'enemy');
+        events.push({ type: 'fx', cells: [cell, ...near], style: 'fire' });
+        const burn = this.spellDamage(0.25);
+        this.applyBurn(cell, burn, 3, events);
+        for (const c of near) this.applyBurn(c, burn, 3, events);
+        this.strike(cell, this.spellDamage(1.5), false, events);
+        for (const c of near) this.damageEnemy(c, this.spellDamage(0.7), false, events);
+        break;
+      }
+      case 'detonate': {
+        const burning = enemies.filter((c) => (this.cards[c]?.burn ?? 0) > 0);
+        events.push({ type: 'fx', cells: burning, style: 'fire' });
+        for (const c of burning) {
+          const e = this.cards[c];
+          if (!e) continue;
+          const blast = Math.max(1, e.burnDmg * 2);
+          this.splashNeighbors(c, Math.max(1, e.burnDmg), events);
+          this.damageEnemy(c, blast, false, events);
+        }
+        break;
+      }
+      case 'inferno': {
+        events.push({ type: 'fx', cells: enemies, style: 'fire' });
+        const burn = this.spellDamage(0.4);
+        for (const c of enemies) this.applyBurn(c, burn, 5, events);
+        break;
+      }
+      // ---------------- лучник
+      case 'ricochet': {
+        const chain = [cell];
+        for (const n of NEIGHBORS[cell]) {
+          if (this.cards[n]?.kind === 'enemy' && chain.length < 3) chain.push(n);
+        }
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        const mul = [1, 0.5, 0.25];
+        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i]), i === 0 && this.rollCrit(this.cards[c], true), events));
+        break;
+      }
+      case 'falcon_hunt': {
+        events.push({ type: 'fx', cells: [cell], style: 'arrows' });
+        this.applyStun(cell, events);
+        this.strike(cell, this.spellDamage(1.2), this.rollCrit(target, true), events);
+        break;
+      }
+      case 'falcon_courier': {
+        this.take(cell, events);
+        this.vacated.push(cell);
+        break;
+      }
+      case 'double_shot': {
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        const killed = this.strike(cell, this.spellDamage(1), this.rollCrit(target, true), events);
+        let second = cell;
+        if (killed) {
+          second = this.nearestEnemy(this.playerCell);
+          if (second < 0) break;
+        }
+        this.strike(second, this.spellDamage(1), this.rollCrit(this.cards[second], true), events);
+        break;
+      }
+      case 'arrow_rain': {
+        if (!enemies.length) break;
+        events.push({ type: 'fx', cells: enemies, style: 'arrows' });
+        for (let i = 0; i < 5; i++) {
+          const live = this.enemyCells();
+          if (!live.length) break;
+          const c = live[this.rng.int(0, live.length - 1)];
+          this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true), events);
+        }
+        break;
+      }
+      case 'starfall': {
+        events.push({ type: 'fx', cells: enemies, style: 'arrows' });
+        for (let i = 0; i < 3; i++) {
+          for (const c of this.enemyCells()) {
+            this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true), events);
+          }
+        }
+        break;
+      }
+      // ---------------- снайпер
+      case 'rail_shot': {
+        const line = enemies.filter((c) => rowOf(c) === rowOf(cell) || colOf(c) === colOf(cell));
+        line.sort((a, b) => dist(this.playerCell, a) - dist(this.playerCell, b));
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        line.forEach((c, i) => this.strike(c, this.spellDamage(Math.pow(0.8, i)), i === 0, events));
+        break;
+      }
+      case 'armor_piercing': {
+        const e = target!;
+        events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        const bonus = Math.round(e.maxHp * this.pp(0.25, 0.6));
+        this.strike(cell, this.spellDamage(1) + bonus, this.rollCrit(e, true), events);
+        break;
+      }
+      case 'one_shot': {
+        events.push({ type: 'fx', cells: [cell], style: 'beam' });
+        const line = [cell, ...enemies.filter((c) => c !== cell && (rowOf(c) === rowOf(cell) || colOf(c) === colOf(cell)))];
+        let kills = 0;
+        for (const c of line) {
+          const e = this.cards[c];
+          if (!e) continue;
+          if (ENEMIES[e.defId].boss) {
+            this.damageEnemy(c, Math.max(1, Math.round(e.maxHp * this.pp(0.4, 0.8))), true, events);
+          } else if (kills < 3) {
+            this.killEnemy(c, events);
+            kills++;
+          }
+        }
+        break;
+      }
+      // ---------------- наёмник
+      case 'bribe': {
+        const e = target!;
+        if (ENEMIES[e.defId].boss) break;
+        events.push({ type: 'fx', cells: [cell], style: 'smoke' });
+        events.push({ type: 'kill', cell, uid: e.uid });
+        this.cards[cell] = null;
+        this.vacated.push(cell);
+        break;
+      }
+      case 'sentence': {
+        const e = target!;
+        e.vuln = Math.max(e.vuln, this.pp(0.5, 1.5));
+        events.push({ type: 'status', cell, uid: e.uid, kind: 'vuln', turns: 99 });
+        break;
+      }
+      // ---------------- тёмный ассасин
+      case 'death_mark': {
+        const e = target!;
+        e.mark = 3;
+        events.push({ type: 'status', cell, uid: e.uid, kind: 'mark', turns: e.mark });
+        break;
+      }
+      case 'shadow_reap': {
+        const marked = enemies.filter((c) => (this.cards[c]?.mark ?? 0) > 0);
+        events.push({ type: 'fx', cells: marked, style: 'dark' });
+        for (const c of marked) this.reapMarked(c, events);
+        break;
+      }
+      case 'reaper': {
+        this.reaping = 3;
+        events.push({ type: 'fx', cells: enemies, style: 'dark' });
+        break;
+      }
+      // ---------------- ниндзя
+      case 'shuriken_fan': {
+        const list = [...enemies].sort((a, b) => dist(this.playerCell, a) - dist(this.playerCell, b)).slice(0, 4);
+        events.push({ type: 'fx', cells: list, style: 'blades' });
+        for (const c of list) this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true), events);
+        break;
+      }
+      case 'smoke_screen': {
+        this.noCounter = 2;
+        events.push({ type: 'fx', cells: [this.playerCell], style: 'smoke' });
+        break;
+      }
+      case 'wind_shadow': {
+        events.push({ type: 'fx', cells: enemies, style: 'blades' });
+        for (const c of this.enemyCells()) {
+          if (this.strike(c, this.spellDamage(0.8), false, events)) continue;
+          let dmg = this.spellDamage(0.8);
+          dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+          this.strike(c, dmg, true, events);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  /** Клетка «за» целью по линии от героя. */
+  private behindCell(from: number, to: number): number {
+    const dr = Math.sign(rowOf(to) - rowOf(from));
+    const dc = Math.sign(colOf(to) - colOf(from));
+    const r = rowOf(to) + dr;
+    const c = colOf(to) + dc;
+    if (r < 0 || r > 2 || c < 0 || c > 2) return -1;
+    const cell = r * 3 + c;
+    return cell === this.playerCell ? -1 : cell;
+  }
+
+  private nearestEnemy(from: number): number {
+    let best = -1;
+    let bestD = Infinity;
+    for (const c of this.enemyCells()) {
+      const d = dist(from, c);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    }
+    return best;
+  }
+
+  private reapMarked(cell: number, events: GameEvent[]): void {
+    const e = this.cards[cell];
+    if (!e || e.kind !== 'enemy') return;
+    if (ENEMIES[e.defId].boss) this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * 0.3)), true, events);
+    else this.killEnemy(cell, events);
+  }
+
+  // ------------------------------------------------------------------ расходники
+
+  useItem(id: ConsumableId): { ok: boolean; events: GameEvent[] } {
+    const events: GameEvent[] = [];
+    if (this.over || this.consumables[id] <= 0) return { ok: false, events };
+    if (id === 'potion_heal') {
+      if (this.hp >= this.stats.maxHp) return { ok: false, events };
+      this.consumables[id]--;
+      const heal = Math.min(this.healPotionAmount(), this.stats.maxHp - this.hp);
+      this.hp += heal;
+      events.push({ type: 'heal', amount: heal, hp: this.hp, source: 'potion' });
+      if (this.stats.healShield > 0) {
+        this.shield += Math.round(this.stats.maxHp * this.stats.healShield);
+        events.push({ type: 'shield', now: this.shield });
+      }
+    } else if (id === 'potion_regen') {
+      if (this.res >= this.stats.resMax && this.boost > 0) return { ok: false, events };
+      this.consumables[id]--;
+      this.res = this.stats.resMax;
+      this.boost = GAMEPLAY.regenBoostTurns;
+      events.push({ type: 'resource', now: this.res, max: this.stats.resMax });
+      events.push({ type: 'boost', turns: this.boost });
+    } else {
+      if (!this.lineageDef.artifacts) return { ok: false, events };
+      const targets = this.enemyCells();
+      if (!targets.length) return { ok: false, events };
+      this.consumables[id]--;
+      this.vacated = [];
+      const dmg = this.artifactDamage();
+      events.push({ type: 'artifact', cells: targets });
+      for (const t of targets) this.damageEnemy(t, dmg, false, events);
+      this.refill(events);
+      this.checkWin(events);
+    }
+    return { ok: true, events };
+  }
+
+  /** Зелье лечит долю максимального здоровья — иначе на десятом этаже оно бесполезно. */
+  healPotionAmount(): number {
+    return Math.max(1, Math.round(this.stats.maxHp * GAMEPLAY.healPotionPct * (1 + this.stats.potionPct)));
+  }
+
+  artifactDamage(): number {
+    return Math.max(1, Math.round(this.stats.damage * 2.5 * (1 + this.stats.artifactMul)));
+  }
+
+  revive(): GameEvent[] {
+    this.over = null;
+    this.revived = true;
+    this.hp = Math.max(1, Math.ceil(this.stats.maxHp * GAMEPLAY.reviveHpRatio));
+    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }];
+  }
+
+  /** Талант «Возвращение» / «Последний шанс»: раз за забег встаём сами. */
+  autoRevive(): GameEvent[] | null {
+    if (this.reviveLeft <= 0 || this.stats.reviveHp <= 0) return null;
+    this.reviveLeft--;
+    this.over = null;
+    this.hp = Math.max(1, Math.round(this.stats.maxHp * this.stats.reviveHp));
+    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }];
+  }
+
+  // ------------------------------------------------------------------ подбор карт
 
   private collect(cell: number, events: GameEvent[]): void {
     const from = this.playerCell;
@@ -483,18 +1492,17 @@ export class Run {
 
   private rollConsumable(): ConsumableId {
     const r = this.rng.next();
-    if (this.lineage === 'mage') return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
+    if (this.lineageDef.artifacts) return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
     return r < 0.55 ? 'potion_heal' : 'potion_regen';
   }
 
   private openChest(cell: number, events: GameEvent[]): void {
     const { rng, stats: s } = this;
     const loot: Loot[] = [];
-    const gold = this.goldAmount(12, 30);
+    const gold = this.goldAmount(10, 24);
     loot.push({ kind: 'gold', amount: gold });
     this.totals.gold += gold;
     events.push({ type: 'gold', cell, amount: gold });
-    // Помимо золота из сундука часто выпадает расходник, иногда сразу два.
     let chance = GAMEPLAY.chestItemChance + s.luck * 0.02;
     for (let i = 0; i < 2 && rng.chance(chance); i++) {
       const item = this.rollConsumable();
@@ -506,7 +1514,7 @@ export class Run {
     events.push({ type: 'chest', cell, loot });
   }
 
-  // ---------------------------------------------------------------- конец хода
+  // ------------------------------------------------------------------ конец хода
 
   private refill(events: GameEvent[]): void {
     const cells = [...new Set(this.vacated)].sort((a, b) => a - b);
@@ -569,21 +1577,123 @@ export class Run {
     events.push({ type: 'win' });
   }
 
+  /** Эффекты со временем: горение, яд, клеймо, призраки, лечение врагов. */
+  private tickStatuses(events: GameEvent[]): void {
+    for (let i = 0; i < 9 && !this.over; i++) {
+      const c = this.cards[i];
+      if (!c || c.kind !== 'enemy') continue;
+      if (c.burn > 0) {
+        c.burn--;
+        events.push({ type: 'status', cell: i, uid: c.uid, kind: 'burn', turns: c.burn });
+        if (this.damageEnemy(i, c.burnDmg, false, events)) continue;
+      }
+      const alive = this.cards[i];
+      if (!alive || alive.kind !== 'enemy') continue;
+      if (alive.poison > 0) {
+        alive.poison--;
+        events.push({ type: 'status', cell: i, uid: alive.uid, kind: 'poison', turns: alive.poison });
+        if (this.damageEnemy(i, alive.poisonDmg, false, events)) continue;
+      }
+      const still = this.cards[i];
+      if (!still || still.kind !== 'enemy') continue;
+      if (still.mark > 0) {
+        still.mark--;
+        events.push({ type: 'status', cell: i, uid: still.uid, kind: 'mark', turns: still.mark });
+        if (still.mark === 0) {
+          this.reapMarked(i, events);
+          continue;
+        }
+      }
+      const last = this.cards[i];
+      if (last?.kind === 'enemy') {
+        const def = ENEMIES[last.defId];
+        if (def?.regen && last.hp < last.maxHp) {
+          last.hp = Math.min(last.maxHp, last.hp + Math.max(1, Math.round(last.maxHp * def.regen)));
+          events.push({ type: 'hit', cell: i, amount: 0, crit: false, target: 'enemy', hp: last.hp });
+        }
+      }
+    }
+    // призрачные слуги бьют в конце хода
+    if (this.ghosts > 0 && !this.over) {
+      const live = this.enemyCells();
+      if (live.length) {
+        events.push({ type: 'fx', cells: live.slice(0, this.ghosts), style: 'dark' });
+        for (let i = 0; i < this.ghosts; i++) {
+          const cells = this.enemyCells();
+          if (!cells.length) break;
+          const c = cells[this.rng.int(0, cells.length - 1)];
+          this.damageEnemy(c, this.spellDamage(0.5), false, events);
+        }
+      }
+    }
+    // яд на герое
+    if (this.playerPoison > 0 && !this.over) {
+      this.playerPoison--;
+      this.hurtPlayer(this.playerPoisonDmg, events, -1, true);
+    }
+  }
+
   private finishTurn(events: GameEvent[]): void {
+    this.tickStatuses(events);
     this.refill(events);
     this.checkWin(events);
     if (this.over) return;
     this.totals.turns++;
+    if (this.killsRoom === this.lastKills) this.killStreak = 0;
+    this.lastKills = this.killsRoom;
+    if (this.defTurn > 0) this.defTurn--;
+    if (this.noCounter > 0) this.noCounter--;
+    if (this.reaping > 0) this.reaping--;
+    if (this.madness > 0) {
+      this.madness--;
+      if (this.madness === 0) {
+        const loss = Math.max(1, Math.round(this.hp * 0.2));
+        this.hp = Math.max(1, this.hp - loss);
+        events.push({ type: 'hit', cell: this.playerCell, amount: loss, crit: false, target: 'player', hp: this.hp });
+      }
+    }
     const mul = this.boost > 0 ? GAMEPLAY.regenBoostMul : 1;
     if (this.boost > 0) this.boost--;
     if (this.res < this.stats.resMax) this.gain(this.stats.regen * mul, events);
   }
 
+  private lastKills = 0;
+
   resourceMax(): number {
     return this.stats.resMax;
   }
 
-  get lineageDef() {
-    return LINEAGES[this.lineage];
+  // ------------------------------------------------------------------ откат времени
+
+  private takeSnapshot(): void {
+    if (!this.stats.perks.includes('magister_p3')) return;
+    this.snapshot = {
+      cards: JSON.stringify(this.cards),
+      playerCell: this.playerCell,
+      hp: this.hp,
+      shield: this.shield,
+      res: this.res,
+      pool: JSON.stringify(this.pool),
+      totals: JSON.stringify(this.totals),
+      consumables: JSON.stringify(this.consumables),
+      flags: JSON.stringify([this.ghosts, this.killsRoom, this.killStreak, this.noCounter, this.madness, this.reaping, this.warCry]),
+    };
+  }
+
+  private restoreSnapshot(): void {
+    const s = this.snapshot;
+    if (!s) return;
+    this.cards = JSON.parse(s.cards) as Array<Card | null>;
+    this.playerCell = s.playerCell;
+    this.hp = s.hp;
+    this.shield = s.shield;
+    this.res = s.res;
+    this.pool = JSON.parse(s.pool) as Card[];
+    this.totals = JSON.parse(s.totals) as Run['totals'];
+    this.consumables = JSON.parse(s.consumables) as Record<ConsumableId, number>;
+    const f = JSON.parse(s.flags) as number[];
+    [this.ghosts, this.killsRoom, this.killStreak, this.noCounter, this.madness, this.reaping, this.warCry] = f;
+    this.snapshot = null;
+    this.over = null;
   }
 }

@@ -1,47 +1,56 @@
-import type { ClassId, StatKey } from '../types';
+import type { ClassId } from '../types';
 import { CLASSES } from './classes';
+import type { PerkSlot } from './perks';
 
-/** Что даёт один узел skill-tree. */
-export const NODE_VALUE: Record<Exclude<StatKey, 'luck'>, number> = {
-  damage: 1,
-  crit: 2,
-  health: 2,
-  dodge: 2,
-  defense: 1,
-  parry: 2,
-};
-
-/** Базовая цена узла по ступени класса (0/1/2) и сегменту (0/1/2). */
-const NODE_BASE: number[][] = [
-  [10, 55, 170],
-  [260, 480, 800],
-  [1100, 1800, 2700],
+/**
+ * Экономика опыта душ. Узлов стало мало (девять талантов на класс вместо сотни шариков),
+ * поэтому каждая покупка стоит заметно дороже — но и даёт заметно больше.
+ *
+ * Базовая цена ранга зависит от ступени класса (0/1/2) и яруса таланта (1/2/3).
+ */
+const TALENT_BASE: number[][] = [
+  [14, 48, 135], // базовый класс
+  [420, 880, 1550], // вторая ступень
+  [1600, 2800, 4300], // финальные классы
 ];
+
+/** Каждый следующий ранг одного и того же таланта дороже предыдущего. */
+const RANK_STEP = 0.35;
 
 export const stageOf = (owner: ClassId): number => CLASSES[owner].stage;
 
-export const nodeCost = (owner: ClassId, seg: number, tier: number): number =>
-  Math.round(NODE_BASE[stageOf(owner)][seg] * (1 + 0.25 * (tier - 1)));
+export const talentRankCost = (owner: ClassId, tier: number, rank: number): number =>
+  Math.round(TALENT_BASE[stageOf(owner)][tier - 1] * (1 + RANK_STEP * (rank - 1)));
 
-export const perkCost = (owner: ClassId, seg: number): number => {
-  if (seg === 0) return 0;
-  if (seg === 3) return NODE_BASE[2][2] * 8;
-  return NODE_BASE[stageOf(owner)][seg] * 6;
+/** Сколько стоит прокачать талант с нуля до `rank` включительно. */
+export const talentTotalCost = (owner: ClassId, tier: number, rank: number): number => {
+  let sum = 0;
+  for (let r = 1; r <= rank; r++) sum += talentRankCost(owner, tier, r);
+  return sum;
 };
 
-export const classCost = (classId: ClassId): number => (CLASSES[classId].stage === 1 ? 1500 : 7000);
+/** Множители цены перков относительно базовой цены яруса того же уровня. */
+const PERK_MUL: Record<PerkSlot, number> = { start: 0, p2: 8, p3: 7, legend: 6 };
+
+export const perkCost = (owner: ClassId, slot: PerkSlot): number => {
+  if (slot === 'start') return 0;
+  const tierIdx = slot === 'p2' ? 0 : slot === 'p3' ? 1 : 2;
+  return Math.round(TALENT_BASE[stageOf(owner)][tierIdx] * PERK_MUL[slot]);
+};
 
 /** Стоимость метаморфозы в опыте душ. */
+export const classCost = (classId: ClassId): number => (CLASSES[classId].stage === 1 ? 3500 : 12000);
+
 export const metamorphosisCost = classCost;
 
 export const DAILY_REWARDS: Array<{ gold?: number; souls?: number; heal?: number; regen?: number }> = [
-  { gold: 100 },
+  { gold: 120 },
   { heal: 2, regen: 1 },
-  { souls: 150 },
-  { gold: 300 },
+  { souls: 180 },
+  { gold: 350 },
   { heal: 3, regen: 3 },
-  { souls: 400, gold: 200 },
-  { gold: 800, souls: 600, heal: 5, regen: 5 },
+  { souls: 500, gold: 250 },
+  { gold: 1000, souls: 800, heal: 5, regen: 5 },
 ];
 
-export const GIFT_REWARD = { gold: 60, souls: 30 };
+export const GIFT_REWARD = { gold: 70, souls: 40 };

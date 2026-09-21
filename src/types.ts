@@ -10,14 +10,21 @@ export type ClassId =
 
 export type ResourceKind = 'stamina' | 'mana' | 'concentration' | 'vigilance';
 
-/** Характеристики, которые прокачиваются в skill-tree и меняются перками/предметами. */
+/** Характеристики, которые прокачиваются в дереве талантов и меняются перками/предметами. */
 export type StatKey = 'damage' | 'crit' | 'health' | 'dodge' | 'defense' | 'parry' | 'luck';
 
 export type Stats = Record<StatKey, number>;
 
-export type ChainKind = 'damage' | 'health' | 'defense';
+/** Три пути дерева талантов: У — урон и способности, З — здоровье и запас, Щ — защита и ослабление врагов. */
+export type TalentPath = 'attack' | 'vitality' | 'guard';
 
 export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact';
+
+/** Кем является враг: от этого зависят «Святая кара», «Луч правосудия» и прочие перки против нежити. */
+export type EnemyTag = 'undead' | 'demon' | 'beast' | 'construct' | 'humanoid';
+
+/** Состояния на карточке врага. */
+export type StatusKind = 'stun' | 'burn' | 'mark' | 'link' | 'vuln' | 'poison' | 'weak';
 
 export type ItemSlot = 'weapon' | 'armor';
 
@@ -36,13 +43,12 @@ export interface AutoUseSave {
 }
 
 /**
- * Автопрокачка дерева: одна кнопка (вкл/выкл). Ветка (chain) и выбор на развилках (alt) не настраиваются в окне —
- * они запоминаются по последнему улучшению, которое игрок купил сам.
+ * Автопрокачка дерева: одна кнопка (вкл/выкл). Путь (path) не настраивается в окне —
+ * он запоминается по последнему таланту, который игрок прокачал сам.
  */
 export interface AutoSkillSave {
   on: boolean;
-  chain: ChainKind;
-  alt: boolean;
+  path: TalentPath;
 }
 
 export interface AutoSave {
@@ -66,7 +72,7 @@ export interface SaveData {
   weapon: Partial<Record<LineageId, EquipmentSave | null>>;
   armor: EquipmentSave | null;
   consumables: Record<ConsumableId, number>;
-  /** Пройденные комнаты: id вида "1-3". */
+  /** Пройденные комнаты: id вида "2-3". */
   cleared: string[];
   stats: {
     kills: number;
@@ -82,15 +88,18 @@ export interface SaveData {
   achievements: string[];
   daily: { lastClaim: string; streak: number };
   gift: { readyAt: number };
-  tutorial: { fight: boolean; hub: boolean; skill: boolean; shop: boolean };
+  tutorial: { fight: boolean; hub: boolean; skill: boolean; shop: boolean; perk: boolean };
   ads: { lastInterstitial: number; runsSinceAd: number };
   auto: AutoSave;
   reviewAsked: boolean;
 }
 
 export interface LineageSave {
-  /** Купленные узлы дерева (числовые id из drawio). */
-  owned: number[];
-  /** Последний купленный узел — сюда переводит камеру при открытии skill-tree. */
-  last: number;
+  /**
+   * Сколько рангов куплено у каждого узла дерева. У таланта — 0..maxRanks, у перка и класса — 0 или 1.
+   * Ключ — строковый id узла (`warrior/a1`, `warrior/p2`, `cls/knight`).
+   */
+  ranks: Record<string, number>;
+  /** Последний купленный узел — сюда переводит камеру при открытии дерева. */
+  last: string;
 }

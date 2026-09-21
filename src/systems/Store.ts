@@ -14,8 +14,9 @@ import { buildPlayerStats, type PlayerStats } from '../logic/stats';
 import { DEFAULT_AUTO_USE } from '../logic/autoUse';
 import { branchOf, DEFAULT_AUTO_SKILL, inferBranch, planAutoSkill, type AutoSkillPlan } from '../logic/autoSkill';
 
-const KEY = 'et2_save_v1';
-const VERSION = 1;
+const KEY = 'et2_save_v2';
+/** Версия 2: новое дерево талантов и способности-кнопки — прежние сохранения несовместимы. */
+const VERSION = 2;
 
 const fresh = (): SaveData => ({
   v: VERSION,
@@ -39,7 +40,7 @@ const fresh = (): SaveData => ({
   achievements: [],
   daily: { lastClaim: '', streak: 0 },
   gift: { readyAt: 0 },
-  tutorial: { fight: false, hub: false, skill: false, shop: false },
+  tutorial: { fight: false, hub: false, skill: false, shop: false, perk: false },
   ads: { lastInterstitial: 0, runsSinceAd: 0 },
   auto: { use: { ...DEFAULT_AUTO_USE }, skill: {} },
   reviewAsked: false,
@@ -99,6 +100,7 @@ class StoreImpl {
     const use: AutoUseSave = { heal: !!auto?.use?.heal, regen: !!auto?.use?.regen, artifact: !!auto?.use?.artifact };
     if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
     out.auto = { use, skill: { ...auto?.skill } };
+    out.lineages = { ...src.lineages };
     return out;
   }
 
@@ -224,7 +226,7 @@ class StoreImpl {
     const ls = this.activeLineageSave;
     const plan = planAutoSkill(tree, ls, this.souls, cfg);
     for (const n of plan.buys) {
-      this.spendSouls(costOf(n));
+      this.spendSouls(costOf(ls, n));
       applyBuy(tree, ls, n);
     }
     if (plan.buys.length) this.changed();

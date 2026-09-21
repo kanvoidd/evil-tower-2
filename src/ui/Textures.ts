@@ -27,6 +27,26 @@ export const STAT_COLOR: Record<string, string> = {
   luck: '#f472b6',
 };
 
+/** Цвета путей дерева талантов: урон / жизнь / защита. */
+export const PATH_COLOR: Record<string, string> = {
+  attack: STAT_COLOR.damage,
+  vitality: STAT_COLOR.health,
+  guard: STAT_COLOR.defense,
+};
+
+/** Цвета значков состояний на карточках врагов. */
+export const STATUS_TINT: Record<string, number> = {
+  stun: 0xffd86b,
+  burn: 0xff7a2a,
+  poison: 0x9fd12a,
+  mark: 0xb287ff,
+  link: 0x7e57d8,
+  vuln: 0xff4d6d,
+  weak: 0x7fc4ff,
+};
+
+export const pathHex = (path: string): number => parseInt((PATH_COLOR[path] ?? '#888888').slice(1), 16);
+
 export const statHex = (stat: string): number => {
   const h = STAT_COLOR[stat];
   return h ? parseInt(h.slice(1), 16) : 0x888888;
@@ -215,6 +235,33 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       ctx.stroke();
     });
   }
+
+  // --- квадратные плитки талантов: цвет по пути, золотая рамка у полностью прокачанного
+  for (const [path, col] of Object.entries(PATH_COLOR)) {
+    canvasTex(scene, `tal_${path}`, 128, 128, (ctx) => {
+      const g = ctx.createLinearGradient(0, 8, 0, 120);
+      g.addColorStop(0, '#333a4c');
+      g.addColorStop(1, '#14161c');
+      rr(ctx, 8, 8, 112, 112, 26);
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = col;
+      ctx.stroke();
+      rr(ctx, 16, 16, 96, 96, 20);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.stroke();
+    });
+  }
+  canvasTex(scene, 'tal_max', 128, 128, (ctx) => {
+    ctx.shadowColor = '#f5c518';
+    ctx.shadowBlur = 16;
+    rr(ctx, 8, 8, 112, 112, 26);
+    ctx.lineWidth = 7;
+    ctx.strokeStyle = '#f5c518';
+    ctx.stroke();
+  });
 
   // --- ворота эволюции и кольцо выделения для skill-tree
   canvasTex(scene, 'evo_gate', 128, 128, (ctx) => {

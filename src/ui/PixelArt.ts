@@ -217,37 +217,94 @@ const skeleton = (bone: string, boneD: string, extra?: Draw): Draw => (g) => {
   extra?.(g);
 };
 
+/** Четвероногий зверь: туловище слева, морда справа. */
+const beast = (body: string, bodyD: string, eye = K.redL, extra?: Draw): Draw => (g) => {
+  g.rect(1, 6, 9, 5, body).rect(1, 11, 2, 4, bodyD).rect(7, 11, 2, 4, bodyD);
+  g.rect(9, 3, 6, 6, body).rect(9, 2, 2, 2, bodyD).rect(13, 2, 2, 2, bodyD);
+  g.dot(12, 5, eye).dot(14, 5, eye).rect(11, 8, 4, 1, K.white).rect(0, 5, 2, 2, bodyD);
+  extra?.(g);
+};
+
+/** Капля-желе. */
+const blob = (c: string, cL: string, cD: string, extra?: Draw): Draw => (g) => {
+  g.rect(6, 5, 4, 1, cL).rect(5, 6, 6, 1, c).rect(3, 7, 10, 6, c).rect(4, 13, 8, 1, cD);
+  g.rect(4, 7, 2, 2, cL).mrect(5, 9, 2, 2, K.white).mdot(6, 10, K.eye).rect(7, 12, 2, 1, cD);
+  extra?.(g);
+};
+
+/** Летящее существо с крыльями. */
+const flyer = (wing: string, body: string, eye: string, extra?: Draw): Draw => (g) => {
+  g.mrect(1, 4, 6, 2, wing).mrect(0, 6, 4, 2, wing).mrect(2, 8, 2, 1, wing);
+  g.mrect(6, 4, 2, 6, body).mrect(6, 3, 1, 2, wing).mdot(6, 5, eye).mdot(6, 8, K.white);
+  extra?.(g);
+};
+
+/** Бесплотный силуэт с рваным подолом. */
+const ghostly = (c: string, cD: string, eye: string, extra?: Draw): Draw => (g) => {
+  g.mrect(5, 1, 3, 2, c).mrect(4, 3, 4, 8, c).mrect(3, 5, 1, 6, cD);
+  g.rect(4, 11, 2, 3, c).rect(7, 11, 2, 4, c).rect(10, 11, 2, 3, c);
+  g.mrect(5, 4, 2, 2, K.eye).mdot(6, 4, eye);
+  extra?.(g);
+};
+
+/** Каменный/железный истукан: широкие плечи, светящееся ядро. */
+const construct = (metal: string, accent: string, core: string, extra?: Draw): Draw => (g) => {
+  g.mrect(4, 1, 4, 4, metal).mrect(2, 5, 6, 6, accent).mrect(4, 11, 3, 4, metal).mrect(0, 5, 2, 7, metal);
+  g.mdot(6, 3, core).mrect(6, 6, 1, 4, core).rect(7, 8, 2, 1, core).mrect(3, 6, 1, 2, metal);
+  extra?.(g);
+};
+
+/** Рогатый демон. */
+const demonish = (body: string, bodyD: string, horn: string, eye: string, extra?: Draw): Draw => (g) => {
+  g.mrect(5, 3, 3, 4, body).mrect(4, 7, 4, 4, bodyD).mrect(5, 11, 2, 3, bodyD).mrect(0, 4, 4, 4, bodyD);
+  g.rect(4, 1, 1, 2, horn).rect(11, 1, 1, 2, horn).rect(3, 0, 1, 1, horn).rect(12, 0, 1, 1, horn);
+  g.mdot(6, 4, eye).rect(7, 6, 2, 1, K.white);
+  extra?.(g);
+};
+
+/** Панцирный: краб, горгулья, жук. */
+const shelled = (shell: string, shellD: string, eye: string, extra?: Draw): Draw => (g) => {
+  g.rect(3, 5, 10, 6, shell).rect(3, 4, 10, 1, shellD).rect(4, 11, 8, 1, shellD);
+  g.mrect(0, 6, 2, 2, shellD).mrect(1, 11, 2, 3, shellD).mrect(5, 7, 2, 2, K.white).mdot(6, 8, eye);
+  g.mrect(4, 2, 1, 2, shellD);
+  extra?.(g);
+};
+
+const FROST = '#bfe9ff';
+const FROSTD = '#5f9fc9';
+const MAGMA = '#ff7a2a';
+const MAGMAD = '#8a2b00';
+const ROT = '#7f9a52';
+
 export const ENEMY_ART: Record<string, Draw> = {
+  // ---- 1. Склеп
   skeleton: skeleton(K.bone, K.boneD, weapons.sword(K.grayD)),
+  bat: flyer(K.purpleD, K.purple, K.redL),
+  slime: blob(K.green, K.greenL, K.greenD),
   skeleton_horned: skeleton('#c9d1e0', '#8792ac', (g) => {
     g.rect(3, 1, 1, 3, K.bone).rect(12, 1, 1, 3, K.bone).rect(2, 0, 1, 2, K.bone).rect(13, 0, 1, 2, K.bone);
     weapons.axe(K.grayD)(g);
   }),
+  zombie: hero({ body: '#5a4a3a', bodyD: '#3a2f25', legs: K.grayD, skin: K.skinG, hat: hats.hair('#2f3a2a'), weapon: () => undefined, extra: (g) => g.mdot(6, 4, K.redL).rect(12, 8, 3, 2, K.skinG).rect(0, 8, 3, 2, K.skinG) }),
   boss_skeleton_king: skeleton(K.bone, K.boneD, (g) => {
     g.mrect(2, 7, 2, 8, K.red);
     hats.crown()(g);
     weapons.bigSword(K.steelL)(g);
     g.mdot(6, 4, K.redL);
   }),
-  slime: (g) => {
-    g.rect(6, 6, 4, 1, K.greenL).rect(5, 7, 6, 1, K.green).rect(3, 8, 10, 5, K.green).rect(4, 13, 8, 1, K.greenD);
-    g.rect(4, 8, 2, 2, K.greenL).dot(6, 9, K.white);
-    g.mrect(5, 9, 2, 2, K.white).mdot(6, 10, K.eye).rect(7, 12, 2, 1, K.greenD);
+
+  // ---- 2. Катакомбы
+  rat_swarm: (g) => {
+    for (const [x, y] of [[1, 8], [6, 6], [10, 9]] as Array<[number, number]>) {
+      g.rect(x, y, 5, 3, '#6b5a4a').rect(x + 4, y - 1, 2, 2, '#6b5a4a').dot(x + 5, y, K.redL).rect(x - 1, y + 1, 1, 1, '#4a3d31');
+    }
   },
-  bat: (g) => {
-    g.mrect(1, 4, 6, 2, K.purpleD).mrect(0, 6, 4, 2, K.purpleD).mrect(2, 8, 2, 1, K.purpleD).mrect(4, 3, 2, 3, K.purple);
-    g.mrect(6, 5, 2, 4, K.purple).mrect(6, 3, 1, 2, K.purpleD).mdot(6, 6, K.redL).mdot(6, 8, K.white);
-  },
-  zombie: hero({ body: '#5a4a3a', bodyD: '#3a2f25', legs: K.grayD, skin: K.skinG, hat: hats.hair('#2f3a2a'), weapon: () => undefined, extra: (g) => g.mdot(6, 4, K.redL).rect(12, 8, 3, 2, K.skinG).rect(0, 8, 3, 2, K.skinG) }),
   goblin: (g) => {
     g.mrect(5, 3, 3, 4, K.green).mrect(2, 3, 3, 2, K.green).mrect(4, 7, 4, 4, K.brown).mrect(5, 11, 2, 3, K.greenD);
     g.mrect(2, 7, 2, 3, K.green).mdot(6, 4, K.eye).mdot(6, 5, K.redL).rect(7, 6, 2, 1, K.white);
     weapons.axe(K.grayD)(g);
   },
-  ghost: (g) => {
-    g.mrect(5, 1, 3, 2, K.white).mrect(4, 3, 4, 8, K.white).mrect(3, 5, 1, 6, '#dfe6f2').rect(4, 11, 2, 3, K.white).rect(7, 11, 2, 4, K.white).rect(10, 11, 2, 3, K.white);
-    g.mrect(5, 4, 2, 2, K.eye).rect(7, 7, 2, 2, K.eye);
-  },
+  ghost: ghostly(K.white, '#dfe6f2', K.cyan),
   orc: (g) => {
     g.mrect(4, 2, 4, 5, K.skinGD).mrect(3, 7, 5, 5, K.iron).mrect(4, 12, 3, 3, K.brownD).mrect(1, 7, 2, 4, K.skinGD);
     g.mdot(5, 4, K.eye).mdot(5, 3, K.redL).mrect(5, 6, 1, 2, K.white).rect(6, 7, 4, 1, K.brownD);
@@ -257,24 +314,152 @@ export const ENEMY_ART: Record<string, Draw> = {
     g.mrect(4, 1, 4, 3, K.black).mrect(3, 4, 5, 9, K.purpleD).rect(3, 13, 2, 2, K.purpleD).rect(7, 13, 2, 2, K.purpleD).rect(11, 13, 2, 2, K.purpleD);
     g.mrect(5, 3, 2, 2, K.eye).mdot(6, 3, K.cyan).mdot(6, 4, K.cyan).rect(1, 6, 2, 4, K.black).rect(13, 6, 2, 4, K.black);
   },
-  imp: (g) => {
-    g.mrect(5, 3, 3, 4, K.redL).mrect(4, 7, 4, 4, K.red).mrect(5, 11, 2, 3, K.redD).mrect(0, 4, 4, 4, K.redD);
-    g.rect(4, 1, 1, 2, K.bone).rect(11, 1, 1, 2, K.bone).mdot(6, 4, K.gold).rect(7, 6, 2, 1, K.white).rect(12, 12, 2, 2, K.red).dot(14, 13, K.redD);
-  },
-  dark_knight: (g) => {
-    g.mrect(4, 1, 4, 4, K.iron).mrect(4, 5, 4, 6, K.black).mrect(5, 11, 2, 3, K.iron).mrect(2, 6, 2, 5, K.iron);
-    g.mrect(4, 3, 3, 1, K.eye).mdot(6, 3, K.redL).rect(7, 0, 2, 2, K.redD).mrect(3, 5, 1, 2, K.redD);
-    weapons.bigSword(K.grayD)(g);
-  },
-  golem: (g) => {
-    g.mrect(4, 1, 4, 4, K.gray).mrect(2, 5, 6, 6, K.grayD).mrect(4, 11, 3, 4, K.gray).mrect(0, 5, 2, 7, K.gray);
-    g.mdot(6, 3, K.orange).mrect(6, 6, 1, 4, K.orange).rect(7, 8, 2, 1, K.gold).mrect(3, 6, 1, 2, K.gray);
-  },
   boss_ogre: (g) => {
     g.mrect(3, 1, 5, 5, K.skinGD).mrect(1, 6, 7, 6, K.brownD).mrect(3, 12, 3, 3, K.brown).mrect(0, 6, 1, 5, K.skinGD);
     g.mdot(5, 3, K.eye).mdot(5, 2, K.redL).mrect(4, 5, 1, 2, K.white).rect(6, 7, 4, 1, K.brown).rect(6, 9, 4, 1, K.brown);
     g.rect(12, 2, 3, 10, K.brownL).rect(11, 0, 5, 3, K.brown);
   },
+
+  // ---- 3. Затопленные ярусы
+  mudcrab: shelled('#7c6a4a', '#4f4230', K.gold),
+  drowned: hero({ body: '#2f5a5a', bodyD: '#1b3838', legs: '#2f5a5a', skin: '#8fb8ae', hat: hats.hair('#1b3838'), weapon: () => undefined, extra: (g) => g.mdot(6, 4, K.cyan).rect(2, 12, 12, 1, '#3f7f7f') }),
+  deep_hound: beast('#2d6f7a', '#16434b', K.cyan),
+  tide_wraith: ghostly('#5fc7d8', '#2f7f92', K.white),
+  kraken_spawn: (g) => {
+    g.rect(4, 2, 8, 6, '#6a3f8f').rect(5, 1, 6, 1, '#8a5fb0').mrect(5, 4, 2, 2, K.white).mdot(6, 5, K.eye);
+    for (const x of [2, 5, 8, 11]) g.rect(x, 8, 2, 5, '#6a3f8f').rect(x, 13, 2, 2, '#4a2a68');
+  },
+  boss_leviathan: (g) => {
+    g.rect(2, 4, 12, 7, '#1f6f8f').rect(3, 3, 10, 1, '#3f9fc0').rect(3, 11, 10, 1, '#12455a');
+    g.mrect(4, 5, 3, 3, K.white).mdot(5, 6, K.eye).rect(4, 9, 8, 1, K.white).rect(5, 10, 6, 1, K.white);
+    g.rect(0, 6, 2, 4, '#12455a').rect(14, 6, 2, 4, '#12455a').rect(6, 0, 4, 3, '#3f9fc0');
+  },
+
+  // ---- 4. Оружейная
+  armored_husk: construct(K.steelD, K.iron, K.black, (g) => g.mdot(6, 3, K.cyan)),
+  blade_dancer: hero({ body: '#7a2f4a', bodyD: '#4a1b2c', legs: '#4a1b2c', hat: hats.bandana(K.redL), weapon: weapons.katana(), extra: weapons.dagger(K.steelL) }),
+  crossbowman: hero({ body: '#5a6a4a', bodyD: '#39442f', legs: K.brownD, hat: hats.helm(K.steelD), weapon: weapons.rifle(), cape: '#39442f' }),
+  iron_sentinel: construct(K.steel, K.steelD, K.blueL, (g) => weapons.shield(K.iron, K.steelL)(g)),
+  warden: hero({ body: K.iron, bodyD: K.black, legs: K.iron, hat: hats.helm(K.steel, K.red), weapon: weapons.bigSword(K.steelL), extra: (g) => g.mdot(6, 4, K.redL) }),
+  boss_forge_master: hero({ body: '#6a3a1f', bodyD: '#3a1d0d', legs: K.iron, hat: hats.horns(K.iron, MAGMA), weapon: weapons.axe(MAGMA), extra: (g) => g.mrect(5, 8, 2, 2, MAGMA).mdot(6, 4, K.gold) }),
+
+  // ---- 5. Ведьмин сад
+  thornling: (g) => {
+    g.rect(5, 6, 6, 7, '#3f7a2f').rect(6, 5, 4, 1, '#5aa03f').mrect(5, 8, 2, 2, K.white).mdot(6, 9, K.eye);
+    for (const [x, y] of [[3, 5], [12, 5], [2, 9], [13, 9], [4, 13], [11, 13]] as Array<[number, number]>) g.rect(x, y, 1, 2, '#2a5520');
+    g.rect(7, 2, 2, 3, '#2a5520').rect(6, 1, 4, 1, '#c0392b');
+  },
+  spider: (g) => {
+    g.rect(5, 6, 6, 5, '#2a1f2f').rect(6, 4, 4, 2, '#3f2f4a').mrect(6, 4, 2, 1, K.redL);
+    for (const y of [5, 8, 11]) {
+      g.rect(1, y, 4, 1, '#2a1f2f').rect(0, y + 1, 1, 1, '#2a1f2f');
+      g.rect(11, y, 4, 1, '#2a1f2f').rect(15, y + 1, 1, 1, '#2a1f2f');
+    }
+  },
+  wasp_queen: flyer('#e8e0a0', '#e0a81f', K.eye, (g) => {
+    g.mrect(6, 10, 2, 3, K.black).rect(7, 13, 2, 2, '#e0a81f').rect(7, 6, 2, 1, K.black).rect(7, 8, 2, 1, K.black);
+  }),
+  vine_horror: (g) => {
+    g.rect(4, 4, 8, 9, '#2f6a35').rect(5, 3, 6, 1, '#4a8f4a').rect(4, 13, 8, 1, '#1d4522');
+    g.mrect(5, 6, 2, 2, K.gold).mdot(6, 7, K.eye).rect(6, 10, 4, 1, '#1d4522');
+    g.rect(1, 2, 2, 6, '#2f6a35').rect(13, 2, 2, 6, '#2f6a35').rect(0, 8, 2, 3, '#1d4522').rect(14, 8, 2, 3, '#1d4522');
+  },
+  dryad: hero({ body: '#4a7f3f', bodyD: '#2a5520', legs: '#3f6a35', robe: true, skin: '#c8d8a0', hat: hats.hair('#8a5a2b'), weapon: weapons.staff('#f5c518', '#5a3818'), extra: (g) => g.rect(3, 0, 2, 2, '#c0392b').rect(11, 0, 2, 2, '#c0392b') }),
+  boss_witch: hero({ body: '#4a2a6a', bodyD: '#2a1440', legs: '#4a2a6a', robe: true, skin: '#9fbf7a', hat: hats.wizard('#2a1440', '#4a2a6a', K.greenL), weapon: weapons.staff(K.greenL, '#3a2a1a'), extra: (g) => g.mdot(6, 4, K.greenL) }),
+
+  // ---- 6. Алхимическая лаборатория
+  homunculus: (g) => {
+    g.mrect(5, 4, 3, 4, '#d8c8a8').mrect(5, 8, 3, 4, '#a89878').mrect(6, 12, 2, 3, '#8a7a5a');
+    g.mdot(6, 5, K.eye).rect(7, 7, 2, 1, K.redD).rect(6, 2, 4, 2, '#bfe9ff').rect(7, 1, 2, 1, '#bfe9ff');
+  },
+  acid_slime: blob('#9fd12a', '#d4f05a', '#5f8a10'),
+  flask_golem: construct('#7fa8bf', '#4a6f88', K.greenL, (g) => g.rect(6, 1, 4, 2, '#bfe9ff')),
+  mutant: (g) => {
+    g.mrect(4, 2, 4, 5, ROT).mrect(2, 7, 6, 5, '#5a6a3a').mrect(4, 12, 3, 3, ROT).mrect(0, 6, 2, 6, ROT);
+    g.mdot(5, 4, K.gold).rect(6, 6, 4, 1, K.white).mrect(3, 8, 1, 2, '#c0392b').rect(12, 3, 3, 3, ROT);
+  },
+  plague_doctor: hero({ body: '#1f1f2a', bodyD: '#12121a', legs: '#1f1f2a', robe: true, hat: hats.hood('#1f1f2a', '#12121a'), weapon: weapons.staff('#9fd12a', '#3a2a1a'), extra: (g) => g.rect(8, 4, 4, 2, '#d8c8a8').mdot(6, 4, K.greenL) }),
+  boss_alchemist: hero({ body: '#2f5a7a', bodyD: '#1b3548', legs: '#2f5a7a', robe: true, hat: hats.wizard('#1b3548', '#2f5a7a', '#9fd12a'), weapon: weapons.staff('#9fd12a'), extra: (g) => g.rect(2, 8, 2, 4, '#d4f05a').rect(12, 8, 2, 4, '#ff7a2a') }),
+
+  // ---- 7. Ледяные залы
+  frost_wolf: beast('#8fb8d8', '#4a6f8f', K.cyan),
+  ice_wraith: ghostly(FROST, FROSTD, K.white),
+  snow_troll: (g) => {
+    g.mrect(3, 2, 5, 5, '#d8e8f0').mrect(1, 7, 7, 6, '#b0c8d8').mrect(3, 13, 3, 2, '#8fb0c0').mrect(0, 7, 1, 5, '#d8e8f0');
+    g.mdot(5, 4, K.eye).mrect(4, 5, 1, 2, K.white).rect(6, 7, 4, 1, '#8fb0c0');
+  },
+  frozen_knight: (g) => {
+    g.mrect(4, 1, 4, 4, FROSTD).mrect(4, 5, 4, 6, '#3f6a8a').mrect(5, 11, 2, 3, FROSTD).mrect(2, 6, 2, 5, FROSTD);
+    g.mrect(4, 3, 3, 1, K.eye).mdot(6, 3, K.cyan).rect(7, 0, 2, 2, FROST);
+    weapons.bigSword(FROST)(g);
+  },
+  yeti: (g) => {
+    g.mrect(3, 1, 5, 6, K.white).mrect(1, 7, 7, 6, '#e0eef5').mrect(3, 13, 3, 2, '#b0c8d8').mrect(0, 6, 2, 6, K.white);
+    g.mdot(5, 3, K.cyan).mrect(4, 5, 1, 2, K.white).rect(6, 6, 4, 1, K.blueD).rect(12, 4, 3, 8, '#b0c8d8');
+  },
+  boss_ice_queen: hero({ body: '#5fa8d8', bodyD: '#2f6a9a', legs: '#5fa8d8', robe: true, skin: '#e0f0ff', hat: hats.crown(), weapon: weapons.staff(FROST, '#2f6a9a'), extra: (g) => g.mdot(6, 4, K.cyan).mrect(3, 7, 2, 6, FROST) }),
+
+  // ---- 8. Кузня демонов
+  imp: (g) => {
+    g.mrect(5, 3, 3, 4, K.redL).mrect(4, 7, 4, 4, K.red).mrect(5, 11, 2, 3, K.redD).mrect(0, 4, 4, 4, K.redD);
+    g.rect(4, 1, 1, 2, K.bone).rect(11, 1, 1, 2, K.bone).mdot(6, 4, K.gold).rect(7, 6, 2, 1, K.white).rect(12, 12, 2, 2, K.red).dot(14, 13, K.redD);
+  },
+  hellhound: beast(MAGMAD, '#4a1400', MAGMA, (g) => g.rect(9, 1, 1, 2, MAGMA).rect(13, 1, 1, 2, MAGMA)),
+  magma_golem: construct('#5a3020', '#3a1a0d', MAGMA),
+  demon_smith: demonish('#8f3020', '#5a1a10', K.bone, K.gold, (g) => weapons.axe(MAGMA)(g)),
+  brimstone_brute: (g) => {
+    g.mrect(3, 2, 5, 5, '#8a5a2f').mrect(1, 7, 7, 6, '#6a3a1f').mrect(3, 13, 3, 2, '#4a2410').mrect(0, 6, 2, 6, '#8a5a2f');
+    g.mdot(5, 3, MAGMA).rect(6, 6, 4, 1, K.white).mrect(2, 8, 2, 2, MAGMA).rect(3, 0, 1, 3, K.bone).rect(12, 0, 1, 3, K.bone);
+  },
+  boss_forge_demon: demonish('#c0392b', '#6a1a10', K.gold, K.gold, (g) => {
+    g.mrect(1, 7, 2, 5, MAGMA).rect(12, 2, 3, 10, MAGMAD).rect(11, 0, 5, 3, MAGMA);
+  }),
+
+  // ---- 9. Библиотека проклятых
+  cursed_tome: (g) => {
+    g.rect(3, 4, 10, 9, '#5a2a6a').rect(3, 4, 10, 1, '#7f4a9a').rect(3, 12, 10, 1, '#3a1546');
+    g.rect(7, 4, 2, 9, '#2a0f33').rect(4, 6, 3, 3, K.white).rect(9, 6, 3, 3, K.white);
+    g.mrect(5, 7, 1, 1, K.eye).rect(6, 10, 4, 1, K.purpleL);
+  },
+  shadow: ghostly('#2a2438', '#15121f', K.purpleL),
+  gargoyle: (g) => {
+    g.mrect(4, 3, 4, 4, '#6f7b8c').mrect(3, 7, 5, 5, '#5a6473').mrect(4, 12, 3, 3, '#6f7b8c');
+    g.mrect(0, 2, 3, 6, '#4a525e').mdot(6, 4, K.gold).rect(7, 6, 2, 1, K.white);
+    g.rect(4, 1, 1, 2, '#9aa0aa').rect(11, 1, 1, 2, '#9aa0aa');
+  },
+  lich_scribe: skeleton('#cfe0cf', '#8fa88f', (g) => {
+    g.mrect(3, 6, 2, 8, '#2a4a6a');
+    weapons.skullStaff()(g);
+    g.mdot(6, 4, K.greenL);
+  }),
+  archivist: hero({ body: '#3a2a5a', bodyD: '#1f1436', legs: '#3a2a5a', robe: true, skin: '#cfe0cf', hat: hats.hood('#1f1436', '#3a2a5a'), weapon: weapons.skullStaff(), extra: (g) => g.mdot(6, 4, K.purpleL).rect(2, 8, 3, 4, '#5a2a6a') }),
+  boss_lich: skeleton('#dfe8df', '#9fb89f', (g) => {
+    g.mrect(2, 6, 2, 9, '#2a1a4a');
+    hats.crown()(g);
+    weapons.skullStaff()(g);
+    g.mdot(6, 4, K.cyan).rect(7, 7, 2, 4, '#2a1a4a');
+  }),
+
+  // ---- 10. Вершина башни
+  tower_guard: (g) => {
+    g.mrect(4, 1, 4, 4, K.steelD).mrect(3, 5, 5, 6, K.iron).mrect(5, 11, 2, 3, K.steelD).mrect(1, 6, 2, 5, K.steel);
+    g.mrect(4, 3, 3, 1, K.eye).mdot(6, 3, K.gold).rect(7, 0, 2, 2, K.gold);
+    weapons.shield(K.gold, K.steelL)(g);
+    weapons.sword(K.steelL)(g);
+  },
+  soul_eater: (g) => {
+    g.mrect(4, 2, 4, 5, '#3a1f4a').mrect(3, 7, 5, 6, '#24122f').rect(3, 13, 2, 2, '#3a1f4a').rect(7, 13, 2, 2, '#3a1f4a').rect(11, 13, 2, 2, '#3a1f4a');
+    g.mrect(5, 3, 2, 2, K.eye).mdot(6, 3, K.purpleL).rect(6, 6, 4, 1, K.white).mrect(1, 5, 2, 5, '#24122f');
+  },
+  golem: construct(K.gray, K.grayD, K.orange),
+  dark_knight: (g) => {
+    g.mrect(4, 1, 4, 4, K.iron).mrect(4, 5, 4, 6, K.black).mrect(5, 11, 2, 3, K.iron).mrect(2, 6, 2, 5, K.iron);
+    g.mrect(4, 3, 3, 1, K.eye).mdot(6, 3, K.redL).rect(7, 0, 2, 2, K.redD).mrect(3, 5, 1, 2, K.redD);
+    weapons.bigSword(K.grayD)(g);
+  },
+  void_herald: ghostly('#1f1a33', '#0f0c1c', '#7f5fff', (g) => {
+    g.rect(3, 0, 1, 3, K.purpleL).rect(12, 0, 1, 3, K.purpleL).mrect(1, 6, 2, 4, '#3a2a6a');
+  }),
   boss_demon: (g) => {
     g.mrect(4, 2, 4, 5, K.redD).mrect(3, 7, 5, 5, K.red).mrect(4, 12, 3, 3, K.redD).mrect(0, 3, 3, 6, K.black).mrect(1, 7, 2, 4, K.redL);
     g.rect(3, 0, 1, 3, K.bone).rect(12, 0, 1, 3, K.bone).mrect(5, 4, 2, 1, K.gold).mdot(5, 5, K.orange).rect(6, 6, 4, 1, K.white);
@@ -318,8 +503,8 @@ export const ITEM_ART: Record<string, Draw> = {
   },
 };
 
-const TIER_METAL = ['#8a6a4a', '#b8c0cc', '#6f7b8c', '#eef2f8', '#f5c518', '#5be6ff'];
-const TIER_ACCENT = ['#5a3818', '#7d8794', '#3b4350', '#b7c4d8', '#a07d05', '#1fa88f'];
+const TIER_METAL = ['#8a6a4a', '#b8c0cc', '#6f7b8c', '#eef2f8', '#f5c518', '#5be6ff', '#ff8a3d', '#c08bff'];
+const TIER_ACCENT = ['#5a3818', '#7d8794', '#3b4350', '#b7c4d8', '#a07d05', '#1fa88f', '#a8410c', '#5c2f9e'];
 
 /** Иконки оружия по ветке класса и тиру (1..6). */
 export const weaponArt = (lineage: string, tier: number): Draw => (g) => {
@@ -345,8 +530,8 @@ export const weaponArt = (lineage: string, tier: number): Draw => (g) => {
 };
 
 export const armorArt = (tier: number): Draw => (g) => {
-  const m = ['#a3865f', '#8a5a2b', '#b8c0cc', '#eef2f8', '#f5c518', '#5be6ff'][tier - 1];
-  const a = ['#6b5236', '#5a3818', '#7d8794', '#b7c4d8', '#a07d05', '#1fa88f'][tier - 1];
+  const m = ['#a3865f', '#8a5a2b', '#b8c0cc', '#eef2f8', '#f5c518', '#5be6ff', '#ff8a3d', '#c08bff'][tier - 1];
+  const a = ['#6b5236', '#5a3818', '#7d8794', '#b7c4d8', '#a07d05', '#1fa88f', '#a8410c', '#5c2f9e'][tier - 1];
   g.rect(4, 3, 8, 10, m).rect(2, 3, 3, 4, a).rect(11, 3, 3, 4, a).rect(6, 3, 4, 2, K.black).rect(5, 7, 6, 1, a).rect(5, 10, 6, 1, a).rect(7, 5, 2, 8, a);
   if (tier >= 4) g.rect(2, 2, 3, 1, m).rect(11, 2, 3, 1, m).rect(7, 8, 2, 2, K.gold);
 };

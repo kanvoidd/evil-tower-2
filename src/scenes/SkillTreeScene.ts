@@ -1,30 +1,31 @@
 import Phaser from 'phaser';
-import type { ChainKind, ClassId, LineageSave } from '../types';
+import type { ClassId, LineageSave, TalentPath } from '../types';
 import { CLASSES } from '../data/classes';
-import { NODE_VALUE } from '../data/economy';
-import { PERK_BY_ID } from '../data/perks';
+import { FULL_BAR, PERK_BY_ID } from '../data/perks';
 import { GAME_H, GAME_W, GAMEPLAY, HEX } from '../config';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
-import { describeTrait, fmt, perkDesc, perkName, t } from '../i18n';
+import { describeTrait, fmt, perkDesc, perkName, t, talentDesc, talentName } from '../i18n';
 import type { TKey } from '../i18n';
 import {
-  applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, costOf, nodeState, perkIdOfNode, TREES,
+  applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, costOf, isMaxed, maxRankOf, nodeState,
+  perkIdOfNode, rankOf, talentOfNode, talentPointsSpent, TREES,
   type NodeState, type Tree, type TreeNode,
 } from '../logic/skillTree';
 import type { AutoSkillPlan } from '../logic/autoSkill';
 import { classTraits } from '../logic/traits';
-import { STAT_COLOR, statHex } from '../ui/Textures';
+import { pathHex } from '../ui/Textures';
 import {
   background, bindToasts, closeButton, CurrencyBar, Dialog, fadeToScene, fitHeight, icon, leaveMenu, PanController, PlateButton,
   pinToScreen, plateTexture, shadowTexture, staggerIn, tapHint, tipOnHover, toast, txt, zoomIn,
 } from '../ui/Kit';
 
-const K = 0.8;
-const OFFSET_Y = 300;
-const CHAIN_COLOR: Record<ChainKind, number> = { damage: statHex('damage'), health: statHex('health'), defense: statHex('defense') };
-const SIZE = { stat: 62, perk: 116, cls: 156, evo: 104 };
-const PANEL_H = 300;
+const K = 0.62;
+const OFFSET_Y = 260;
+const SIZE = { talent: 108, perk: 118, cls: 150, evo: 96 };
+const PANEL_H = 306;
+
+const PATH_ICON: Record<TalentPath, string> = { attack: 'svg_sword', vitality: 'svg_health', guard: 'svg_defense' };
 
 interface NodeView {
   node: TreeNode;
@@ -34,22 +35,24 @@ interface NodeView {
   main: Phaser.GameObjects.Image;
   glow: Phaser.GameObjects.Image;
   ico?: Phaser.GameObjects.Image;
-  lock?: Phaser.GameObjects.Image;
+  maxFrame?: Phaser.GameObjects.Image;
+  badge?: Phaser.GameObjects.Container;
+  badgeText?: Phaser.GameObjects.Text;
 }
 
 interface EdgeView {
   img: Phaser.GameObjects.Image;
-  a: number;
-  b: number;
+  a: string;
+  b: string;
   color: number;
 }
 
 export class SkillTreeScene extends Phaser.Scene {
   private tree!: Tree;
   private ls!: LineageSave;
-  private views = new Map<number, NodeView>();
+  private views = new Map<string, NodeView>();
   private edges: EdgeView[] = [];
-  private states = new Map<number, NodeState>();
+  private states = new Map<string, NodeState>();
   private pan!: PanController;
   private ring!: Phaser.GameObjects.Image;
   private closing = false;
@@ -89,10 +92,10 @@ export class SkillTreeScene extends Phaser.Scene {
     this.buildWorld();
     const b = this.tree.bounds;
     const bounds = {
-      minX: b.minX * K - 150,
-      maxX: b.maxX * K + 150,
+      minX: b.minX * K - 220,
+      maxX: b.maxX * K + 220,
       minY: 0,
-      maxY: b.maxY * K + OFFSET_Y + 320,
+      maxY: b.maxY * K + OFFSET_Y + 300,
     };
     this.pan = new PanController(this, bounds, new Phaser.Geom.Rectangle(0, 140, GAME_W, GAME_H - 140 - PANEL_H), 'xy');
     this.ring = this.add.image(0, 0, 'ring').setDepth(30).setVisible(false);
@@ -102,19 +105,16 @@ export class SkillTreeScene extends Phaser.Scene {
     this.buildPanel();
     this.refresh();
 
-    // Камера — на последнем изученном улучшении, а не в начале дерева.
-    const last = this.tree.byId.get(this.ls.last) ?? this.tree.classNode[this.tree.base]!;
+    const last = this.tree.byId.get(this.ls.last) ?? this.tree.classNode[this.tree.base];
     const lv = this.views.get(last.id)!;
     this.pan.setCenter(lv.x, lv.y + 90);
     this.select(this.pickInitialSelection(last));
     this.setupTutorial();
 
     this.input.keyboard?.on('keydown-ESC', () => this.close());
-    // вход: дерево проявляется из «окна» кнопки, шапка опускается сверху, панель узла поднимается снизу
     zoomIn(this);
     staggerIn(this, this.headerItems, { dy: -26, delay: 200, gap: 50 });
     staggerIn(this, [this.panel], { dy: 90, delay: 320, gap: 0, ms: 440 });
-    // при открытии дерева сообщаем только о реальных покупках (без напоминаний «жду метаморфозу» каждый раз)
     if (auto?.buys.length) this.time.delayedCall(650, () => this.announceAuto(auto));
   }
 
@@ -128,9 +128,13 @@ export class SkillTreeScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------------------ мир
 
+  private colorOf(n: TreeNode): number {
+    if (n.kind === 'talent') return pathHex(n.path!);
+    return 0xffd86b;
+  }
+
   private buildWorld(): void {
     const tree = this.tree;
-    // рёбра
     for (const [a, b] of tree.edges) {
       const na = tree.byId.get(a)!;
       const nb = tree.byId.get(b)!;
@@ -141,20 +145,19 @@ export class SkillTreeScene extends Phaser.Scene {
       const len = Math.hypot(bx - ax, by - ay);
       const img = this.add.image(ax, ay, 'px').setOrigin(0, 0.5).setDepth(1);
       img.setRotation(Math.atan2(by - ay, bx - ax));
-      const heavy = na.kind !== 'stat' || nb.kind !== 'stat';
-      img.setDisplaySize(len, heavy ? 8 : 5);
-      const chain = nb.chain ?? na.chain;
-      this.edges.push({ img, a, b, color: chain ? CHAIN_COLOR[chain] : 0xf5c518 });
+      img.setDisplaySize(len, 7);
+      const talent = nb.kind === 'talent' ? nb : na.kind === 'talent' ? na : null;
+      this.edges.push({ img, a, b, color: talent ? pathHex(talent.path!) : 0xf5c518 });
     }
-    // узлы
+
     for (const n of tree.nodes) {
       const x = this.wx(n);
       const y = this.wy(n);
       let key = '';
-      let size = SIZE.stat;
-      if (n.kind === 'stat') key = `orb_${n.stat}`;
+      let size = SIZE.talent;
+      if (n.kind === 'talent') key = `tal_${n.path}`;
       else if (n.kind === 'perk') {
-        key = PERK_BY_ID[perkIdOfNode(n)].icon;
+        key = PERK_BY_ID[perkIdOfNode(n)]?.icon ?? 'evo_gate';
         size = SIZE.perk;
       } else if (n.kind === 'class') {
         key = `cls_${n.classId}`;
@@ -163,20 +166,27 @@ export class SkillTreeScene extends Phaser.Scene {
         key = 'evo_gate';
         size = SIZE.evo;
       }
-      const glowCol = n.kind === 'stat' ? Phaser.Display.Color.HexStringToColor(STAT_COLOR[n.stat!]).color : 0xffd86b;
-      const glow = this.add.image(x, y, 'glow').setTint(glowCol).setDisplaySize(size * 2.4, size * 2.4).setBlendMode(Phaser.BlendModes.ADD).setDepth(2).setAlpha(0);
-      const main = this.add.image(x, y, key).setDisplaySize(size, size).setDepth(n.kind === 'stat' ? 3 : 5);
-      let ico: Phaser.GameObjects.Image | undefined;
-      if (n.kind === 'stat') {
-        ico = icon(this, x, y, `svg_${n.stat}`, size * 0.55).setDepth(4);
-        if (n.alt) this.add.image(x, y, 'ring').setDisplaySize(size + 12, size + 12).setTint(0xffd86b).setAlpha(0.65).setDepth(3);
+      const glow = this.add.image(x, y, 'glow').setTint(this.colorOf(n)).setDisplaySize(size * 2.4, size * 2.4)
+        .setBlendMode(Phaser.BlendModes.ADD).setDepth(2).setAlpha(0);
+      const main = this.add.image(x, y, key).setDisplaySize(size, size).setDepth(5);
+      const view: NodeView = { node: n, x, y, size, main, glow };
+      if (n.kind === 'talent') {
+        view.ico = icon(this, x, y - 4, PATH_ICON[n.path!], size * 0.44).setDepth(6);
+        view.maxFrame = this.add.image(x, y, 'tal_max').setDisplaySize(size, size).setDepth(7).setVisible(false);
+        // счётчик рангов в углу плитки — «2/3»
+        const badge = this.add.container(x + size * 0.3, y + size * 0.32).setDepth(8);
+        badge.add(this.add.image(0, 0, plateTexture(this, 54, 30, 1, 'dark', 15)));
+        const bt = txt(this, 0, -1, '', 17, { weight: 900, strokeThickness: 0 });
+        badge.add(bt);
+        view.badge = badge;
+        view.badgeText = bt;
       }
       main.setInteractive({ useHandCursor: true });
       main.on('pointerup', () => {
         if (this.pan.dragging || this.closing) return;
         this.select(n);
       });
-      this.views.set(n.id, { node: n, x, y, size, main, glow, ico });
+      this.views.set(n.id, view);
     }
   }
 
@@ -194,15 +204,23 @@ export class SkillTreeScene extends Phaser.Scene {
       if (tint === 0xffffff) v.main.clearTint();
       else v.main.setTint(tint);
       v.ico?.setAlpha(dim ? 0.3 : 1);
-      v.glow.setAlpha(st === 'owned' ? 0.75 : 0);
-      if (n.kind === 'class' && dim) v.main.setAlpha(0.7);
-      else v.main.setAlpha(1);
+      v.glow.setAlpha(st === 'owned' ? 0.7 : st === 'partial' ? 0.45 : 0);
+      v.main.setAlpha(n.kind === 'class' && dim ? 0.7 : 1);
+      if (n.kind === 'talent') {
+        const rank = rankOf(this.ls, n.id);
+        const max = maxRankOf(n);
+        v.maxFrame?.setVisible(rank >= max);
+        v.badge?.setVisible(!dim || rank > 0);
+        v.badgeText?.setText(`${rank}/${max}`);
+        v.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
+      }
     }
     for (const e of this.edges) {
       const sa = this.states.get(e.a)!;
       const sb = this.states.get(e.b)!;
-      if (sa === 'owned' && sb === 'owned') e.img.setTint(e.color).setAlpha(0.95);
-      else if (sa === 'owned' && sb === 'available') e.img.setTint(0x9aa2c4).setAlpha(0.8);
+      const done = (s: NodeState): boolean => s === 'owned';
+      if (done(sa) && done(sb)) e.img.setTint(e.color).setAlpha(0.95);
+      else if (done(sa) && (sb === 'available' || sb === 'partial')) e.img.setTint(0x9aa2c4).setAlpha(0.8);
       else e.img.setTint(0x2b3148).setAlpha(0.85);
     }
   }
@@ -211,14 +229,14 @@ export class SkillTreeScene extends Phaser.Scene {
     this.pan.update(dt);
     this.pulse = 0.42 + 0.2 * Math.sin(this.time.now / 620);
     for (const [id, v] of this.views) {
-      if (this.states.get(id) === 'available') v.glow.setAlpha(this.pulse);
+      const st = this.states.get(id);
+      if (st === 'available' || st === 'partial') v.glow.setAlpha(this.pulse);
     }
   }
 
   // ------------------------------------------------------------------------------ верхняя панель
 
   private buildTop(): void {
-    // затемнённая шапка: узлы, уехавшие под неё, не спорят с кнопками
     this.add.rectangle(GAME_W / 2, 66, GAME_W, 132, 0x0a0c12, 0.9).setScrollFactor(0).setDepth(700);
     this.add.rectangle(GAME_W / 2, 132, GAME_W, 2, 0xffffff, 0.06).setScrollFactor(0).setDepth(700);
     this.classBtn = new PlateButton(this, 66, 66, {
@@ -226,16 +244,18 @@ export class SkillTreeScene extends Phaser.Scene {
       onClick: () => fadeToScene(this, 'ClassSelect', { mode: 'switch', from: 'SkillTree' }),
     });
     this.classBtn.setScrollFactor(0).setDepth(710);
-    // значок «сменить класс» в углу кнопки
     const swap = this.add.container(66 + 30, 66 + 30).setScrollFactor(0).setDepth(712);
     swap.add([this.add.circle(0, 0, 15, 0x0b0d12).setStrokeStyle(2, 0xf0c75e), icon(this, 0, 0, 'svgw_swap', 18)]);
-    const name = txt(this, 128, 66, t(`class.${Store.activeClass}.name` as TKey), 34, { font: 'title', origin: [0, 0.5], color: HEX.gold, maxWidth: 210, strokeThickness: 5 })
+    const name = txt(this, 128, 52, t(`class.${Store.activeClass}.name` as TKey), 32, { font: 'title', origin: [0, 0.5], color: HEX.gold, maxWidth: 210, strokeThickness: 5 })
       .setScrollFactor(0).setDepth(710);
+    const spent = txt(this, 128, 84, t('skill.points', { n: talentPointsSpent(this.tree, this.ls) }), 17, {
+      origin: [0, 0.5], color: HEX.textDim, weight: 800, strokeThickness: 0, maxWidth: 220,
+    }).setScrollFactor(0).setDepth(710);
     const cur = new CurrencyBar(this, 590, 44, { compact: true }).setScrollFactor(0).setDepth(710);
     const close = closeButton(this, () => this.close()).setScrollFactor(0).setDepth(710);
-    this.headerItems = [this.classBtn, swap, name, cur, close];
+    this.headerItems = [this.classBtn, swap, name, spent, cur, close];
+    this.spentText = spent;
 
-    // автопрокачка: одна кнопка «вкл/выкл» (без окон и настроек). Появляется после первого улучшения — не мешает обучению.
     this.autoBtn = new PlateButton(this, 384, 66, {
       w: 68, h: 68, icon: 'svg_auto', iconSize: 34, radius: 22, style: 'raised', onClick: () => this.toggleAuto(),
     });
@@ -248,13 +268,14 @@ export class SkillTreeScene extends Phaser.Scene {
     this.headerItems.push(this.autoBtn);
   }
 
+  private spentText?: Phaser.GameObjects.Text;
+
   private refreshAutoBtn(): void {
     const on = Store.autoSkillCfg().on;
     this.autoBtn?.setStyle(on ? 'green' : 'raised');
     this.autoCap?.setText(t(on ? 'auto.on' : 'auto.off')).setColor(on ? '#0f3b23' : HEX.textDim);
   }
 
-  /** Нажатие на кнопку автопрокачки: включает/выключает; при включении сразу идёт вниз по ветке последнего улучшения. */
   private toggleAuto(): void {
     const cfg = Store.toggleAutoSkill();
     this.refreshAutoBtn();
@@ -276,7 +297,7 @@ export class SkillTreeScene extends Phaser.Scene {
       const last = plan.buys[plan.buys.length - 1];
       const v = this.views.get(last.id);
       if (v) {
-        this.burst(v.x, v.y, last.kind === 'stat' ? statHex(last.stat!) : 0xffd86b);
+        this.burst(v.x, v.y, this.colorOf(last));
         this.pan.setCenter(v.x, v.y + 90);
       }
       AUDIO.play('upgrade');
@@ -291,6 +312,7 @@ export class SkillTreeScene extends Phaser.Scene {
 
   private refreshTop(): void {
     this.classBtn.setIcon(`cls_${Store.activeClass}`);
+    this.spentText?.setText(t('skill.points', { n: talentPointsSpent(this.tree, this.ls) }));
   }
 
   // ------------------------------------------------------------------------------ нижняя панель
@@ -299,30 +321,45 @@ export class SkillTreeScene extends Phaser.Scene {
     this.panel = this.add.container(0, 0).setScrollFactor(0).setDepth(800);
   }
 
-  private nodeTitle(n: TreeNode): { title: string; sub: string; desc: string; tex: string; extra?: string } {
-    if (n.kind === 'stat') {
+  private nodeTitle(n: TreeNode): { title: string; sub: string; desc: string; tex: string; iconKey?: string } {
+    if (n.kind === 'talent') {
+      const def = talentOfNode(n);
+      const rank = rankOf(this.ls, n.id);
       return {
-        title: t(`stat.${n.stat}` as TKey),
-        sub: t('skill.tier', { n: n.tier! }),
-        desc: t(`node.${n.stat}` as TKey, { v: NODE_VALUE[n.stat!] }),
-        tex: `orb_${n.stat}`,
+        title: talentName(def),
+        sub: `${t('skill.tier_label', { n: n.tier!, path: t(`path.${n.path}` as TKey) })} · ${t('skill.rank', { n: rank, max: maxRankOf(n) })}`,
+        desc: talentDesc(def, rank),
+        tex: `tal_${n.path}`,
+        iconKey: PATH_ICON[n.path!],
       };
     }
     if (n.kind === 'perk') {
       const perk = PERK_BY_ID[perkIdOfNode(n)];
-      const slot = (['skill.perk_start', 'skill.perk_p2', 'skill.perk_p3', 'skill.perk_legend'] as TKey[])[n.seg!];
-      return { title: perkName(perk), sub: t(slot), desc: perkDesc(perk), tex: perk.icon };
+      const slotKey = ({ start: 'skill.perk_start', p2: 'skill.perk_p2', p3: 'skill.perk_p3', legend: 'skill.perk_legend' } as const)[n.slot!];
+      const lines: string[] = [perkDesc(perk)];
+      if (perk.passive) lines.push(t('skill.passive'));
+      else if (perk.basic) lines.push(t('skill.basic'));
+      if (perk.cost !== undefined && !perk.passive) {
+        lines.push(perk.cost === FULL_BAR
+          ? t('skill.cost_full')
+          : t('skill.cost_res', { n: perk.cost, r: t(`res.${this.resourceKey()}` as TKey) }));
+      }
+      if (perk.once) lines.push(t('skill.once'));
+      return { title: perkName(perk), sub: t(slotKey), desc: lines.join('\n'), tex: perk.icon };
     }
     if (n.kind === 'class') {
       return {
         title: t(`class.${n.classId}.name` as TKey),
         sub: t('skill.class'),
-        // краткая сводка: что даёт класс (до трёх строк)
         desc: classTraits(n.classId!, 3).map((tr) => `• ${describeTrait(tr)}`).join('\n'),
         tex: `cls_${n.classId}`,
       };
     }
     return { title: t('skill.evo'), sub: '', desc: t('skill.evo_desc'), tex: 'evo_gate' };
+  }
+
+  private resourceKey(): string {
+    return { warrior: 'stamina', mage: 'mana', archer: 'concentration', mercenary: 'vigilance' }[this.tree.id];
   }
 
   private select(n: TreeNode | null): void {
@@ -333,7 +370,7 @@ export class SkillTreeScene extends Phaser.Scene {
       return;
     }
     const v = this.views.get(n.id)!;
-    this.ring.setVisible(true).setPosition(v.x, v.y).setDisplaySize(v.size + 22, v.size + 22);
+    this.ring.setVisible(true).setPosition(v.x, v.y).setDisplaySize(v.size + 24, v.size + 24);
     AUDIO.play('click');
     this.showInfo(n);
     this.clearHint();
@@ -350,43 +387,38 @@ export class SkillTreeScene extends Phaser.Scene {
     p.add(this.add.image(GAME_W / 2, y0 + PANEL_H / 2 + 2, plateTexture(this, pw, PANEL_H, 1, 'panel', 34)));
     p.add(this.add.image(84, y0 + 86, plateTexture(this, 108, 108, 1, 'dark', 26)));
     p.add(this.add.image(84, y0 + 86, info.tex).setDisplaySize(84, 84));
-    if (n.kind === 'stat') p.add(icon(this, 84, y0 + 86, `svg_${n.stat}`, 46));
-    p.add(txt(this, 158, y0 + 50, info.title, 34, { font: 'title', origin: [0, 0.5], maxWidth: 520, color: HEX.gold, strokeThickness: 0 }));
-    if (info.sub) p.add(txt(this, 158, y0 + 88, info.sub, 20, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0 }));
+    if (info.iconKey) p.add(icon(this, 84, y0 + 86, info.iconKey, 44));
+    p.add(txt(this, 158, y0 + 46, info.title, 32, { font: 'title', origin: [0, 0.5], maxWidth: 520, color: HEX.gold, strokeThickness: 0 }));
+    if (info.sub) p.add(txt(this, 158, y0 + 82, info.sub, 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0, maxWidth: 520 }));
     let desc = info.desc;
-    if (n.kind === 'perk' && n.owner !== Store.activeClass && n.seg! > 0) {
+    if (n.kind === 'perk' && n.owner !== Store.activeClass) {
       desc += `\n${t('skill.inactive', { c: t(`class.${n.owner}.name` as TKey) })}`;
     }
-    const descText = txt(this, 158, y0 + 112, desc, 22, { origin: [0, 0], wrap: 520, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
-    fitHeight(descText, 92, 14);
+    if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class')) desc += `\n${t('skill.gate')}`;
+    const descText = txt(this, 158, y0 + 104, desc, 21, { origin: [0, 0], wrap: 520, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
+    fitHeight(descText, 108, 14);
     p.add(descText);
-    // пометка о развилке — под описанием, по левому краю (в нижней строке ей тесно рядом с кнопкой)
-    if (st === 'available' && n.excl !== undefined) {
-      const note = txt(this, 158, y0 + 112 + descText.height + 4, t('skill.fork'), 18, {
-        origin: [0, 0], wrap: 520, color: HEX.textDim, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left',
-      });
-      p.add(note);
-    }
 
-    // нижняя строка: цена слева, кнопка или статус справа
-    const cost = costOf(n);
-    const rowY = GAME_H - 58;
+    const cost = costOf(this.ls, n);
+    const rowY = GAME_H - 54;
     let btn: PlateButton | null = null;
     let status = '';
     let statusColor: string = HEX.textDim;
 
     if (n.kind === 'class' && st === 'owned' && canCancelMetamorphosis(this.tree, this.ls, n.classId!)) {
       btn = new PlateButton(this, GAME_W - 200, rowY, {
-        w: 340, h: 72, label: t('skill.cancel_meta'), fontSize: 22, style: 'red', radius: 24, onClick: () => this.confirmCancel(n),
+        w: 340, h: 70, label: t('skill.cancel_meta'), fontSize: 22, style: 'red', radius: 24, onClick: () => this.confirmCancel(n),
       });
     } else if (st === 'owned') {
-      status = n.kind === 'perk' && n.seg! > 0 && n.owner !== Store.activeClass ? t('skill.lost') : t('skill.owned');
+      status = n.kind === 'talent'
+        ? t('skill.maxed')
+        : n.kind === 'perk' && n.owner !== Store.activeClass ? t('skill.lost') : t('skill.owned');
       statusColor = HEX.good;
-    } else if (st === 'available') {
+    } else if (st === 'available' || st === 'partial') {
       const can = Store.souls >= cost;
       btn = new PlateButton(this, GAME_W - 190, rowY, {
-        w: 320, h: 72, label: t('skill.buy'), fontSize: 32, style: 'gold', radius: 24, icon: 'ico_soul', iconSize: 34,
-        onClick: () => this.tryBuy(n),
+        w: 320, h: 70, label: st === 'partial' ? t('skill.upgrade') : t('skill.buy'), fontSize: 30, style: 'gold', radius: 24,
+        icon: 'ico_soul', iconSize: 32, onClick: () => this.tryBuy(n),
       });
       btn.setLocked(!can);
     } else if (st === 'blocked') {
@@ -396,13 +428,12 @@ export class SkillTreeScene extends Phaser.Scene {
       status = t('skill.locked');
     }
     if (cost > 0 && st !== 'owned') {
-      p.add(this.add.image(58, rowY, 'ico_soul').setDisplaySize(38, 38));
-      p.add(txt(this, 86, rowY, fmt(cost), 32, { origin: [0, 0.5], weight: 900, color: Store.souls >= cost ? HEX.soul : HEX.bad }));
+      p.add(this.add.image(56, rowY, 'ico_soul').setDisplaySize(36, 36));
+      p.add(txt(this, 82, rowY, fmt(cost), 30, { origin: [0, 0.5], weight: 900, color: Store.souls >= cost ? HEX.soul : HEX.bad }));
     }
     if (status) {
-      // статус выровнен по левому краю: сразу после цены, а если цены нет — от левого края панели
-      const sx = cost > 0 && st !== 'owned' ? 210 : 58;
-      p.add(txt(this, sx, rowY, status, 21, {
+      const sx = cost > 0 && st !== 'owned' ? 200 : 56;
+      p.add(txt(this, sx, rowY, status, 20, {
         origin: [0, 0.5], align: 'left', wrap: GAME_W - 32 - sx, color: statusColor, weight: 700, strokeThickness: 0,
       }));
     }
@@ -472,7 +503,7 @@ export class SkillTreeScene extends Phaser.Scene {
             AUDIO.play('break');
             this.refresh();
             this.refreshTop();
-            this.select(this.tree.classNode[prev]!);
+            this.select(this.tree.classNode[prev]);
           },
         },
       ],
@@ -491,17 +522,16 @@ export class SkillTreeScene extends Phaser.Scene {
       this.cameras.main.flash(300, 255, 220, 120);
       AUDIO.play('reward');
     } else {
-      AUDIO.play(n.kind === 'perk' ? 'reward' : 'upgrade');
+      AUDIO.play(n.kind === 'perk' || isMaxed(this.ls, n) ? 'reward' : 'upgrade');
     }
     Store.save();
     this.refresh();
     this.refreshTop();
     const v = this.views.get(n.id)!;
-    this.burst(v.x, v.y, n.kind === 'stat' ? Phaser.Display.Color.HexStringToColor(STAT_COLOR[n.stat!]).color : 0xffd86b);
+    this.burst(v.x, v.y, this.colorOf(n));
     this.showInfo(n);
     if (first) this.clearHint();
-    if (n.kind !== 'stat') toast(this, t('toast.reward'), 'svg_trophy');
-    // Автопрокачка: купленная вручную характеристика задаёт ветку — вся ветка ниже прокачивается на все души
+    if (n.kind !== 'talent') toast(this, t('toast.reward'), 'svg_trophy');
     if (Store.autoSkillCfg().on) {
       Store.noteManualBuy(n);
       const plan = Store.runAutoSkill();
@@ -527,7 +557,8 @@ export class SkillTreeScene extends Phaser.Scene {
     let bestD = Infinity;
     const lv = this.views.get(last.id)!;
     for (const [id, v] of this.views) {
-      if (this.states.get(id) !== 'available') continue;
+      const st = this.states.get(id);
+      if (st !== 'available' && st !== 'partial') continue;
       const d = Math.hypot(v.x - lv.x, v.y - lv.y);
       if (d < bestD) {
         bestD = d;
@@ -541,8 +572,9 @@ export class SkillTreeScene extends Phaser.Scene {
     if (Store.data.tutorial.skill) return;
     let best: NodeView | null = null;
     for (const [id, v] of this.views) {
-      if (this.states.get(id) !== 'available') continue;
-      if (canBuy(this.tree, this.ls, v.node, Store.souls).ok && (!best || costOf(v.node) < costOf(best.node))) best = v;
+      const st = this.states.get(id);
+      if (st !== 'available' && st !== 'partial') continue;
+      if (canBuy(this.tree, this.ls, v.node, Store.souls).ok && (!best || costOf(this.ls, v.node) < costOf(this.ls, best.node))) best = v;
     }
     if (!best) return;
     this.select(best.node);
