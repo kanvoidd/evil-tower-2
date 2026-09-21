@@ -1,28 +1,23 @@
-import type { AutoSkillSave, LineageSave } from '../types';
-import { applyBuy, costOf, isPurchasable, nodeState, type Tree, type TreeNode } from './skillTree';
+import type { AutoSkillSave, LineageSave, TalentPath } from '../types';
+import { applyBuy, canInvest, costOf, isPurchasable, type Tree, type TreeNode } from './skillTree';
 
-export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, chain: 'damage', alt: false };
+export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, path: 'attack' };
 
 /**
- * Ветка «по умолчанию» для автопрокачки — по последнему купленному игроком улучшению:
- * его цепочка (урон / здоровье / защита) и, если оно стояло на развилке, тип выбора (основной или особый стат).
- * Без покупок в дереве возвращает null — тогда остаются прежние настройки.
+ * Путь «по умолчанию» для автопрокачки — по последнему таланту, который игрок прокачал сам.
+ * Без покупок возвращает null: тогда остаются прежние настройки.
  */
-export const inferBranch = (tree: Tree, save: LineageSave): Pick<AutoSkillSave, 'chain' | 'alt'> | null => {
-  for (let i = save.owned.length - 1; i >= 0; i--) {
-    const n = tree.byId.get(save.owned[i]);
-    if (n && n.kind === 'stat' && n.chain) return { chain: n.chain, alt: n.excl !== undefined ? !!n.alt : false };
-  }
+export const inferBranch = (tree: Tree, save: LineageSave): Pick<AutoSkillSave, 'path'> | null => {
+  const n = tree.byId.get(save.last);
+  if (n?.kind === 'talent' && n.path) return { path: n.path };
   return null;
 };
 
-/** Что запомнить после ручной покупки узла: у характеристики — её ветка (и тип выбора на развилке), у остального — ничего. */
-export const branchOf = (n: TreeNode): Partial<Pick<AutoSkillSave, 'chain' | 'alt'>> => {
-  if (n.kind !== 'stat' || !n.chain) return {};
-  return n.excl !== undefined ? { chain: n.chain, alt: !!n.alt } : { chain: n.chain };
-};
+/** Что запомнить после ручной покупки: у таланта — его путь, у перка и класса — ничего. */
+export const branchOf = (n: TreeNode): Partial<Pick<AutoSkillSave, 'path'>> =>
+  n.kind === 'talent' && n.path ? { path: n.path } : {};
 
-/** Почему автопрокачка остановилась: 'souls' — не хватает душ, 'meta' — впереди метаморфоза, 'done' — ветка пройдена. */
+/** Почему автопрокачка остановилась: 'souls' — не хватает душ, 'meta' — впереди метаморфоза, 'done' — всё изучено. */
 export type AutoStop = 'souls' | 'meta' | 'done';
 
 export interface AutoSkillPlan {
@@ -31,32 +26,28 @@ export interface AutoSkillPlan {
   stop: AutoStop;
 }
 
-/** Узлы выбранной ветки: её характеристики и перки-«ворота» между сегментами (без них вниз не пройти). */
-const onBranch = (n: TreeNode, cfg: AutoSkillSave): boolean => (n.kind === 'stat' ? n.chain === cfg.chain : n.kind === 'perk');
-
-/** Допуск по высоте: узлы развилки лежат почти на одном уровне. */
-const LEVEL_EPS = 40;
+/** Узлы выбранного пути: его таланты и перки-«ворота» между ярусами (без них вниз не пройти). */
+const onBranch = (n: TreeNode, path: TalentPath): boolean => (n.kind === 'talent' ? n.path === path : n.kind === 'perk');
 
 /**
- * Что купит автопрокачка: по одному узлу выбранной ветки сверху вниз, пока хватает душ.
- * Никогда не покупает метаморфозу (смену класса — решение игрока); на развилках берёт основной или особый стат по настройке.
- * Работает на копии сохранения — ничего не меняет.
+ * Что купит автопрокачка: сверху вниз по выбранному пути, ранг за рангом, пока хватает душ.
+ * Метаморфозу (смену класса) не покупает никогда — это решение игрока. Работает на копии сохранения.
  */
 export const planAutoSkill = (tree: Tree, save: LineageSave, souls: number, cfg: AutoSkillSave): AutoSkillPlan => {
-  const sim: LineageSave = { owned: [...save.owned], last: save.last };
+  const sim: LineageSave = { ranks: { ...save.ranks }, last: save.last };
   const buys: TreeNode[] = [];
   let left = souls;
   let spent = 0;
   for (let guard = 0; guard < 900; guard++) {
-    const cands = tree.nodes.filter((n) => isPurchasable(n) && onBranch(n, cfg) && nodeState(tree, sim, n) === 'available');
+    const cands = tree.nodes.filter((n) => isPurchasable(n) && onBranch(n, cfg.path) && canInvest(tree, sim, n));
     if (!cands.length) {
-      const meta = tree.nodes.some((n) => n.kind === 'class' && nodeState(tree, sim, n) === 'available');
+      const meta = tree.nodes.some((n) => n.kind === 'class' && canInvest(tree, sim, n));
       return { buys, spent, stop: meta ? 'meta' : 'done' };
     }
+    // самый верхний узел; на одном уровне — самый дешёвый
     const top = Math.min(...cands.map((n) => n.y));
-    const level = cands.filter((n) => n.y - top < LEVEL_EPS).sort((a, b) => costOf(a) - costOf(b));
-    const pick = level.find((n) => n.kind === 'stat' && !!n.alt === cfg.alt) ?? level[0];
-    const cost = costOf(pick);
+    const pick = cands.filter((n) => n.y === top).sort((a, b) => costOf(sim, a) - costOf(sim, b))[0];
+    const cost = costOf(sim, pick);
     if (cost > left) return { buys, spent, stop: 'souls' };
     left -= cost;
     spent += cost;

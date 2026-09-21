@@ -2,26 +2,26 @@ import type { ClassId } from './types';
 import { CLASSES } from './data/classes';
 import { ROOMS } from './data/levels';
 import { Store } from './systems/Store';
-import { applyBuy, costOf, isPurchasable, nodeState, TREES } from './logic/skillTree';
+import { applyBuy, canInvest, costOf, isPurchasable, TREES } from './logic/skillTree';
 
-/** Покупает до `steps` самых дешёвых доступных узлов (приоритет: перки, класс, урон, здоровье, защита). */
+/** Покупает до `steps` самых дешёвых доступных узлов (приоритет: способности, класс, таланты). */
 const autoSkill = (steps: number): void => {
   const tree = TREES[Store.activeLineage];
   const ls = Store.activeLineageSave;
-  const pr: Record<string, number> = { perk: 0, class: 1, damage: 2, health: 3, defense: 4 };
+  const pr: Record<string, number> = { perk: 0, class: 1, talent: 2, evo: 9 };
   for (let i = 0; i < steps; i++) {
     let best: (typeof tree.nodes)[number] | null = null;
     let bestScore = Infinity;
     for (const n of tree.nodes) {
-      if (!isPurchasable(n) || nodeState(tree, ls, n) !== 'available' || costOf(n) > Store.souls) continue;
-      const score = (n.kind === 'stat' ? pr[n.chain!] : pr[n.kind]) * 100000 + costOf(n);
+      if (!isPurchasable(n) || !canInvest(tree, ls, n) || costOf(ls, n) > Store.souls) continue;
+      const score = pr[n.kind] * 1_000_000 + costOf(ls, n);
       if (score < bestScore) {
         bestScore = score;
         best = n;
       }
     }
     if (!best) break;
-    Store.spendSouls(costOf(best));
+    Store.spendSouls(costOf(ls, best));
     applyBuy(tree, ls, best);
     if (best.kind === 'class') Store.setActiveClass(best.classId!);
   }
@@ -49,11 +49,11 @@ export const applyDevParams = (): void => {
   if (clear >= 0) {
     Store.data.cleared = ROOMS.slice(0, clear).map((r) => r.id);
   }
-  if (q.get('tut') === '1') Store.data.tutorial = { fight: true, hub: true, skill: true, shop: true };
+  if (q.get('tut') === '1') Store.data.tutorial = { fight: true, hub: true, skill: true, shop: true, perk: true };
   const wt = Number(q.get('weapon') ?? 0);
   const at = Number(q.get('armor') ?? 0);
-  if (wt > 0) Store.data.weapon[Store.activeLineage] = { id: `w_${Store.activeLineage}_${wt}`, durability: 18 };
-  if (at > 0) Store.data.armor = { id: `a_${at}`, durability: 26 };
+  if (wt > 0) Store.data.weapon[Store.activeLineage] = { id: `w_${Store.activeLineage}_${wt}`, durability: 40 };
+  if (at > 0) Store.data.armor = { id: `a_${at}`, durability: 40 };
   const auto = Number(q.get('autoskill') ?? 0);
   if (auto > 0) autoSkill(auto);
   Store.flush();

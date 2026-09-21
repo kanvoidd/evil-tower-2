@@ -29,7 +29,7 @@ const CY = 470;
 const PANEL = { y: 950, w: 624, h: 500 };
 
 /** Значок строки сводки: цвет и иконка по смыслу (механика линейки, особые умения, характеристики). */
-const TRAIT_STAT: Partial<Record<TraitId, string>> = { crit: 'crit', dodge: 'dodge', parry: 'parry', armor: 'defense', dmg: 'damage', luck: 'luck', hp: 'health' };
+const TRAIT_STAT: Partial<Record<TraitId, string>> = { crit: 'crit', dodge: 'dodge', parry: 'parry', armor: 'defense', dmg: 'damage', hp: 'health' };
 
 const traitVisual = (tr: Trait, lineageColor: string): { stat: string; color: number; iconKey: string } => {
   const stat = TRAIT_STAT[tr.id];

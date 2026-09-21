@@ -245,7 +245,7 @@ export class ShopScene extends Phaser.Scene {
     const nameKey = id === 'potion_heal' ? 'shop.potion_heal' : id === 'potion_regen' ? 'shop.potion_regen' : 'shop.artifact';
     row.add(txt(this, -114, -64, t(nameKey as TKey), 25, { origin: [0, 0.5], maxWidth: 336, weight: 900 }));
     const desc = id === 'potion_heal'
-      ? t('shop.potion_heal.desc', { n: GAMEPLAY.healPotionHp })
+      ? t('shop.potion_heal.desc', { n: Math.round(GAMEPLAY.healPotionPct * 100) })
       : id === 'potion_regen'
         ? t('shop.potion_regen.desc', { n: GAMEPLAY.regenBoostTurns })
         : t('shop.artifact.desc');

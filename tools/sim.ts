@@ -1,44 +1,51 @@
 /**
- * Симулятор баланса: прогоняет «бота» через 15 комнат с типичной прокачкой.
- * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [прогонов на комнату] [коэффициент фарма]
+ * Симулятор баланса: прогоняет «бота» через все комнаты башни с типичной прокачкой.
+ * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [прогонов на комнату] [коэффициент фарма] [порог победы]
  */
 import { CLASSES } from '../src/data/classes';
 import { ITEMS, type ItemDef } from '../src/data/items';
 import { ROOMS } from '../src/data/levels';
-import type { ClassId, EquipmentSave, LineageId } from '../src/types';
-import { applyBuy, costOf, isPurchasable, newLineageSave, nodeState, TREES } from '../src/logic/skillTree';
+import { FULL_BAR, type PerkDef } from '../src/data/perks';
+import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/types';
+import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/logic/skillTree';
 import { buildPlayerStats } from '../src/logic/stats';
 import { makeRng } from '../src/logic/rng';
 import { Run } from '../src/logic/run';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
-const N = Number(process.argv[3] ?? 200);
+const N = Number(process.argv[3] ?? 120);
 const FARM = Number(process.argv[4] ?? 1);
+const TARGET = Number(process.argv[5] ?? 0.7);
 const tree = TREES[lineage];
 const ls = newLineageSave(tree);
 let gold = 0;
 let souls = 0;
 let weapon: EquipmentSave | null = null;
 let armor: EquipmentSave | null = null;
+/** Лучшие ступени, которые бот уже носил: ниже них он не опускается, а копит. */
+const bestTier = { weapon: 0, armor: 0 };
 const consumables = { potion_heal: 2, potion_regen: 1, artifact: 0 };
 let classId: ClassId = lineage;
 
-const PRIORITY: Record<string, number> = { perk: 0, class: 1, damage: 2, health: 3, defense: 4 };
+/** Бот тратит души так же, как средний игрок: сперва способности, потом таланты выбранного пути. */
+const PATH: TalentPath = 'attack';
+const KIND_PRIORITY: Record<string, number> = { perk: 0, class: 1, talent: 2, evo: 9 };
 
 const spendSouls = (): number => {
   let bought = 0;
-  for (let guard = 0; guard < 400; guard++) {
+  for (let guard = 0; guard < 600; guard++) {
     let best: { node: (typeof tree.nodes)[number]; score: number } | null = null;
     for (const n of tree.nodes) {
-      if (!isPurchasable(n) || nodeState(tree, ls, n) !== 'available') continue;
-      const c = costOf(n);
+      if (!isPurchasable(n) || !canInvest(tree, ls, n)) continue;
+      const c = costOf(ls, n);
       if (c > souls) continue;
-      const pr = n.kind === 'stat' ? PRIORITY[n.chain!] : PRIORITY[n.kind];
-      const score = pr * 10000 + c;
+      // путь урона в приоритете, остальные пути докупаются, когда есть лишние души
+      const pathPenalty = n.kind === 'talent' && n.path !== PATH ? 1 : 0;
+      const score = (KIND_PRIORITY[n.kind] + pathPenalty) * 10_000_000 + c;
       if (!best || score < best.score) best = { node: n, score };
     }
     if (!best) break;
-    souls -= costOf(best.node);
+    souls -= costOf(ls, best.node);
     applyBuy(tree, ls, best.node);
     if (best.node.kind === 'class') classId = best.node.classId!;
     bought++;
@@ -49,40 +56,87 @@ const spendSouls = (): number => {
 const shop = (): void => {
   const w = ITEMS.filter((i) => i.slot === 'weapon' && i.lineage === lineage);
   const a = ITEMS.filter((i) => i.slot === 'armor');
-  const upgrade = (list: ItemDef[], cur: EquipmentSave | null): EquipmentSave | null => {
-    const curTier = cur && cur.durability > 0 ? list.find((i) => i.id === cur.id)!.tier : 0;
-    const next = list.find((i) => i.tier === curTier + 1);
-    if (next && gold >= next.price) {
-      gold -= next.price;
-      return { id: next.id, durability: next.durability };
-    }
-    return cur;
-  };
-  weapon = upgrade(w, weapon);
-  armor = upgrade(a, armor);
-  // ремонт
-  for (const [slot, e] of [['w', weapon], ['a', armor]] as const) {
-    if (!e) continue;
-    const it = ITEMS.find((i) => i.id === e.id)!;
-    if (e.durability < it.durability * 0.3) {
-      const cost = Math.ceil(it.price * 0.5 * (1 - e.durability / it.durability));
-      if (gold >= cost) {
-        gold -= cost;
-        e.durability = it.durability;
+  /**
+   * Разумный игрок чинит предмет заранее (пока он не сломался — это дёшево) и не скатывается
+   * на пару ступеней вниз: если денег не хватает на привычный уровень, он копит.
+   */
+  const upgrade = (list: ItemDef[], cur: EquipmentSave | null, slot: 'weapon' | 'armor'): EquipmentSave | null => {
+    if (cur && cur.durability > 0) {
+      const it = list.find((i) => i.id === cur.id)!;
+      if (cur.durability < it.durability * 0.55) {
+        const cost = Math.ceil(it.price * 0.35 * (1 - cur.durability / it.durability));
+        if (gold >= cost) {
+          gold -= cost;
+          cur.durability = it.durability;
+        }
       }
     }
-    void slot;
-  }
-  while (gold >= 40 && consumables.potion_heal < 4) {
-    gold -= 40;
+    const curTier = cur && cur.durability > 0 ? list.find((i) => i.id === cur.id)!.tier : 0;
+    const floorTier = Math.max(1, bestTier[slot] - 1);
+    let best: ItemDef | null = null;
+    for (const it of list) {
+      if (it.tier <= curTier || it.tier < floorTier || it.price > gold) continue;
+      if (!best || it.tier > best.tier) best = it;
+    }
+    if (!best) return cur && cur.durability > 0 ? cur : null;
+    gold -= best.price;
+    bestTier[slot] = Math.max(bestTier[slot], best.tier);
+    return { id: best.id, durability: best.durability };
+  };
+  weapon = upgrade(w, weapon, 'weapon');
+  armor = upgrade(a, armor, 'armor');
+  while (gold >= 55 && consumables.potion_heal < 5) {
+    gold -= 55;
     consumables.potion_heal++;
   }
 };
 
+/** Способности, которые бот применять не умеет (чистая утилита — ими играет человек). */
+const SKIP = new Set(['swap', 'deck_draw', 'bribe', 'falcon_courier', 'rewind']);
+/** Способности без цели, выгодные только при куче врагов. */
+const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_rain', 'shuriken_fan', 'heavens_wrath', 'starfall', 'inferno', 'dead_harvest', 'wind_shadow', 'shadow_reap']);
+
+const tryPerk = (run: Run): boolean => {
+  const enemies = run.cards.filter((c) => c?.kind === 'enemy').length;
+  for (const perk of run.stats.abilities as PerkDef[]) {
+    if (SKIP.has(perk.ability)) continue;
+    if (!run.perkReady(perk).ok) continue;
+    const full = perk.cost === FULL_BAR;
+    if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
+    if (full && enemies < 4) continue;
+    if (perk.target === 'self') return run.usePerk(perk.id).ok;
+    // ищем цель: самый опасный достижимый враг
+    let best = -1;
+    let bestScore = -1e9;
+    for (let cell = 0; cell < 9; cell++) {
+      const card = run.cards[cell];
+      if (!card) continue;
+      if (!run.perkTargetOk(perk, cell)) continue;
+      const score = card.kind === 'enemy' ? card.atk * 3 + card.hp * 0.2 : -100;
+      if (score > bestScore) {
+        bestScore = score;
+        best = cell;
+      }
+    }
+    if (best < 0 || bestScore < 0) continue;
+    if (!run.usePerk(perk.id).ok) continue;
+    if (!run.tap(best).ok) run.cancelPerk();
+    return true;
+  }
+  return false;
+};
+
 const bot = (run: Run): void => {
-  for (let guard = 0; guard < 400 && !run.over; guard++) {
-    if (run.hp <= run.stats.maxHp * 0.4 && run.consumables.potion_heal > 0) run.useItem('potion_heal');
-    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3) run.useItem('artifact');
+  for (let guard = 0; guard < 500 && !run.over; guard++) {
+    if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0) {
+      run.useItem('potion_heal');
+      continue;
+    }
+    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3) {
+      run.useItem('artifact');
+      continue;
+    }
+    if (tryPerk(run)) continue;
     let bestCell = -1;
     let bestScore = -1e9;
     for (let cell = 0; cell < 9; cell++) {
@@ -94,7 +148,7 @@ const bot = (run: Run): void => {
       if (card.kind === 'enemy') {
         if (run.wouldKill(cell)) score = 100 + card.atk * 3;
         else if (a.kind === 'ranged') score = 60 + card.atk * 2;
-        else score = 20 - card.atk * 2.5 - card.hp * 0.25;
+        else score = 20 - card.atk * 2.5 - card.hp * 0.25 + (card.stun > 0 ? 40 : 0);
       } else score = card.kind === 'chest' || card.kind === 'gold' ? 50 : 45;
       if (score > bestScore) {
         bestScore = score;
@@ -102,7 +156,7 @@ const bot = (run: Run): void => {
       }
     }
     if (bestCell < 0) break;
-    run.tap(bestCell);
+    if (!run.tap(bestCell).ok) break;
   }
 };
 
@@ -115,11 +169,10 @@ const fight = (roomIdx: number, seed: number): { win: boolean; run: Run } => {
   return { win: run.over === 'win', run };
 };
 
-const TARGET = Number(process.argv[5] ?? 0.75);
 const SEC_PER_TURN = 3.2;
 const SEC_PER_ROOM = 25;
-console.log(`Линейка: ${lineage}, прогонов: ${N}, фарм x${FARM}, порог победы ${TARGET * 100}%`);
-console.log('room | winrate | hpLeft | grind | minutes | souls | gold | class | HP DMG DEF crit');
+console.log(`Линейка: ${lineage}, прогонов: ${N}, фарм x${FARM}, порог победы ${Math.round(TARGET * 100)}%`);
+console.log('room | winrate | hpLeft | grind | minutes | souls | gold | class     | HP DMG DEF crit');
 let seed = 1;
 let seconds = 0;
 
@@ -141,7 +194,6 @@ const measure = (i: number): { wr: number; hp: number; turns: number } => {
 const play = (i: number, first: boolean): void => {
   const room = ROOMS[i];
   const probe = fight(i, seed++);
-  // Золото из сумки сдаётся только за победу; за поражение золота нет (души остаются).
   if (probe.win) gold += Math.round((probe.run.totals.gold + (first ? room.clearGold : room.clearGold * 0.25)) * FARM);
   souls += Math.round(probe.run.totals.souls * FARM) + (probe.win && first ? Math.round(room.clearSouls * FARM) : 0);
   seconds += probe.run.totals.turns * SEC_PER_TURN + SEC_PER_ROOM;
@@ -152,12 +204,11 @@ const play = (i: number, first: boolean): void => {
 for (let i = 0; i < ROOMS.length; i++) {
   let grind = 0;
   let m = { wr: 0, hp: 0, turns: 0 };
-  for (; grind < 120; grind++) {
+  for (; grind < 150; grind++) {
     spendSouls();
     shop();
     m = measure(i);
     if (m.wr >= TARGET) break;
-    // фарм: самая дальняя из пройденных комнат, где бот выигрывает почти всегда
     let farm = -1;
     for (let j = i - 1; j >= 0; j--) {
       const pr = fight(j, seed++);
@@ -170,7 +221,6 @@ for (let i = 0; i < ROOMS.length; i++) {
     play(farm, false);
   }
   const st = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-  // проходим комнату впервые (до победы)
   for (let a = 0; a < 20; a++) {
     const before = seconds;
     const pr = fight(i, seed++);
@@ -179,6 +229,6 @@ for (let i = 0; i < ROOMS.length; i++) {
     if (pr.win) break;
   }
   console.log(
-    `${ROOMS[i].id.padEnd(4)} | ${(m.wr * 100).toFixed(0).padStart(4)}%   | ${(m.hp * 100).toFixed(0).padStart(4)}% | ${String(grind).padStart(5)} | ${(seconds / 60).toFixed(0).padStart(7)} | ${String(souls).padStart(5)} | ${String(gold).padStart(5)} | ${CLASSES[classId].id.padEnd(9)} | ${st.maxHp} ${st.damage} ${st.defense} ${Math.round(st.crit)}%`,
+    `${ROOMS[i].id.padEnd(5)}| ${(m.wr * 100).toFixed(0).padStart(4)}%   | ${(m.hp * 100).toFixed(0).padStart(4)}% | ${String(grind).padStart(5)} | ${(seconds / 60).toFixed(0).padStart(7)} | ${String(souls).padStart(5)} | ${String(gold).padStart(5)} | ${CLASSES[classId].id.padEnd(9)} | ${st.maxHp} ${st.damage} ${st.defense} ${Math.round(st.crit)}%`,
   );
 }

@@ -1,16 +1,19 @@
 import Phaser from 'phaser';
 import type { AutoUseSave, CardKind, ConsumableId } from '../types';
 import { CONSUMABLE_SLOTS, CONSUMABLES, ITEM_BY_ID } from '../data/items';
-import { ENEMIES, ROOM_BY_ID, ROOMS } from '../data/levels';
+import { ENEMIES } from '../data/enemies';
+import { ROOM_BY_ID, ROOMS } from '../data/levels';
+import { FULL_BAR, PERK_BY_ID, type PerkDef } from '../data/perks';
 import { GAME_W, GAMEPLAY, HEX, TIMING } from '../config';
 import { YSDK } from '../sdk/YandexSDK';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
 import { maybeInterstitial, watchRewarded } from '../systems/Ads';
-import { fmt, t, tr } from '../i18n';
+import { fmt, perkDesc, perkName, t, tr } from '../i18n';
 import type { TKey } from '../i18n';
 import { makeRng, randomSeed } from '../logic/rng';
 import { Run, type Card, type GameEvent, type Loot } from '../logic/run';
+import { STATUS_TINT } from '../ui/Textures';
 import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../logic/autoUse';
 import { CARD_H, CARD_W } from '../ui/Textures';
 import {
@@ -18,7 +21,7 @@ import {
   statChip, statPill, tapHint, tipOnHover, toast, txt, type DialogBtn, type Pill,
 } from '../ui/Kit';
 
-const BOARD = { x0: 42, y0: 230, gap: 18 };
+const BOARD = { x0: 42, y0: 246, gap: 18 };
 
 const cellPos = (cell: number): { x: number; y: number } => ({
   x: BOARD.x0 + (cell % 3) * (CARD_W + BOARD.gap) + CARD_W / 2,
@@ -52,8 +55,22 @@ interface View {
   hp?: Pill;
   atk?: Pill;
   shield?: Pill;
+  statusRow?: Phaser.GameObjects.Container;
   defId: string;
 }
+
+/** Кнопка способности класса в нижнем ряду. */
+interface PerkBtn {
+  perk: PerkDef;
+  btn: PlateButton;
+  costText: Phaser.GameObjects.Text;
+  frame: Phaser.GameObjects.Image;
+}
+
+/** Значки статусов на карточке врага: цвет и короткая подпись. */
+const STATUS_TAG: Record<string, string> = {
+  stun: '\u2736', burn: '\u2668', poison: '\u2620', mark: '\u25C6', link: '\u26AF', vuln: '!', weak: '\u2193',
+};
 
 interface Slot {
   id: ConsumableId;
@@ -76,6 +93,8 @@ export class GameScene extends Phaser.Scene {
   private lungeDone: Promise<void> = Promise.resolve();
   private initialSpawn = false;
   private slots: Slot[] = [];
+  private perkBtns: PerkBtn[] = [];
+  private modLabel?: Phaser.GameObjects.Text;
   private loot!: CurrencyBar;
   private pouch = 0;
   private runSouls = 0;
@@ -102,6 +121,7 @@ export class GameScene extends Phaser.Scene {
     this.roomId = data.roomId ?? Store.frontierRoom;
     this.views = new Map();
     this.slots = [];
+    this.perkBtns = [];
     this.busy = false;
     this.alive = true;
     this.finished = false;
@@ -182,9 +202,17 @@ export class GameScene extends Phaser.Scene {
     soundButton(this, 486, SLOT_Y, 60);
     this.loot = new CurrencyBar(this, GAME_W - 32, 54, { manual: true, goldIcon: 'ico_pouch', compact: true });
 
-    // название комнаты и счётчик врагов
-    txt(this, GAME_W / 2, 166, `${t(`floor.${room.floor}.name` as TKey)} · ${t('game.room', { r: room.id })}`, 30, { font: 'title', color: HEX.gold, strokeThickness: 5 });
-    this.enemyText = txt(this, GAME_W / 2, 198, '', 21, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
+    // название комнаты, рогаликовое свойство захода и счётчик врагов
+    txt(this, GAME_W / 2, 152, `${t(`floor.${room.floor}.name` as TKey)} · ${t('game.room', { r: room.id })}`, 30, { font: 'title', color: HEX.gold, strokeThickness: 5 });
+    const mod = this.run.mod;
+    if (mod.id !== 'plain') {
+      this.modLabel = txt(this, 0, 0, t(`mod.${mod.id}` as TKey), 21, { color: HEX.soul, weight: 900, strokeThickness: 3 });
+      const holder = this.add.container(GAME_W / 2, 184, [this.modLabel]);
+      holder.setSize(this.modLabel.width + 40, 34)
+        .setInteractive(new Phaser.Geom.Rectangle(0, 0, this.modLabel.width + 40, 34), Phaser.Geom.Rectangle.Contains);
+      tipOnHover(this, holder, () => `${t(`mod.${mod.id}` as TKey)}\n${t(`mod.${mod.id}.desc` as TKey)}`);
+    }
+    this.enemyText = txt(this, GAME_W / 2, 212, '', 20, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
     this.enemyBar = this.add.graphics();
 
     // полоса ресурса класса
@@ -197,9 +225,10 @@ export class GameScene extends Phaser.Scene {
     this.chipsRow = this.add.container(0, 0);
     this.gearRow = this.add.container(0, 0);
 
-    // «сбежать» — левый нижний угол
+    // «сбежать» — левый нижний угол, правее — ряд кнопок способностей класса
     new PlateButton(this, 66, 1206, { w: 76, h: 76, icon: 'svg_arrow', iconSize: 36, radius: 24, onClick: () => this.askEscape() });
     this.input.keyboard?.on('keydown-ESC', () => this.askEscape());
+    this.buildPerkRow();
 
     this.refreshHud();
   }
@@ -240,7 +269,91 @@ export class GameScene extends Phaser.Scene {
       // если ситуация уже подходит — сработает сразу, не дожидаясь следующего хода
       if (on && !this.busy && !this.finished && !this.run.over) this.tryAutoUse();
     });
-    tipOnHover(this, c, () => `${t(AUTO_TIP[id], { n: GAMEPLAY.healPotionHp })}\n${t(Store.autoUse[key] ? 'auto.state.on' : 'auto.state.off')}`);
+    tipOnHover(this, c, () => `${t(AUTO_TIP[id])}\n${t(Store.autoUse[key] ? 'auto.state.on' : 'auto.state.off')}`);
+  }
+
+  /**
+   * Ряд кнопок способностей класса справа от «Сбежать». Нажатие «заряжает» способность:
+   * следующее касание поля применяет её к цели. Способности без цели срабатывают сразу.
+   */
+  private buildPerkRow(): void {
+    const list = this.run.stats.abilities;
+    if (!list.length) return;
+    const w = 92;
+    const gap = 16;
+    const total = list.length * w + (list.length - 1) * gap;
+    const x0 = 130 + (560 - total) / 2 + w / 2;
+    list.forEach((perk, i) => {
+      const x = x0 + i * (w + gap);
+      const btn = new PlateButton(this, x, 1206, {
+        w, h: 86, icon: perk.icon, iconSize: 54, radius: 24, style: 'raised',
+        onClick: () => this.onPerkTap(perk),
+      });
+      const frame = this.add.image(0, 0, outlineTexture(this, w, 86, 24, '#f0c75e', 4)).setVisible(false);
+      btn.pulseC.add(frame);
+      const costText = txt(this, 0, 30, '', 17, { weight: 900, strokeThickness: 3, color: HEX.gold });
+      btn.pulseC.add(costText);
+      tipOnHover(this, btn, () => `${perkName(perk)}\n${perkDesc(perk)}`);
+      this.perkBtns.push({ perk, btn, costText, frame });
+    });
+    this.refreshPerkRow();
+  }
+
+  private perkCostLabel(perk: PerkDef): string {
+    if (perk.goldCost !== undefined) return `${Math.round(perk.goldCost * 100)}%`;
+    const cost = this.run.perkCostOf(perk);
+    return cost === 0 ? t('common.free') : perk.cost === FULL_BAR ? '⚡' : String(cost);
+  }
+
+  private refreshPerkRow(): void {
+    for (const pb of this.perkBtns) {
+      const ready = this.run.perkReady(pb.perk);
+      const armed = this.run.armed?.id === pb.perk.id;
+      pb.btn.setStyle(armed ? 'gold' : 'raised');
+      pb.btn.setLocked(!ready.ok);
+      pb.frame.setVisible(armed);
+      pb.costText.setText(this.perkCostLabel(pb.perk));
+      pb.costText.setColor(armed ? HEX.dark : ready.ok ? HEX.gold : HEX.textMute);
+      pb.btn.pulseC.setAlpha(ready.ok || armed ? 1 : 0.55);
+    }
+  }
+
+  private onPerkTap(perk: PerkDef): void {
+    if (this.busy || this.finished || this.run.over) return;
+    const res = this.run.usePerk(perk.id);
+    if (!res.ok) {
+      AUDIO.play('error');
+      const key: TKey = res.reason === 'once' ? 'game.once_used' : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
+      this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey) }), HEX.bad, 22);
+      return;
+    }
+    Store.data.tutorial.perk = true;
+    this.clearHand();
+    // «заряжено»: ход не потрачен, ждём выбора цели
+    if (this.run.armed || res.events.every((e) => e.type === 'armed')) {
+      AUDIO.play('click');
+      this.refreshPerkRow();
+      this.highlightTargets();
+      if (this.run.armed) {
+        this.popupAt(GAME_W / 2, 980, t(this.run.armed.target === 'two' ? 'game.pick_two' : 'game.pick_target'), HEX.gold, 24);
+      }
+      return;
+    }
+    this.busy = true;
+    void this.playEvents(res.events).then(() => {
+      this.busy = false;
+      this.afterTurn();
+    });
+  }
+
+  /** Подсветка карт, по которым можно применить заряженную способность. */
+  private highlightTargets(): void {
+    const armed = this.run.armed;
+    for (const v of this.views.values()) {
+      if (v.kind === 'player') continue;
+      const ok = !!armed && this.run.perkTargetOk(armed, v.cell);
+      v.c.setAlpha(armed && !ok ? 0.45 : 1);
+    }
   }
 
   private buildBoardBackdrop(): void {
@@ -310,8 +423,8 @@ export class GameScene extends Phaser.Scene {
     const left = r.enemiesLeft;
     this.enemyText.setText(t('game.enemies', { n: left }));
     this.enemyBar.clear();
-    this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 216, 260, 7, 3.5);
-    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 216, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
+    this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 228, 260, 7, 3.5);
+    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 228, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
     // слоты расходников
     this.slots.forEach((sl) => {
       const n = r.consumables[sl.id];
@@ -376,10 +489,13 @@ export class GameScene extends Phaser.Scene {
     c.add([frame, shadow, sprite, flash]);
     const view: View = { c, uid: card.uid, kind: card.kind, cell, frame, sprite, flash, defId: card.defId };
     if (card.kind === 'enemy') {
+      view.statusRow = this.add.container(0, -92);
+      c.add(view.statusRow);
       c.add(txt(this, 0, LABEL_Y, label, 21, { color: labelColor, maxWidth: CARD_W - 32, strokeThickness: 3 }));
       view.atk = statPill(this, -47, PILL_Y, { w: 84, stat: 'damage', text: String(card.atk) });
       view.hp = statPill(this, 47, PILL_Y, { w: 84, stat: 'health', text: String(card.hp) });
       c.add([view.atk.c, view.hp.c]);
+      this.updateStatuses(view, card);
     } else if (card.kind === 'gold') {
       const amount = txt(this, 0, 74, label, 34, { color: labelColor, weight: 900 });
       c.add(amount);
@@ -407,6 +523,56 @@ export class GameScene extends Phaser.Scene {
     view.shield.c.setVisible(false);
     c.add([view.atk.c, view.hp.c, view.shield.c]);
     return view;
+  }
+
+  /** Значки состояний над карточкой врага: оглушение, горение, яд, клеймо, связь, приговор. */
+  private updateStatuses(view: View, card: Card): void {
+    const row = view.statusRow;
+    if (!row) return;
+    row.removeAll(true);
+    const list: Array<[string, number]> = [];
+    if (card.stun > 0) list.push(['stun', card.stun]);
+    if (card.burn > 0) list.push(['burn', card.burn]);
+    if (card.poison > 0) list.push(['poison', card.poison]);
+    if (card.mark > 0) list.push(['mark', card.mark]);
+    if (card.link) list.push(['link', 0]);
+    if (card.vuln > 0) list.push(['vuln', 0]);
+    if (!list.length) return;
+    const w = 38;
+    const gap = 6;
+    const total = list.length * w + (list.length - 1) * gap;
+    list.forEach(([kind, turns], i) => {
+      const x = -total / 2 + w / 2 + i * (w + gap);
+      const chip = this.add.container(x, 0);
+      chip.add(this.add.image(0, 0, plateTexture(this, w, 30, 1, 'dark', 15)));
+      chip.add(this.add.rectangle(0, 13, w - 10, 3, STATUS_TINT[kind] ?? 0xffffff));
+      const label = turns > 1 ? `${STATUS_TAG[kind]}${turns}` : STATUS_TAG[kind];
+      chip.add(txt(this, 0, -2, label, 17, { weight: 900, strokeThickness: 3, color: `#${(STATUS_TINT[kind] ?? 0xffffff).toString(16).padStart(6, '0')}` }));
+      row.add(chip);
+    });
+  }
+
+  private refreshStatuses(): void {
+    for (const v of this.views.values()) {
+      if (v.kind !== 'enemy') continue;
+      const card = this.run.cards[v.cell];
+      if (card) this.updateStatuses(v, card);
+    }
+  }
+
+  /** Полная перерисовка поля — нужна после «Отката времени». */
+  private rebuildBoard(): void {
+    for (const v of this.views.values()) v.c.destroy();
+    this.views.clear();
+    for (let i = 0; i < 9; i++) {
+      const card = this.run.cards[i];
+      if (!card) continue;
+      const v = this.buildCard(card, i);
+      this.views.set(card.uid, v);
+    }
+    const p = cellPos(this.run.playerCell);
+    this.playerView.c.setPosition(p.x, p.y);
+    this.playerView.cell = this.run.playerCell;
   }
 
   private viewAt(cell: number): View | undefined {
@@ -450,8 +616,15 @@ export class GameScene extends Phaser.Scene {
 
   private onTap(cell: number): void {
     if (this.busy || this.finished || this.run.over) return;
+    const wasArmed = this.run.armed;
     const res = this.run.tap(cell);
     if (!res.ok) {
+      if (wasArmed) {
+        AUDIO.play('error');
+        const v0 = this.viewAt(cell);
+        if (v0) this.tweens.add({ targets: v0.c, x: v0.c.x + 8, duration: 50, yoyo: true, repeat: 2 });
+        return;
+      }
       const v = this.viewAt(cell);
       if (res.reason === 'resource') {
         AUDIO.play('error');
@@ -464,6 +637,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     this.clearHand();
+    // первое из двух касаний «Перестановки»: ход ещё не сделан
+    if (this.run.armed) {
+      AUDIO.play('click');
+      this.highlightTargets();
+      return;
+    }
     this.busy = true;
     void this.playEvents(res.events).then(() => {
       this.busy = false;
@@ -585,9 +764,19 @@ export class GameScene extends Phaser.Scene {
           AUDIO.play('dodge');
           this.popupAt(p.x, p.y - 40, t('game.dodge'), '#7fe8d0', 32);
           void this.tw({ targets: this.playerView.c, x: this.playerView.c.x + 26, duration: 90, yoyo: true });
-        } else {
+        } else if (ev.kind === 'parry') {
           AUDIO.play('parry');
           this.popupAt(p.x, p.y - 40, t('game.parry'), '#9ec5ff', 32);
+        } else if (ev.kind === 'block') {
+          AUDIO.play('parry');
+          this.popupAt(p.x, p.y - 40, t('game.block'), '#7fc4ff', 30);
+        } else if (ev.kind === 'evade') {
+          AUDIO.play('dodge');
+          this.popupAt(p.x, p.y - 40, t('game.evade'), HEX.textDim, 28);
+        } else if (ev.kind === 'stun') {
+          this.popupAt(p.x, p.y - 40, t('game.stunned'), '#ffd86b', 26);
+        } else {
+          this.popupAt(p.x, p.y - 40, t('game.smoke'), HEX.textDim, 26);
         }
         break;
       }
@@ -683,9 +872,54 @@ export class GameScene extends Phaser.Scene {
         this.playerView.atk?.setText(String(this.run.stats.damage));
         break;
       }
-      case 'burst': {
+      case 'perk': {
         AUDIO.play('burst');
-        this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t('game.burst'), HEX.gold, 26);
+        const def = PERK_BY_ID[ev.id];
+        this.popupAt(GAME_W / 2, 1120, perkName(def), HEX.gold, 30);
+        break;
+      }
+      case 'armed': {
+        this.refreshPerkRow();
+        this.highlightTargets();
+        break;
+      }
+      case 'spend': {
+        this.pouch = Math.max(0, this.pouch - ev.amount);
+        this.loot.setValues(this.pouch, this.runSouls);
+        this.popupAt(this.playerView.c.x, this.playerView.c.y - 70, `-${ev.amount}`, HEX.bad, 28);
+        AUDIO.play('coin');
+        break;
+      }
+      case 'status': {
+        const v = this.views.get(ev.uid);
+        const card = this.run.cards[ev.cell];
+        if (v && card) this.updateStatuses(v, card);
+        break;
+      }
+      case 'fx': {
+        await this.playFx(ev.cells, ev.style);
+        break;
+      }
+      case 'swap': {
+        const va = this.viewAt(ev.a);
+        const vb = this.viewAt(ev.b);
+        const pa = cellPos(ev.a);
+        const pb = cellPos(ev.b);
+        AUDIO.play('move');
+        if (va) va.cell = ev.b;
+        if (vb) vb.cell = ev.a;
+        await Promise.all([
+          va ? this.tw({ targets: va.c, x: pb.x, y: pb.y, duration: TIMING.cardMove, ease: 'Quad.easeInOut' }) : Promise.resolve(),
+          vb ? this.tw({ targets: vb.c, x: pa.x, y: pa.y, duration: TIMING.cardMove, ease: 'Quad.easeInOut' }) : Promise.resolve(),
+        ]);
+        break;
+      }
+      case 'rewind': {
+        AUDIO.play('burst');
+        this.cameras.main.flash(260, 150, 120, 255);
+        this.rebuildBoard();
+        this.popupAt(GAME_W / 2, 1120, t('game.rewind'), HEX.soul, 30);
+        await this.sleep(200);
         break;
       }
       case 'artifact': {
@@ -698,6 +932,33 @@ export class GameScene extends Phaser.Scene {
       case 'boost': this.refreshHud(); break;
       case 'win': case 'lose': break;
     }
+  }
+
+  /** Визуальные эффекты способностей: луч, молния, стрелы, огонь, дым, свет, тьма, удар по земле. */
+  private async playFx(cells: number[], style: string): Promise<void> {
+    const tint: Record<string, number> = {
+      bolt: 0x9ecbff, beam: 0xffe38a, arrows: 0xd8f0a0, fire: 0xff7a2a, shock: 0x7fc4ff,
+      smoke: 0x8a8fa8, holy: 0xfff0b0, dark: 0xb287ff, quake: 0xd2a15a, blades: 0xffffff,
+    };
+    const col = tint[style] ?? 0xffffff;
+    AUDIO.play('burst');
+    if (style === 'quake') this.cameras.main.shake(260, 0.008);
+    if (style === 'holy' || style === 'fire') this.cameras.main.flash(180, (col >> 16) & 255, (col >> 8) & 255, col & 255);
+    for (const cell of cells.slice(0, 9)) {
+      const p = cellPos(cell);
+      if (style === 'beam') {
+        const beam = this.add.image(p.x, p.y, 'px').setTint(col).setDepth(78).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(64, 0);
+        this.tweens.add({ targets: beam, displayHeight: 1280, alpha: { from: 0.9, to: 0 }, duration: 380, onComplete: () => beam.destroy() });
+      } else if (style === 'arrows') {
+        const arrow = this.add.image(p.x, p.y - 260, 'spark').setTint(col).setDepth(78).setScale(1.1);
+        this.tweens.add({ targets: arrow, y: p.y, alpha: 0, duration: 260, onComplete: () => arrow.destroy() });
+      } else if (style === 'smoke') {
+        this.smoke(p.x, p.y);
+      } else {
+        this.burst(p.x, p.y, col, style === 'blades' ? 8 : 14);
+      }
+    }
+    await this.sleep(cells.length ? 220 : 0);
   }
 
   private setPlayerHp(hp: number): void {
@@ -851,6 +1112,9 @@ export class GameScene extends Phaser.Scene {
   private afterTurn(skipAuto = false): void {
     if (!this.alive) return;
     this.refreshHud();
+    this.refreshStatuses();
+    this.refreshPerkRow();
+    this.highlightTargets();
     this.setPlayerHp(this.run.hp);
     this.playerView.atk?.setText(String(this.run.stats.damage));
     if (this.run.over === 'win') {
@@ -858,6 +1122,17 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (this.run.over === 'lose') {
+      // талант «Возвращение» / «Последний шанс»: герой поднимается сам, без рекламы
+      const up = this.run.autoRevive();
+      if (up) {
+        this.busy = true;
+        this.popupAt(this.playerView.c.x, this.playerView.c.y - 110, t('game.self_revive'), HEX.good, 28);
+        void this.playEvents(up).then(() => {
+          this.busy = false;
+          this.afterTurn();
+        });
+        return;
+      }
       void this.finish('lose');
       return;
     }
@@ -890,7 +1165,7 @@ export class GameScene extends Phaser.Scene {
         this.hintStage = 3;
       }
     } else if (this.hintStage === 2 && this.run.totals.turns > 3) {
-      this.showHint(t('tut.finish'));
+      this.showHint(this.perkBtns.length && !Store.data.tutorial.perk ? t('tut.perk') : t('tut.finish'));
       this.hintStage = 3;
     }
   }
@@ -898,7 +1173,7 @@ export class GameScene extends Phaser.Scene {
   private showHint(text: string, cell?: number): void {
     this.clearHand();
     this.hintText?.destroy();
-    this.hintText = txt(this, 124, 1206, text, 24, { color: HEX.gold, wrap: 540, origin: [0, 0.5], align: 'left' }).setDepth(50);
+    this.hintText = txt(this, GAME_W / 2, 963, text, 21, { color: HEX.gold, wrap: 640, align: 'center' }).setDepth(50);
     if (cell !== undefined) {
       const p = cellPos(cell);
       this.hand = tapHint(this, p.x, p.y + 10);
