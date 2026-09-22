@@ -243,7 +243,7 @@ export class ClassSelectScene extends Phaser.Scene {
     this.info.add(this.add.image(0, 0, plateTexture(this, w, h, 1, 'panel', 34)));
     this.nameText = txt(this, 0, -212, '', 46, { font: 'title', color: HEX.gold, maxWidth: w - 60, strokeThickness: 0 });
     this.info.add(this.nameText);
-    // у каждой линейки своя башня, поэтому её подъём видно прямо в выборе героя
+    // у каждого героя свой рекорд забега и свой кошелёк — рекорд видно прямо в выборе героя
     this.climbText = txt(this, 0, -174, '', 21, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
     this.info.add(this.climbText);
     this.info.add(this.add.image(0, -172, 'px').setTint(0xffffff).setAlpha(0.1).setDisplaySize(w - 80, 2));
@@ -268,7 +268,7 @@ export class ClassSelectScene extends Phaser.Scene {
     const it = this.currentItem();
     const cls = CLASSES[it.classId];
     this.nameText.setText(t(`class.${it.classId}.name` as TKey));
-    const climbed = Store.clearedOf(cls.lineage).length;
+    const climbed = Store.heroOf(cls.lineage).best;
     this.climbText.setText(t('select.climb', { n: climbed, max: ROOMS.length }));
     this.climbText.setColor(climbed >= ROOMS.length ? HEX.gold : HEX.textDim);
 
@@ -316,7 +316,7 @@ export class ClassSelectScene extends Phaser.Scene {
       Store.unlockLineage(lineage);
       Store.setActiveClass(it.classId);
       AUDIO.play('reward');
-      fadeToScene(this, 'Game', { roomId: '1-1' });
+      fadeToScene(this, 'Game', {});
       return;
     }
     if (!it.opened) {

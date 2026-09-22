@@ -252,7 +252,10 @@ export class ShopScene extends Phaser.Scene {
     const info = txt(this, -114, -47, desc, 17, { origin: [0, 0], wrap: 336, color: HEX.textDim, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
     fitHeight(info, 42);
     row.add(info);
-    row.add(txt(this, -114, 13, t('shop.owned', { n: Store.data.consumables[id] }), 18, { origin: [0, 0.5], color: HEX.good, weight: 800, strokeThickness: 0 }));
+    const owned = Store.hero.consumables[id];
+    const full = def.max !== undefined && owned >= def.max;
+    const ownedText = def.max !== undefined ? t('shop.owned_max', { n: owned, max: def.max }) : t('shop.owned', { n: owned });
+    row.add(txt(this, -114, 13, ownedText, 18, { origin: [0, 0.5], color: full ? HEX.gold : HEX.good, weight: 800, strokeThickness: 0 }));
     if (def.sold) {
       const btn = new PlateButton(this, 0, 58, {
         w: ROW_W - 32, h: 54, label: fmt(def.price), fontSize: 24, icon: 'ico_gold', iconSize: 30, style: 'gold', radius: 18, shadow: false, sound: null,
@@ -260,6 +263,8 @@ export class ShopScene extends Phaser.Scene {
           if (this.list.contains(this.input.activePointer)) this.buyConsumable(id);
         },
       });
+      // полный запас: кнопка приглушена и по нажатию объясняет предел
+      if (full) btn.setLocked(true, () => this.buyConsumable(id));
       row.add(btn);
     }
     return row;
@@ -281,12 +286,14 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private buyConsumable(id: ConsumableId): void {
-    if (Store.buyConsumable(id)) {
+    const r = Store.buyConsumable(id);
+    if (r === 'bought') {
       AUDIO.play('buy');
       this.rebuild();
     } else {
       AUDIO.play('error');
-      toast(this, t('shop.no_gold'), 'ico_gold');
+      if (r === 'max') toast(this, t('shop.stack_full', { n: CONSUMABLES[id].max ?? 0 }), CONSUMABLES[id].icon);
+      else toast(this, t('shop.no_gold'), 'ico_gold');
     }
   }
 

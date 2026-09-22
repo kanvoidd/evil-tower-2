@@ -18,13 +18,13 @@ export type Stats = Record<StatKey, number>;
 /** Три пути дерева талантов: У — урон и способности, З — здоровье и запас, Щ — защита и ослабление врагов. */
 export type TalentPath = 'attack' | 'vitality' | 'guard';
 
-export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact' | 'exit';
+export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact' | 'exit' | 'ghost';
 
 /** Кем является враг: от этого зависят «Святая кара», «Луч правосудия» и прочие перки против нежити. */
 export type EnemyTag = 'undead' | 'demon' | 'beast' | 'construct' | 'humanoid';
 
 /** Состояния на карточке врага. */
-export type StatusKind = 'stun' | 'burn' | 'mark' | 'link' | 'vuln' | 'poison' | 'weak';
+export type StatusKind = 'stun' | 'burn' | 'mark' | 'link' | 'vuln' | 'poison' | 'weak' | 'corpse' | 'haunt';
 
 export type ItemSlot = 'weapon' | 'armor';
 
@@ -56,6 +56,15 @@ export interface AutoSave {
   skill: Partial<Record<LineageId, AutoSkillSave>>;
 }
 
+export interface HeroSave {
+  gold: number;
+  souls: number;
+  consumables: Record<ConsumableId, number>;
+  armor: EquipmentSave | null;
+  /** Рекорд: сколько комнат пройдено за один забег. */
+  best: number;
+}
+
 export interface SaveData {
   v: number;
   savedAt: number;
@@ -63,17 +72,16 @@ export interface SaveData {
   lang: Lang;
   volume: number;
   muted: boolean;
-  gold: number;
-  souls: number;
   /** null — игрок ещё не выбирал класс (первый запуск). */
   activeClass: ClassId | null;
   /** Открытые базовые линейки (для каждой хранится и то, что куплено в дереве). */
   lineages: Partial<Record<LineageId, LineageSave>>;
   weapon: Partial<Record<LineageId, EquipmentSave | null>>;
-  armor: EquipmentSave | null;
-  consumables: Record<ConsumableId, number>;
-  /** Пройденные комнаты для каждой линейки отдельно: id вида "2-3". У каждого героя своя башня. */
-  cleared: Partial<Record<LineageId, string[]>>;
+  /**
+   * Всё, что у героя своё: кошелёк, расходники, доспех и рекорд забега. Новый класс
+   * начинает с нулями — как будто играешь сначала.
+   */
+  heroes: Partial<Record<LineageId, HeroSave>>;
   stats: {
     kills: number;
     goldEarned: number;

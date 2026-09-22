@@ -236,16 +236,16 @@ export const PERKS: PerkDef[] = [
   }),
 
   P('magister', 'start', {
-    ability: 'swap', vfx: 'swap', cost: 2, target: 'two',
+    ability: 'swap', vfx: 'swap', cost: 2, target: 'two', cooldown: 5,
     ru: 'Перестановка', en: 'Rearrange',
-    dru: 'Поменять местами две любые карты (два касания): подтянуть зелье поближе или убрать голема от героя.',
-    den: 'Swap any two cards (two taps): pull a potion closer or shove a golem away.',
+    dru: 'Поменять местами две любые карты (два касания): подтянуть зелье поближе или убрать голема от героя. Перезарядка 5 ходов.',
+    den: 'Swap any two cards (two taps): pull a potion closer or shove a golem away. 5-turn cooldown.',
   }),
   P('magister', 'p2', {
-    ability: 'deck_draw', vfx: 'arcane', cost: 3, target: 'any_card',
+    ability: 'deck_draw', vfx: 'arcane', cost: 3, target: 'any_card', cooldown: 4,
     ru: 'Жребий колоды', en: 'Draw of Fate',
-    dru: 'Отправить выбранную карту (кроме босса) вниз колоды и вытянуть новую на её место.',
-    den: 'Send the chosen card (bosses excepted) to the bottom of the deck and draw a new one in its place.',
+    dru: 'Отправить выбранную карту (кроме босса) вниз колоды и вытянуть новую на её место. Перезарядка 4 хода.',
+    den: 'Send the chosen card (bosses excepted) to the bottom of the deck and draw a new one in its place. 4-turn cooldown.',
   }),
   P('magister', 'p3', {
     ability: 'rewind', vfx: 'rewind', cost: 6, target: 'self', once: true,
@@ -255,22 +255,22 @@ export const PERKS: PerkDef[] = [
   }),
 
   P('necromancer', 'start', {
-    ability: 'corpse_blast', vfx: 'corpse', cost: 3, target: 'self',
+    ability: 'corpse_blast', vfx: 'corpse', cost: 3, target: 'enemy', cooldown: 1,
     ru: 'Взрыв трупа', en: 'Corpse Blast',
-    dru: 'Следующий убитый враг взрывается: соседи получают урон, равный половине его максимального здоровья. Взрывы идут цепью.',
-    den: 'The next enemy you kill bursts: neighbours take half of its maximum health as damage, and the blasts chain.',
+    dru: 'Пометьте врага: когда он умрёт, его труп взорвётся — соседи получат половину его максимального здоровья. Помеченные соседи рвутся цепью. Перезарядка 1 ход.',
+    den: 'Mark an enemy: when it dies, its corpse bursts — neighbours take half its maximum health. Marked neighbours chain the blast. 1-turn cooldown.',
   }),
   P('necromancer', 'p2', {
-    ability: 'ghosts', vfx: 'ghost', passive: true,
+    ability: 'ghosts', vfx: 'ghost', cost: 3, target: 'enemy', cooldown: 4,
     ru: 'Призрачные слуги', en: 'Spectral Servants',
-    dru: 'Каждое убийство поднимает призрака. В конце хода он бьёт случайного врага на 50% вашего урона, до трёх призраков.',
-    den: 'Every kill raises a ghost. At the end of the turn it strikes a random enemy for 50% of your damage — up to three ghosts.',
+    dru: 'Заразите врага: когда он умрёт, на его месте встанет призрак. Три хода призрак бьёт соседних врагов (вверх, вниз, влево, вправо) на 60% вашего урона. Не больше двух призраков на поле. Перезарядка 4 хода.',
+    den: 'Infect an enemy: when it dies, a ghost rises in its place. For three turns the ghost strikes adjacent enemies (up, down, left, right) for 60% of your damage. At most two ghosts at once. 4-turn cooldown.',
   }),
   P('necromancer', 'p3', {
-    ability: 'voodoo', vfx: 'voodoo', cost: 5, target: 'enemy',
+    ability: 'voodoo', vfx: 'voodoo', cost: 5, target: 'enemy', cooldown: 2,
     ru: 'Кукла вуду', en: 'Voodoo Doll',
-    dru: 'Связывает врага: половина урона, который он получает, достаётся всем остальным врагам на поле.',
-    den: 'Binds an enemy: half of the damage it takes is dealt to every other enemy on the board.',
+    dru: 'Связывает врага: половина урона, который он получает, достаётся всем остальным врагам на поле. Перезарядка 2 хода.',
+    den: 'Binds an enemy: half of the damage it takes is dealt to every other enemy on the board. 2-turn cooldown.',
   }),
   P('necromancer', 'legend', {
     ability: 'dead_harvest', vfx: 'harvest', cost: FULL_BAR, target: 'self', once: true,
@@ -280,22 +280,22 @@ export const PERKS: PerkDef[] = [
   }),
 
   P('pyromancer', 'start', {
-    ability: 'ignite', vfx: 'ignite', cost: 2, target: 'enemy',
+    ability: 'ignite', vfx: 'ignite', cost: 2, target: 'enemy', cooldown: 1,
     ru: 'Поджог', en: 'Ignite',
-    dru: 'Поджигает любого врага. Умерший от огня передаёт пламя соседям.',
-    den: 'Sets any enemy ablaze. One that dies burning passes the flame to its neighbours.',
+    dru: 'Поджигает любого врага на 3 хода. Умерший от огня передаёт пламя соседям. Перезарядка 1 ход.',
+    den: 'Sets any enemy ablaze for 3 turns. One that dies burning passes the flame to its neighbours. 1-turn cooldown.',
   }),
   P('pyromancer', 'p2', {
-    ability: 'fireball', vfx: 'fireball', cost: 4, target: 'enemy',
+    ability: 'fireball', vfx: 'fireball', cost: 0, target: 'enemy', cooldown: 3,
     ru: 'Огненный шар', en: 'Fireball',
-    dru: 'Дальний бросок: цель получает 150% урона, соседи — 70%, все загораются.',
-    den: 'A long throw: the target takes 150% damage, neighbours 70%, and everyone catches fire.',
+    dru: 'Дальний бросок: цель получает 120% урона, соседи — 70%, все загораются. Маны не стоит — его сдерживает перезарядка в 3 хода.',
+    den: 'A long throw: the target takes 120% damage, neighbours 70%, and everyone catches fire. Costs no mana — a 3-turn cooldown keeps it in check.',
   }),
   P('pyromancer', 'p3', {
-    ability: 'detonate', vfx: 'detonate', cost: 5, target: 'self',
+    ability: 'detonate', vfx: 'detonate', cost: 5, target: 'self', cooldown: 4,
     ru: 'Детонация', en: 'Detonation',
-    dru: 'Все горящие враги взрываются: 200% урона себе и 100% соседям. Взрывы идут цепью по всему полю.',
-    den: 'Every burning enemy explodes for 200% on itself and 100% on its neighbours — the blasts chain across the board.',
+    dru: 'Все горящие враги взрываются: 200% урона себе и 100% соседям. Взрывы идут цепью по всему полю. Перезарядка 4 хода.',
+    den: 'Every burning enemy explodes for 200% on itself and 100% on its neighbours — the blasts chain across the board. 4-turn cooldown.',
   }),
   P('pyromancer', 'legend', {
     ability: 'inferno', vfx: 'inferno', cost: FULL_BAR, target: 'self', once: true,

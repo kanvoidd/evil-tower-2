@@ -26,6 +26,14 @@ export const FLOOR_ATK = 1.70;
 export const FLOOR_GOLD = 1.48;
 export const FLOOR_SOULS = 1.7;
 
+/**
+ * Доля награды в забеге. Каждый забег заново проходит нижние этажи и заново получает за них
+ * добычу и бонус комнаты, поэтому полная ставка «одна комната — одна награда» раскручивала
+ * героя за шесть-семь забегов. С этой долей прокачка идёт ступенями: забег приносит на
+ * несколько комнат дальше, а не сразу на этаж.
+ */
+export const RUN_REWARD = 0.7;
+
 /** Сила обычного врага первого этажа — точка отсчёта для всей кривой. */
 const BASE = { hp: 7, atk: 3, gold: 3, souls: 4 };
 
@@ -97,8 +105,8 @@ const E = (
     id, floor, role, tag,
     hp: round(BASE.hp * r.hp * pw(FLOOR_HP, floor) * peak(floor).hp),
     atk: round(BASE.atk * r.atk * pw(FLOOR_ATK, floor) * peak(floor).atk),
-    gold: round(BASE.gold * r.val * pw(FLOOR_GOLD, floor)),
-    souls: round(BASE.souls * r.val * pw(FLOOR_SOULS, floor)),
+    gold: round(BASE.gold * r.val * pw(FLOOR_GOLD, floor) * RUN_REWARD),
+    souls: round(BASE.souls * r.val * pw(FLOOR_SOULS, floor) * RUN_REWARD),
     boss: role === 'boss',
     icon: `enemy_${id}`,
     name: { ru, en },

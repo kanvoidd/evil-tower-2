@@ -43,6 +43,9 @@ export const STATUS_TINT: Record<string, number> = {
   link: 0x7e57d8,
   vuln: 0xff4d6d,
   weak: 0x7fc4ff,
+  corpse: 0x8fd14f,
+  haunt: 0xa9e8ff,
+  ghost: 0xa9e8ff,
 };
 
 export const pathHex = (path: string): number => parseInt((PATH_COLOR[path] ?? '#888888').slice(1), 16);
@@ -717,6 +720,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
   frame('card_hero', '#f0c75e', 'rgba(240,199,94,0.20)', true);
   frame('card_kill', '#5ee39a', 'rgba(94,227,154,0.24)', true);
   frame('card_exit', '#f0c75e', 'rgba(240,199,94,0.30)', true);
+  frame('card_ghost', '#a9e8ff', 'rgba(169,232,255,0.26)', true);
 
   // --- фон: глубокий градиент, мягкий свет сверху, едва заметная кладка и виньетка
   canvasTex(scene, 'bg_stone', 720, 1280, (ctx) => {

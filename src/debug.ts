@@ -47,13 +47,13 @@ export const applyDevParams = (): void => {
   if (souls) Store.addSouls(souls, false);
   const clear = Number(q.get('clear') ?? -1);
   if (clear >= 0) {
-    Store.data.cleared[Store.activeLineage] = ROOMS.slice(0, clear).map((r) => r.id);
+    Store.hero.best = Math.min(clear, ROOMS.length);
   }
   if (q.get('tut') === '1') Store.data.tutorial = { fight: true, hub: true, skill: true, shop: true, perk: true };
   const wt = Number(q.get('weapon') ?? 0);
   const at = Number(q.get('armor') ?? 0);
   if (wt > 0) Store.data.weapon[Store.activeLineage] = { id: `w_${Store.activeLineage}_${wt}`, durability: 40 };
-  if (at > 0) Store.data.armor = { id: `a_${at}`, durability: 40 };
+  if (at > 0) Store.hero.armor = { id: `a_${at}`, durability: 40 };
   const auto = Number(q.get('autoskill') ?? 0);
   if (auto > 0) autoSkill(auto);
   Store.flush();

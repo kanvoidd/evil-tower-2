@@ -1,6 +1,8 @@
 /**
- * Симулятор баланса: прогоняет «бота» через все комнаты башни с типичной прокачкой.
- * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [прогонов на комнату] [коэффициент фарма] [порог победы]
+ * Симулятор баланса: бот раз за разом идёт в забег с 1-1, между забегами тратит души и золото
+ * как средний игрок. Печатает забеги-рекорды, время и докуда герой доходит в среднем.
+ * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
+ * RUNS=<n> — сколько забегов максимум.
  */
 import { CLASSES } from '../src/data/classes';
 import { ITEMS, type ItemDef } from '../src/data/items';
@@ -10,12 +12,11 @@ import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/types
 import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/logic/skillTree';
 import { buildPlayerStats } from '../src/logic/stats';
 import { makeRng } from '../src/logic/rng';
-import { Run } from '../src/logic/run';
+import { Run, type RunCarryStats } from '../src/logic/run';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
-const N = Number(process.argv[3] ?? 120);
+const N = Number(process.argv[3] ?? 20);
 const FARM = Number(process.argv[4] ?? 1);
-const TARGET = Number(process.argv[5] ?? 0.7);
 const tree = TREES[lineage];
 const ls = newLineageSave(tree);
 let gold = 0;
@@ -234,78 +235,89 @@ const bot = (run: Run): void => {
   }
 };
 
-const fight = (roomIdx: number, seed: number): { win: boolean; run: Run } => {
-  const room = ROOMS[roomIdx];
-  const stats = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-  const run = new Run({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed) });
-  run.start();
-  bot(run);
-  return { win: run.over === 'win', run };
-};
+/**
+ * Забег как в игре: с 1-1 комната за комнатой, здоровье и ресурс переходят дальше, пройденная
+ * комната сразу платит сумку, души и бонус; гибель отнимает только добычу текущей комнаты.
+ */
+/** Сколько прочности съел последний забег (оружие, доспех). */
+let wear = { w: 0, a: 0 };
 
-const SEC_PER_TURN = 3.2;
-const SEC_PER_ROOM = 25;
-console.log(`Линейка: ${lineage}, прогонов: ${N}, фарм x${FARM}, порог победы ${Math.round(TARGET * 100)}%`);
-console.log('room | winrate | hpLeft | grind | minutes | souls | gold | class     | HP DMG DEF crit');
-let seed = 1;
-let seconds = 0;
-
-const measure = (i: number): { wr: number; hp: number; turns: number } => {
-  let wins = 0;
-  let hpLeft = 0;
+const runTower = (): { rooms: number; turns: number; gold: number; souls: number } => {
+  let carry: RunCarryStats | undefined;
+  let rooms = 0;
   let turns = 0;
-  for (let k = 0; k < N; k++) {
-    const { win, run } = fight(i, seed++);
-    if (win) {
-      wins++;
-      hpLeft += run.hp / run.stats.maxHp;
-    }
+  let got = { gold: 0, souls: 0 };
+  wear = { w: 0, a: 0 };
+  for (let i = 0; i < ROOMS.length; i++) {
+    const room = ROOMS[i];
+    const stats = buildPlayerStats({ classId, lineage: ls, weapon, armor });
+    const run = new Run({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed++), carry });
+    run.start();
+    bot(run);
     turns += run.totals.turns;
+    wear.w += (weapon?.durability ?? 0) - (run.weapon?.durability ?? 0);
+    wear.a += (armor?.durability ?? 0) - (run.armor?.durability ?? 0);
+    // износ и расходники берём такими, какими их оставил бой
+    if (weapon) weapon = run.weapon && run.weapon.durability > 0 ? run.weapon : null;
+    if (armor) armor = run.armor && run.armor.durability > 0 ? run.armor : null;
+    Object.assign(consumables, run.consumables);
+    if (run.over !== 'win') break;
+    rooms++;
+    const g = Math.round((run.totals.gold + room.clearGold) * FARM);
+    const so = Math.round((run.totals.souls + room.clearSouls) * FARM);
+    got = { gold: got.gold + g, souls: got.souls + so };
+    carry = run.carryOut();
   }
-  return { wr: wins / N, hp: wins ? hpLeft / wins : 0, turns: turns / N };
+  gold += got.gold;
+  souls += got.souls;
+  return { rooms, turns, ...got };
 };
 
-const play = (i: number, first: boolean): void => {
-  const room = ROOMS[i];
-  const probe = fight(i, seed++);
-  if (probe.win) {
-    gold += Math.round((probe.run.totals.gold + (first ? room.clearGold : room.clearGold * 0.25)) * FARM);
-    souls += Math.round(probe.run.totals.souls * FARM) + (first ? Math.round(room.clearSouls * FARM) : 0);
+const SEC_PER_TURN = 3;
+const SEC_PER_ROOM = 8;
+const SEC_PER_RUN = 45;
+const MAX_RUNS = Number(process.env.RUNS ?? 400);
+console.log(`Линейка: ${lineage}, повторов забега на точку: ${N}, фарм x${FARM}`);
+console.log('run | rooms | best | minutes | +souls | +gold | class      | HP DMG DEF crit | reach p50/p90');
+let seed = Number(process.env.SEED ?? 1);
+let seconds = 0;
+let best = 0;
+const milestones: Array<[number, number, number]> = [];
+
+/** Насколько далеко этот герой доходит сейчас: медиана и 90-й процентиль по N забегам (без трат). */
+const probe = (): [number, number] => {
+  const save = { gold, souls, weapon: weapon && { ...weapon }, armor: armor && { ...armor }, cons: { ...consumables } };
+  const reach: number[] = [];
+  for (let k = 0; k < N; k++) {
+    reach.push(runTower().rooms);
+    Object.assign(consumables, save.cons);
+    weapon = save.weapon && { ...save.weapon };
+    armor = save.armor && { ...save.armor };
   }
-  seconds += probe.run.totals.turns * SEC_PER_TURN + SEC_PER_ROOM;
-  // износ берём не «на глазок», а такой, каким его посчитал сам бой
-  if (weapon) weapon.durability = probe.run.weapon?.durability ?? 0;
-  if (armor) armor.durability = probe.run.armor?.durability ?? 0;
+  gold = save.gold;
+  souls = save.souls;
+  reach.sort((a, b) => a - b);
+  return [reach[Math.floor(N * 0.5)], reach[Math.min(N - 1, Math.floor(N * 0.9))]];
 };
 
-for (let i = 0; i < ROOMS.length; i++) {
-  let grind = 0;
-  let m = { wr: 0, hp: 0, turns: 0 };
-  for (; grind < 150; grind++) {
-    spendSouls();
-    shop();
-    m = measure(i);
-    if (m.wr >= TARGET) break;
-    let farm = -1;
-    for (let j = i - 1; j >= 0; j--) {
-      const pr = fight(j, seed++);
-      if (pr.win && pr.run.hp / pr.run.stats.maxHp > 0.35) {
-        farm = j;
-        break;
-      }
-    }
-    if (farm < 0) farm = 0;
-    play(farm, false);
-  }
+const EVERY = Number(process.env.EVERY ?? 10);
+for (let r = 1; r <= MAX_RUNS && best < ROOMS.length; r++) {
+  spendSouls();
+  shop();
+  // докуда этот герой (после покупок) доходит в среднем — оцениваем до самого забега
+  const [p50, p90] = N > 0 ? probe() : [NaN, NaN];
   const st = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-  for (let a = 0; a < 20; a++) {
-    const before = seconds;
-    const pr = fight(i, seed++);
-    seconds = before;
-    play(i, pr.win);
-    if (pr.win) break;
+  const res = runTower();
+  seconds += res.turns * SEC_PER_TURN + (res.rooms + 1) * SEC_PER_ROOM + SEC_PER_RUN;
+  const record = res.rooms > best;
+  if (record) {
+    for (let f = Math.floor(best / 5) + 1; f <= Math.floor(res.rooms / 5); f++) milestones.push([f, r, Math.round(seconds / 60)]);
+    best = res.rooms;
   }
-  console.log(
-    `${ROOMS[i].id.padEnd(5)}| ${(m.wr * 100).toFixed(0).padStart(4)}%   | ${(m.hp * 100).toFixed(0).padStart(4)}% | ${String(grind).padStart(5)} | ${(seconds / 60).toFixed(0).padStart(7)} | ${String(souls).padStart(5)} | ${String(gold).padStart(5)} | ${CLASSES[classId].id.padEnd(9)} | ${st.maxHp} ${st.damage} ${st.defense} ${Math.round(st.crit)}%`,
-  );
+  if (record || r % EVERY === 0) {
+    console.log(
+      `${String(r).padStart(3)} | ${String(res.rooms).padStart(5)} | ${String(best).padStart(4)} | ${(seconds / 60).toFixed(0).padStart(7)} | ${String(res.souls).padStart(6)} | ${String(res.gold).padStart(5)} | ${CLASSES[classId].id.padEnd(10)} | ${st.maxHp} ${st.damage} ${st.defense} ${Math.round(st.crit)}% | ${Number.isNaN(p50) ? '' : `${p50}/${p90}`} | wear ${(wear.w / Math.max(1, res.rooms)).toFixed(1)}/${(wear.a / Math.max(1, res.rooms)).toFixed(1)} | t/room ${(res.turns / (res.rooms + 1)).toFixed(1)}`,
+    );
+  }
 }
+console.log('этаж пройден впервые: ' + milestones.map(([f, r, m]) => `${f}: забег ${r}, ${m} мин`).join(' · '));

@@ -26,29 +26,30 @@ interface Tier {
 /**
  * Восемь ступеней снаряжения на десять этажей. Цена растёт медленнее силы: доход с этажа
  * умножается на FLOOR_GOLD (≈1.48), поэтому и цена ступени держится в тех же пределах —
- * иначе верхние этажи упираются не в мастерство, а в кассу. Прочность верхних ступеней выше:
- * дорогая вещь не должна рассыпаться за пять боёв.
+ * иначе верхние этажи упираются не в мастерство, а в кассу. Чинить вещь можно только между
+ * забегами, поэтому прочности хватает на пару забегов до тех этажей, где эта ступень в ходу:
+ * оружие, сломавшееся посреди забега, обрывает его вернее любого босса.
  */
 const WEAPON_TIERS: Tier[] = [
-  { dmg: 1, def: 0, hp: 0, dur: 40, price: 50 },
-  { dmg: 2, def: 0, hp: 0, dur: 55, price: 130 },
-  { dmg: 4, def: 0, hp: 0, dur: 70, price: 330 },
-  { dmg: 8, def: 0, hp: 0, dur: 90, price: 780 },
-  { dmg: 15, def: 0, hp: 0, dur: 110, price: 1800 },
-  { dmg: 28, def: 0, hp: 0, dur: 135, price: 4000 },
-  { dmg: 50, def: 0, hp: 0, dur: 165, price: 7200 },
-  { dmg: 90, def: 0, hp: 0, dur: 200, price: 13000 },
+  { dmg: 1, def: 0, hp: 0, dur: 100, price: 50 },
+  { dmg: 2, def: 0, hp: 0, dur: 130, price: 130 },
+  { dmg: 4, def: 0, hp: 0, dur: 170, price: 330 },
+  { dmg: 8, def: 0, hp: 0, dur: 220, price: 780 },
+  { dmg: 15, def: 0, hp: 0, dur: 280, price: 1800 },
+  { dmg: 28, def: 0, hp: 0, dur: 350, price: 4000 },
+  { dmg: 50, def: 0, hp: 0, dur: 430, price: 7200 },
+  { dmg: 90, def: 0, hp: 0, dur: 520, price: 13000 },
 ];
 
 const ARMOR_TIERS: Tier[] = [
-  { dmg: 0, def: 1, hp: 2, dur: 40, price: 60 },
-  { dmg: 0, def: 2, hp: 5, dur: 55, price: 155 },
-  { dmg: 0, def: 4, hp: 10, dur: 70, price: 390 },
-  { dmg: 0, def: 7, hp: 20, dur: 90, price: 930 },
-  { dmg: 0, def: 12, hp: 38, dur: 110, price: 2150 },
-  { dmg: 0, def: 20, hp: 70, dur: 135, price: 4800 },
-  { dmg: 0, def: 33, hp: 130, dur: 165, price: 8700 },
-  { dmg: 0, def: 55, hp: 240, dur: 200, price: 15500 },
+  { dmg: 0, def: 1, hp: 2, dur: 100, price: 60 },
+  { dmg: 0, def: 2, hp: 5, dur: 130, price: 155 },
+  { dmg: 0, def: 4, hp: 10, dur: 170, price: 390 },
+  { dmg: 0, def: 7, hp: 20, dur: 220, price: 930 },
+  { dmg: 0, def: 12, hp: 38, dur: 280, price: 2150 },
+  { dmg: 0, def: 20, hp: 70, dur: 350, price: 4800 },
+  { dmg: 0, def: 33, hp: 130, dur: 430, price: 8700 },
+  { dmg: 0, def: 55, hp: 240, dur: 520, price: 15500 },
 ];
 
 const WEAPON_NAMES: Record<LineageId, Array<[string, string]>> = {
@@ -110,11 +111,17 @@ export interface ConsumableDef {
   sold: boolean;
   /** Ограничение по линейке (артефакт — только маг). */
   lineage?: LineageId;
+  /**
+   * Сколько можно держать, покупая в лавке. Здоровье переносится между комнатами забега, и
+   * без предела поздний герой брал бы с собой сотню дешёвых зелий — забег перестал бы
+   * требовать осторожности. Находки в бою и награды дня предел не проверяют.
+   */
+  max?: number;
 }
 
 export const CONSUMABLES: Record<ConsumableId, ConsumableDef> = {
-  potion_heal: { id: 'potion_heal', icon: 'item_potion_heal', price: 55, sold: true },
-  potion_regen: { id: 'potion_regen', icon: 'item_potion_regen', price: 85, sold: true },
+  potion_heal: { id: 'potion_heal', icon: 'item_potion_heal', price: 55, sold: true, max: 5 },
+  potion_regen: { id: 'potion_regen', icon: 'item_potion_regen', price: 85, sold: true, max: 3 },
   artifact: { id: 'artifact', icon: 'item_artifact', price: 0, sold: false, lineage: 'mage' },
 };
 

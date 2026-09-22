@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLOR, GAME_W, HEX, TIMING } from '../config';
 import { ITEMS } from '../data/items';
-import { ROOM_BY_ID, ROOMS, ROOMS_PER_FLOOR } from '../data/levels';
+import { ROOMS, ROOMS_PER_FLOOR } from '../data/levels';
 import { Store } from '../systems/Store';
 import { AUDIO } from '../systems/Audio';
 import { YSDK } from '../sdk/YandexSDK';
@@ -105,13 +105,12 @@ export class HubScene extends Phaser.Scene {
     this.items.push(this.hero.root);
 
     // --- навигация справа
-    const nextRoom = ROOM_BY_ID[Store.frontierRoom];
     this.shopBtn = new PlateButton(this, HUB.shop.x, HUB.shop.y, {
       w: HUB.shop.w, h: HUB.shop.h, label: t('hub.shop'), font: 'title', fontSize: 52, sub: t('hub.shop_sub'),
       pulse: { cycle: TIMING.uiPulseCycle, scale: TIMING.uiPulseScale }, radius: 30, onClick: () => this.openShop(),
     });
     const levels = new PlateButton(this, HUB.levels.x, HUB.levels.y, {
-      w: HUB.levels.w, h: HUB.levels.h, label: t('hub.levels'), font: 'title', fontSize: 38, sub: t('game.room', { r: nextRoom.id }), radius: 26,
+      w: HUB.levels.w, h: HUB.levels.h, label: t('hub.levels'), font: 'title', fontSize: 38, sub: t('hub.next', { r: `${Store.best} / ${ROOMS.length}` }), radius: 26,
       onClick: () => this.openMenu('Levels', rectOf(HUB.levels)),
     });
     const settings = new PlateButton(this, HUB.settings.x, HUB.settings.y, {
@@ -207,17 +206,21 @@ export class HubScene extends Phaser.Scene {
     this.dailyBtn.setSub(daily.available ? t('daily.day', { n: daily.dayIndex + 1 }) : t('daily.tomorrow_short'));
   }
 
+  /**
+   * Плашка рекорда: самая высокая комната, пройденная за один забег. Сам забег всегда начинается
+   * с 1-1, поэтому здесь не «следующая комната», а докуда удалось дойти.
+   */
   private buildRoomInfo(): void {
-    const id = Store.frontierRoom;
-    const room = ROOM_BY_ID[id];
+    const cleared = Store.best;
+    const room = ROOMS[Math.max(0, Math.min(cleared, ROOMS.length) - 1)];
+    const id = room.id;
     const r = HUB.room;
     const c = this.add.container(r.x, r.y);
     c.add(this.add.image(0, 8, shadowTexture(this, r.w, r.h, 28, 18)).setAlpha(0.85));
     c.add(this.add.image(0, 0, plateTexture(this, r.w, r.h, 1, 'panel', 28)));
     const left = -r.w / 2 + 32;
     c.add(txt(this, left, -22, t(`floor.${room.floor}.name` as TKey).toUpperCase(), 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0 }));
-    c.add(txt(this, left, 8, t('game.room', { r: id }), 36, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 }));
-    const cleared = Store.clearedOf().length;
+    c.add(txt(this, left, 8, cleared > 0 ? t('game.record', { n: id }) : t('game.room', { r: id }), 36, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 }));
     c.add(txt(this, r.w / 2 - 32, -6, `${cleared} / ${ROOMS.length}`, 26, { origin: [1, 0.5], color: HEX.textDim, weight: 800, strokeThickness: 0 }));
     // прогресс башни: три этажа
     const bw = r.w - 64;
@@ -263,7 +266,7 @@ export class HubScene extends Phaser.Scene {
     if (!this.lock()) return;
     AUDIO.play('open');
     if (Store.data.tutorial.skill) Store.data.tutorial.hub = true;
-    // «Играть» всегда ведёт в новейшую открытую комнату; старые комнаты запускаются из «Уровней».
-    fadeToScene(this, 'Game', { roomId: Store.frontierRoom });
+    // «Играть» — всегда новый забег с комнаты 1-1.
+    fadeToScene(this, 'Game', {});
   }
 }

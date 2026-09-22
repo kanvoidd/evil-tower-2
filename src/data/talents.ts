@@ -18,8 +18,8 @@ import type { ClassId, TalentPath } from '../types';
 export type TalentFx =
   // ---- урон и способности (путь У)
   | 'dmgPct' | 'crit' | 'critMul' | 'perkPower' | 'artifactMul' | 'execute' | 'pierce'
-  // усиление конкретных заклинаний мага
-  | 'lightningPower' | 'shotPower' | 'chainPower'
+  // усиление конкретных заклинаний мага; boltEcho — молния с шансом бьёт ту же цель второй раз
+  | 'lightningPower' | 'shotPower' | 'chainPower' | 'boltEcho'
   | 'doubleStrike' | 'lowHpDmg' | 'fullHpDmg' | 'bossDmg' | 'ignite' | 'killDmg'
   | 'rageDmg' | 'goldDmg' | 'defDmg' | 'everyThird' | 'roomCrit'
   // ---- здоровье и запас (путь З)
@@ -41,6 +41,7 @@ export type TalentFx =
 export const SYNERGY_FX = new Set<TalentFx>([
   'abilityIgnite', 'abilityStun', 'abilitySplash', 'abilityPoison', 'abilityVuln', 'abilityCrit',
   'abilityLifesteal', 'abilityRefund', 'abilityShield', 'killBlast', 'basicSplit', 'perkCostDown', 'stepHeal',
+  'boltEcho',
 ]);
 
 export interface TalentDef {
@@ -193,7 +194,7 @@ export const TALENTS: TalentDef[] = [
       ],
       g: [
         T('Ярость крови', 'Blood Rage', 'abilityShield', [8, 16]),
-        T('Кровавая пелена', 'Blood Veil', 'perkDef', [30, 60]),
+        T('Кровавая пелена', 'Blood Veil', 'perkDef', [15, 30]),
       ],
     },
   ]),
@@ -234,8 +235,8 @@ export const TALENTS: TalentDef[] = [
     {
       a: [
         T('Искра', 'Spark', 'dmgPct', [2, 5, 8]),
-        // шанс задеть второго врага и доля урона по нему идут парой
-        T('Раздвоение молнии', 'Forked Bolt', 'basicSplit', [8, 12, 16], [12, 14, 16]),
+        // шанс второго разряда и его сила идут парой; бьёт ту же цель, а не соседа
+        T('Раздвоение молнии', 'Forked Bolt', 'boltEcho', [8, 12, 16], [12, 14, 16]),
         T('Сила молнии', 'Bolt Power', 'lightningPower', [5, 10, 15, 20, 25]),
       ],
       v: [T('Запас маны', 'Mana Reserve', 'resMaxPct', [15, 25, 35])],
@@ -294,7 +295,7 @@ export const TALENTS: TalentDef[] = [
       g: [
         T('Щит разума', 'Mind Shield', 'abilityShield', [6, 12]),
         T('Барьер воли', 'Barrier of Will', 'block', [4, 8]),
-        T('Абсолютная защита', 'Absolute Ward', 'perkDef', [100]),
+        T('Абсолютная защита', 'Absolute Ward', 'perkDef', [25, 50]),
       ],
     },
   ]),
@@ -459,7 +460,7 @@ export const TALENTS: TalentDef[] = [
         T('Божественный выстрел', 'Divine Shot', 'freePerk', [1]),
       ],
       v: [T('Дар богов', 'Gift of the Gods', 'potionPct', [30, 60])],
-      g: [T('Воля богов', 'Will of the Gods', 'perkDef', [100])],
+      g: [T('Воля богов', 'Will of the Gods', 'perkDef', [25, 50])],
     },
   ]),
   ...build('sniper', [
@@ -545,7 +546,7 @@ export const TALENTS: TalentDef[] = [
         T('Кровавая расплата', 'Blood Price', 'abilityLifesteal', [10, 20]),
         T('Кровавый контракт', 'Blood Contract', 'killHp', [1, 2, 3]),
       ],
-      g: [T('Дымовая шашка', 'Smoke Bomb', 'perkDef', [20, 40, 60])],
+      g: [T('Дымовая шашка', 'Smoke Bomb', 'perkDef', [10, 20, 30])],
     },
     {
       a: [
