@@ -129,7 +129,9 @@ const polyStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, points:
 export const VFX_COLOR: Record<VfxStyle, string> = {
   bolt: '#9ad8ff', chain: '#7fc4ff', arcane: '#b287ff', beam: '#fff0b0',
   fire: '#ff8a2a', explosion: '#ffb44a', holy: '#fff3c4', banner: '#f0c75e',
+  ignite: '#ff6a1a', fireball: '#ffa03a', detonate: '#ff5a2a', inferno: '#ff7a18',
   dark: '#a678ff', soul: '#a98bff', mark: '#ff6a8a', quake: '#d2a15a',
+  corpse: '#8fd14f', ghost: '#a9e8ff', voodoo: '#d05aff', harvest: '#9a6bff',
   slam: '#ffe0a0', blades: '#eaf2ff', shot: '#d8f0a0', arrows: '#c6e878',
   smoke: '#9aa0b4', swap: '#7fe8d0', rewind: '#b79dff',
 };
@@ -219,6 +221,100 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.arc(64, 64, 15, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
+  },
+  // поджог — клеймо из пламени с тлеющим кольцом
+  ignite: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 70, 40, Math.PI * 0.1, Math.PI * 0.9);
+    stroke(ctx, 8);
+    ctx.beginPath();
+    ctx.moveTo(64, 18);
+    ctx.bezierCurveTo(90, 48, 88, 66, 76, 80);
+    ctx.bezierCurveTo(64, 92, 46, 88, 42, 72);
+    ctx.bezierCurveTo(38, 58, 50, 50, 56, 56);
+    ctx.bezierCurveTo(54, 40, 58, 28, 64, 18);
+    ctx.closePath();
+    ctx.fill();
+  },
+  // огненный шар — ядро с хвостом
+  fireball: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(78, 62, 30, 0, Math.PI * 2);
+    ctx.fill();
+    path(ctx, [[48, 44], [10, 30]]);
+    stroke(ctx, 8);
+    path(ctx, [[46, 62], [4, 62]]);
+    stroke(ctx, 10);
+    path(ctx, [[48, 80], [10, 94]]);
+    stroke(ctx, 8);
+  },
+  // детонация — три вспышки цепочкой
+  detonate: (ctx) => {
+    for (const [x, y, r] of [[34, 40, 16], [64, 70, 24], [96, 44, 13]]) {
+      polyStar(ctx, x, y, 8, r * 2, r);
+      ctx.fill();
+    }
+  },
+  // инферно — стена пламени
+  inferno: (ctx) => {
+    for (const [x, h] of [[30, 34], [64, 14], [98, 40]]) {
+      ctx.beginPath();
+      ctx.moveTo(x, h);
+      ctx.bezierCurveTo(x + 24, h + 34, x + 20, h + 54, x + 10, h + 64);
+      ctx.bezierCurveTo(x - 4, h + 74, x - 24, h + 62, x - 22, h + 42);
+      ctx.bezierCurveTo(x - 20, h + 28, x - 8, h + 26, x - 6, h + 32);
+      ctx.bezierCurveTo(x - 8, h + 16, x - 4, h + 8, x, h);
+      ctx.closePath();
+      ctx.fill();
+    }
+  },
+  // взрыв плоти — череп в кольце брызг
+  corpse: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 58, 28, Math.PI, 0);
+    ctx.fill();
+    ctx.fillRect(36, 58, 56, 22);
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI * 2 * i) / 8;
+      path(ctx, [[64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44], [64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58]]);
+      stroke(ctx, 7);
+    }
+  },
+  // призрачные слуги — привидение с волнистым подолом
+  ghost: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 54, 28, Math.PI, 0);
+    ctx.lineTo(92, 96);
+    ctx.quadraticCurveTo(83, 82, 74, 96);
+    ctx.quadraticCurveTo(64, 82, 54, 96);
+    ctx.quadraticCurveTo(45, 82, 36, 96);
+    ctx.closePath();
+    ctx.fill();
+  },
+  // кукла вуду — фигурка, пронзённая иглой
+  voodoo: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 34, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(54, 52, 20, 40);
+    path(ctx, [[30, 62], [98, 62]]);
+    stroke(ctx, 9);
+    path(ctx, [[54, 92], [44, 112]]);
+    stroke(ctx, 9);
+    path(ctx, [[74, 92], [84, 112]]);
+    stroke(ctx, 9);
+  },
+  // жатва душ — коса: почти отвесное древко и широкий серп сверху
+  harvest: (ctx) => {
+    path(ctx, [[84, 22], [56, 114]]);
+    stroke(ctx, 10);
+    ctx.beginPath();
+    ctx.moveTo(88, 24);
+    ctx.quadraticCurveTo(40, 8, 12, 56);
+    ctx.quadraticCurveTo(24, 40, 52, 38);
+    ctx.quadraticCurveTo(74, 38, 84, 46);
+    ctx.closePath();
+    ctx.fill();
   },
   // свет — солнце с лучами
   holy: (ctx) => {

@@ -314,6 +314,7 @@ export const en: Record<keyof typeof ru, string> = {
   'game.no_gold_perk': 'Not enough gold in the pouch',
   'game.once_used': 'Already used in this room',
   'game.perk_active': 'The buff is already active',
+  'game.cornered': 'Cornered with nothing left!',
   'game.range': 'Too far away',
   'game.no_melee': 'The mage only strikes with spells \u2014 tap an ability',
   'game.pick_target': 'Pick a target',

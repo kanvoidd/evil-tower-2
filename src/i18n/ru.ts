@@ -318,6 +318,7 @@ export const ru = {
   'game.no_gold_perk': 'Мало золота в кошеле',
   'game.once_used': 'Уже использовано в этой комнате',
   'game.perk_active': 'Усиление уже действует',
+  'game.cornered': 'Зажали! Отбиваться нечем',
   'game.range': 'Слишком далеко',
   'game.no_melee': 'Маг бьёт только заклинанием — нажмите способность',
   'game.pick_target': 'Выберите цель',

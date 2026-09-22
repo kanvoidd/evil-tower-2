@@ -2,7 +2,7 @@
 import { CLASSES, LINEAGE_ORDER, classesOfLineage } from '../src/data/classes';
 import { ENEMY_LIST } from '../src/data/enemies';
 import { FLOORS, MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
-import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR } from '../src/data/perks';
+import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/data/perks';
 import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
 import { perkCost, talentRankCost } from '../src/data/economy';
 import {
@@ -79,13 +79,10 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
-const VFX_STYLES = new Set([
-  'bolt', 'chain', 'arcane', 'beam', 'fire', 'explosion', 'holy', 'banner', 'dark', 'soul',
-  'mark', 'quake', 'slam', 'blades', 'shot', 'arrows', 'smoke', 'swap', 'rewind',
-]);
+const STYLES = new Set<string>(VFX_STYLES);
 for (const p of PERKS) {
   ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
-  ok(VFX_STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
+  ok(STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
   if (p.cost === FULL_BAR) ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
 }
@@ -342,10 +339,11 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     }
   }
 
-  // тупик невозможен: даже в окружении и с пустой шкалой у героя есть ход
+  // Кто умеет бить рукой — не попадает в тупик никогда.
   {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
+      if (!stats.melee) continue;
       const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(17) });
       run.start();
       run.cards.fill(null);
@@ -353,11 +351,60 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.hp = 100000;
       run.res = 0;
       for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
-      const canTap = [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.actionFor(c).kind !== 'none');
-      const canPerk = stats.abilities.some((p) => run.perkReady(p).ok && [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.perkTargetOk(p, c)));
-      const canSelf = stats.abilities.some((p) => p.target === 'self' && run.perkReady(p).ok);
-      ok(canTap || canPerk || canSelf, `${id}: в окружении и без ресурса ход всё равно есть`);
+      ok(!run.cornered(), `${id}: боец рукой в тупик не попадает`);
+      ok([1, 3, 5, 7].some((c) => run.actionFor(c).kind === 'melee'), `${id}: соседний враг доступен рукой`);
     }
+  }
+
+  // «Растерзание»: мага без маны, зажатого со всех сторон, карты добивают насмерть
+  {
+    const surround = (id: ClassId, patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {}) => {
+      const stats = build(id);
+      const run = new Run({
+        room: ROOMS[30], stats, weapon: null, armor: null,
+        consumables: { ...cons(), potion_regen: patch.potion_regen ?? 0, artifact: patch.artifact ?? 0 }, rng: makeRng(17),
+      });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 400;
+      run.res = patch.res ?? 0;
+      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(100000, 3);
+      return run;
+    };
+    for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
+      ok(surround(id).cornered(), `${id}: пустая шкала в окружении — это тупик`);
+    }
+    // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
+    // занимает новый враг — и в конце хода отбиваться уже нечем.
+    {
+      const stats = build('mage');
+      const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(29) });
+      run.start();
+      run.cards.fill(null);
+      run.pool.length = 0;
+      run.pool.push(enemy(100000, 4));
+      run.playerCell = 0;
+      run.hp = 400;
+      run.res = 0;
+      run.cards[1] = enemy(100000, 4);
+      run.cards[4] = enemy(100000, 4);
+      run.cards[6] = enemy(100000, 4);
+      const res = run.tap(3);
+      ok(res.ok, 'шаг на пустую клетку сделан');
+      ok(res.events.some((e) => e.type === 'swarm'), 'карты бросаются на героя');
+      ok(run.over === 'lose' && run.hp === 0, 'растерзание доводит до смерти');
+      const hits = res.events.filter((e) => e.type === 'hit' && e.target === 'player').length;
+      ok(hits >= 4, `бьют все карты по очереди (${hits})`);
+      // поднявшись, герой получает полную шкалу и снова может бить
+      run.revive();
+      ok(!run.cornered(), 'после воскрешения герой снова может ходить');
+    }
+    // выходы из окружения: мана, зелье восстановления, артефакт мага
+    ok(!surround('mage', { res: 20 }).cornered(), 'мана на молнию — не тупик');
+    ok(!surround('mage', { potion_regen: 1 }).cornered(), 'зелье восстановления — не тупик');
+    ok(!surround('mage', { artifact: 1 }).cornered(), 'артефакт мага — не тупик');
+    // поднявшись, герой получает полную шкалу и снова может бить
   }
 
   // постоянное клеймо не вешается на уже заклеймённую цель — ход не пропадает зря
@@ -558,12 +605,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   heal.consumables.potion_heal = 0;
   ok(!needsHeal(heal), 'зелье исцеления: нет зелий — нечего применять');
 
-  // «Удар молнии» маны не стоит, поэтому зелье нужно ради платных заклинаний
-  const nothingToSpend = mk('mage');
-  nothingToSpend.cards[5] = enemy(1);
-  nothingToSpend.res = 0;
-  ok(!needsRegen(nothingToSpend), 'зелье восстановления: тратить ману ещё не на что — держим');
-  const regen = mk('mage', ['perk/mage/p2']);
+  const regen = mk('mage');
   regen.cards[5] = enemy(1);
   regen.res = 0;
   ok(needsRegen(regen), 'зелье восстановления: мане не хватает на заклинание — применяем');

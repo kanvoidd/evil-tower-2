@@ -620,6 +620,14 @@ export class GameScene extends Phaser.Scene {
     return undefined;
   }
 
+  /** Снимает с клетки чужой вид: на поле не должно оказаться двух карт в одном месте. */
+  private dropViewAt(cell: number): void {
+    const v = this.viewAt(cell);
+    if (!v) return;
+    this.views.delete(v.uid);
+    void this.tw({ targets: v.c, scale: 0.4, alpha: 0, duration: 140 }).then(() => v.c.destroy());
+  }
+
   // ------------------------------------------------------------------------------ ввод
 
   private setupInput(): void {
@@ -764,6 +772,8 @@ export class GameScene extends Phaser.Scene {
   private async handle(ev: GameEvent): Promise<void> {
     switch (ev.type) {
       case 'spawn': {
+        // на клетке не должно остаться чужого вида — иначе карты наезжают друг на друга
+        this.dropViewAt(ev.cell);
         const v = this.buildCard(ev.card, ev.cell);
         this.views.set(ev.card.uid, v);
         v.c.setScale(0);
@@ -775,6 +785,23 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'attack': {
+        if (this.run.over === 'lose' && ev.by === 'enemy') {
+          // Добивающая волна: показываем коротко, иначе смерть тянется полминуты.
+          // Каждая карта возвращается ровно в свою клетку — иначе наложившиеся
+          // рывки уносят карточки к герою и оставляют их там.
+          const v0 = this.viewAt(ev.from);
+          if (v0) {
+            const home = cellPos(v0.cell);
+            this.tweens.killTweensOf(v0.c);
+            v0.c.setPosition(home.x, home.y);
+            void this.tw({
+              targets: v0.c, x: (home.x + this.playerView.c.x) / 2, y: (home.y + this.playerView.c.y) / 2,
+              duration: 80, yoyo: true,
+            }).then(() => v0.c.setPosition(home.x, home.y));
+          }
+          await this.sleep(70);
+          break;
+        }
         if (ev.by === 'player') {
           if (ev.ranged) await (ev.style === 'backstab' ? this.backstab(ev.to) : this.shoot(ev.to, ev.style === 'bolt' ? 'bolt' : 'shot'));
           else await this.lunge(this.playerView, ev.to);
@@ -945,6 +972,25 @@ export class GameScene extends Phaser.Scene {
       }
       case 'fx': {
         await this.playFx(ev.cells, ev.style);
+        break;
+      }
+      case 'remove': {
+        const v = this.views.get(ev.uid);
+        if (!v) break;
+        this.views.delete(ev.uid);
+        void this.tw({ targets: v.c, scale: 0.4, alpha: 0, duration: 160 }).then(() => v.c.destroy());
+        break;
+      }
+      case 'swarm': {
+        // героя зажали и ему нечем ответить — карты идут рвать его по очереди
+        AUDIO.play('burst');
+        this.cameras.main.shake(520, 0.012);
+        this.popupAt(GAME_W / 2, NOTE_Y, t('game.cornered'), HEX.bad, 30);
+        for (const cell of ev.cells) {
+          const v = this.viewAt(cell);
+          if (v) this.tweens.add({ targets: v.c, scale: 1.1, duration: 140, yoyo: true });
+        }
+        await this.sleep(420);
         break;
       }
       case 'swap': {

@@ -99,11 +99,24 @@ const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_
 /** Событие, по которому видно, что способность что-то изменила. */
 const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'swap', 'slide', 'rewind', 'gold', 'souls']);
 
+/**
+ * Сколько ресурса нельзя разменивать. У мага основной удар — платная молния, и остаться
+ * без маны в окружении значит погибнуть, поэтому цену молнии бот держит в запасе.
+ */
+const reserveOf = (run: Run): { perkId: string; cost: number } | null => {
+  if (run.stats.melee) return null;
+  const basic = (run.stats.abilities as PerkDef[]).find((p) => p.target === 'adjacent');
+  return basic ? { perkId: basic.id, cost: basic.cost ?? 0 } : null;
+};
+
 const tryPerk = (run: Run, dud: Set<string>): boolean => {
   const enemies = run.cards.filter((c) => c?.kind === 'enemy').length;
+  const reserve = reserveOf(run);
   for (const perk of run.stats.abilities as PerkDef[]) {
     if (SKIP.has(perk.ability) || dud.has(perk.id)) continue;
     if (!run.perkReady(perk).ok) continue;
+    // всё, кроме самого основного удара, не имеет права съесть запас на него
+    if (reserve && perk.id !== reserve.perkId && run.res - run.perkCostOf(perk) < reserve.cost) continue;
     const full = perk.cost === FULL_BAR;
     if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
     if (full && enemies < 4) continue;

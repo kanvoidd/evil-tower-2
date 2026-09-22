@@ -64,6 +64,10 @@ export type GameEvent =
   | { type: 'break'; slot: 'weapon' | 'armor'; id: string }
   | { type: 'status'; cell: number; uid: number; kind: StatusKind; turns: number }
   | { type: 'fx'; cells: number[]; style: FxStyle }
+  /** Карта ушла с поля не боем и не подбором под ноги — вид нужно убрать. */
+  | { type: 'remove'; cell: number; uid: number }
+  /** Героя зажали со всех сторон и ему нечем ответить: карты рвут его по очереди. */
+  | { type: 'swarm'; cells: number[] }
   /** Способность применена (для всплывающей подписи и звука). */
   | { type: 'perk'; id: string; ability: AbilityId }
   /** Способность «заряжена» или снята с зарядки (null). */
@@ -1193,7 +1197,7 @@ export class Run {
         break;
       }
       case 'verdict': {
-        const limit = this.spellDamage(1.5);
+        const limit = this.spellDamage(1.2);
         events.push({ type: 'fx', cells: enemies, style: 'holy' });
         for (const c of enemies) {
           const e = this.cards[c];
@@ -1213,23 +1217,15 @@ export class Run {
         break;
       }
       // ---------------- маг
-      // Удар молнии — единственный «обычный» удар мага: маны не стоит и доступен всегда,
-      // иначе маг, окружённый врагами с пустой шкалой, остался бы вовсе без хода.
-      // Цена за это — враг отвечает, как на удар рукой.
+      // Удар молнии — единственный удар мага, и он стоит маны. Пустая шкала в окружении
+      // врагов — не тупик, а приговор: см. `cornered()` и «Растерзание» в finishTurn.
       case 'lightning': {
-        const enemy = target!;
         events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
-        const crit = this.rollCrit(enemy, true);
-        let dmg = this.spellDamage(0.9);
+        const crit = this.rollCrit(target, true);
+        let dmg = this.spellDamage(1.2);
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.wearWeapon(events);
-        const killed = this.strike(cell, dmg, crit, events);
+        this.strike(cell, dmg, crit, events);
         this.splitStrike(cell, dmg, events);
-        if (killed) {
-          this.stepInto(cell, events);
-          break;
-        }
-        if (this.cards[cell] === enemy && this.madness <= 0) this.enemyStrike(cell, events);
         break;
       }
       case 'magic_shot': {
@@ -1272,6 +1268,7 @@ export class Run {
         if (c.kind === 'enemy' && ENEMIES[c.defId].boss) break;
         events.push({ type: 'fx', cells: [cell], style: 'arcane' });
         this.cards[cell] = null;
+        events.push({ type: 'remove', cell, uid: c.uid });
         this.pool.push(c);
         const next = this.pool.shift();
         if (next) {
@@ -1324,7 +1321,7 @@ export class Run {
         const burn = this.spellDamage(0.25);
         this.applyBurn(cell, burn, 3, events);
         for (const c of near) this.applyBurn(c, burn, 3, events);
-        this.strike(cell, this.spellDamage(1.5), false, events);
+        this.strike(cell, this.spellDamage(1.2), false, events);
         for (const c of near) this.damageEnemy(c, this.spellDamage(0.7), false, events);
         break;
       }
@@ -1572,7 +1569,7 @@ export class Run {
     this.over = null;
     this.revived = true;
     this.hp = Math.max(1, Math.ceil(this.stats.maxHp * GAMEPLAY.reviveHpRatio));
-    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }];
+    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }, ...this.breakFree()];
   }
 
   /** Талант «Возвращение» / «Последний шанс»: раз за забег встаём сами. */
@@ -1581,7 +1578,19 @@ export class Run {
     this.reviveLeft--;
     this.over = null;
     this.hp = Math.max(1, Math.round(this.stats.maxHp * this.stats.reviveHp));
-    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }];
+    return [{ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' }, ...this.breakFree()];
+  }
+
+  /**
+   * Поднявшись после растерзания, герой получает полную шкалу: иначе он встаёт в то же
+   * окружение без единого хода, и «Растерзание» срабатывает второй раз в том же кадре.
+   */
+  private breakFree(): GameEvent[] {
+    if (this.hasMove()) return [];
+    const events: GameEvent[] = [];
+    this.res = this.stats.resMax;
+    events.push({ type: 'resource', now: this.res, max: this.stats.resMax });
+    return events;
   }
 
   // ------------------------------------------------------------------ подбор карт
@@ -1603,6 +1612,7 @@ export class Run {
     const card = this.cards[cell];
     if (!card) return;
     this.cards[cell] = null;
+    events.push({ type: 'remove', cell, uid: card.uid });
     if (card.kind === 'gold') {
       this.totals.gold += card.value;
       events.push({ type: 'gold', cell, amount: card.value });
@@ -1757,6 +1767,61 @@ export class Run {
     }
   }
 
+  /**
+   * Может ли герой вообще хоть что-то сделать. Считаем и способности, и расходники:
+   * зелье восстановления вернёт ману, артефакт мага разнесёт окружение.
+   */
+  private hasMove(): boolean {
+    for (let c = 0; c < 9; c++) if (this.actionFor(c).kind !== 'none') return true;
+    const usable = (p: PerkDef): boolean => {
+      if (p.target === 'self' || p.target === undefined) return true;
+      for (let c = 0; c < 9; c++) if (this.perkTargetOk(p, c)) return true;
+      return false;
+    };
+    for (const p of this.stats.abilities) if (this.perkReady(p).ok && usable(p)) return true;
+    // расходники: зелье восстановления оживит способность, артефакт расчистит поле
+    const canRefill = this.consumables.potion_regen > 0 && this.stats.abilities.some(usable);
+    if (canRefill) return true;
+    if (this.consumables.artifact > 0 && this.lineageDef.artifacts) return true;
+    return false;
+  }
+
+  /** Зажат ли герой: жив, бой идёт, а хода нет ни одного. */
+  cornered(): boolean {
+    return !this.over && !this.armed && !this.hasMove();
+  }
+
+  /**
+   * «Растерзание». Ходить нечем — и карты вокруг больше не ждут: бьют по очереди,
+   * пока герой не падёт. Это не тупик, а расплата за пустую шкалу в окружении.
+   */
+  private swarm(events: GameEvent[]): void {
+    const order = (): number[] => {
+      const cells: number[] = [];
+      for (let c = 0; c < 9; c++) if (this.cards[c]?.kind === 'enemy') cells.push(c);
+      return cells.sort((a, b) => dist(a, this.playerCell) - dist(b, this.playerCell) || a - b);
+    };
+    const cells = order();
+    if (!cells.length) return;
+    events.push({ type: 'swarm', cells });
+    for (let sweep = 0; sweep < 8 && this.hp > 0; sweep++) {
+      for (const c of order()) {
+        if (this.hp <= 0) break;
+        const card = this.cards[c];
+        if (!card || card.kind !== 'enemy') continue;
+        events.push({ type: 'attack', from: c, to: this.playerCell, ranged: dist(c, this.playerCell) > 1, by: 'enemy' });
+        // Обычная защита работает, но уклонений и парирований тут нет: деваться некуда.
+        const dmg = Math.max(1, this.strikeDamage(card.atk));
+        this.hp = Math.max(0, this.hp - dmg);
+        this.totals.damageTaken += dmg;
+        events.push({ type: 'hit', cell: this.playerCell, amount: dmg, crit: false, target: 'player', hp: this.hp });
+      }
+    }
+    this.hp = 0;
+    this.over = 'lose';
+    events.push({ type: 'lose' });
+  }
+
   private finishTurn(events: GameEvent[]): void {
     this.tickStatuses(events);
     this.refill(events);
@@ -1779,6 +1844,8 @@ export class Run {
     const mul = this.boost > 0 ? GAMEPLAY.regenBoostMul : 1;
     if (this.boost > 0) this.boost--;
     if (this.res < this.stats.resMax) this.gain(this.stats.regen * mul, events);
+    // Шкала уже восполнилась — только теперь решаем, что ходить нечем.
+    if (this.cornered()) this.swarm(events);
   }
 
   private lastKills = 0;
