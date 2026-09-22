@@ -36,8 +36,8 @@ const WEAPON_TIERS: Tier[] = [
   { dmg: 8, def: 0, hp: 0, dur: 90, price: 780 },
   { dmg: 15, def: 0, hp: 0, dur: 110, price: 1800 },
   { dmg: 28, def: 0, hp: 0, dur: 135, price: 4000 },
-  { dmg: 50, def: 0, hp: 0, dur: 165, price: 8600 },
-  { dmg: 90, def: 0, hp: 0, dur: 200, price: 18000 },
+  { dmg: 50, def: 0, hp: 0, dur: 165, price: 7200 },
+  { dmg: 90, def: 0, hp: 0, dur: 200, price: 13000 },
 ];
 
 const ARMOR_TIERS: Tier[] = [
@@ -47,8 +47,8 @@ const ARMOR_TIERS: Tier[] = [
   { dmg: 0, def: 7, hp: 20, dur: 90, price: 930 },
   { dmg: 0, def: 12, hp: 38, dur: 110, price: 2150 },
   { dmg: 0, def: 20, hp: 70, dur: 135, price: 4800 },
-  { dmg: 0, def: 33, hp: 130, dur: 165, price: 10400 },
-  { dmg: 0, def: 55, hp: 240, dur: 200, price: 21600 },
+  { dmg: 0, def: 33, hp: 130, dur: 165, price: 8700 },
+  { dmg: 0, def: 55, hp: 240, dur: 200, price: 15500 },
 ];
 
 const WEAPON_NAMES: Record<LineageId, Array<[string, string]>> = {

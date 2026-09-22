@@ -99,11 +99,24 @@ const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_
 /** Событие, по которому видно, что способность что-то изменила. */
 const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'swap', 'slide', 'rewind', 'gold', 'souls']);
 
+/**
+ * Сколько ресурса нельзя разменивать. У мага основной удар — платная молния, и остаться
+ * без маны в окружении значит погибнуть, поэтому цену молнии бот держит в запасе.
+ */
+const reserveOf = (run: Run): { perkId: string; cost: number } | null => {
+  if (run.stats.melee) return null;
+  const basic = (run.stats.abilities as PerkDef[]).find((p) => p.target === 'adjacent');
+  return basic ? { perkId: basic.id, cost: basic.cost ?? 0 } : null;
+};
+
 const tryPerk = (run: Run, dud: Set<string>): boolean => {
   const enemies = run.cards.filter((c) => c?.kind === 'enemy').length;
+  const reserve = reserveOf(run);
   for (const perk of run.stats.abilities as PerkDef[]) {
     if (SKIP.has(perk.ability) || dud.has(perk.id)) continue;
     if (!run.perkReady(perk).ok) continue;
+    // всё, кроме самого основного удара, не имеет права съесть запас на него
+    if (reserve && perk.id !== reserve.perkId && run.res - run.perkCostOf(perk) < reserve.cost) continue;
     const full = perk.cost === FULL_BAR;
     if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
     if (full && enemies < 4) continue;
@@ -154,7 +167,31 @@ const nearestEnemy = (run: Run, cell: number): number => {
 
 const bot = (run: Run): void => {
   const dud = new Set<string>();
-  for (let guard = 0; guard < 500 && !run.over; guard++) {
+  /**
+   * Сколько ходов бот позволяет себе добирать добычу после того, как открылся переход.
+   * Враги лезть не перестают, поэтому «остаться ещё ненадолго» — это ставка, а не халява:
+   * задержался — потерял здоровье, ушёл раньше — бросил золото на поле.
+   */
+  let loot = 6;
+  // колода бесконечна: комната кончается шагом на переход, а не зачисткой поля
+  for (let guard = 0; guard < 1200 && !run.over; guard++) {
+    const exitCell = run.cards.findIndex((c) => c?.kind === 'exit');
+    const leaving = exitCell >= 0 && (loot <= 0 || run.hp < run.stats.maxHp * 0.55);
+    if (exitCell >= 0) loot--;
+    if (leaving) {
+      // идём к переходу: любое действие оценивается тем, насколько оно к нему приближает
+      let best = -1;
+      let bestScore = -1e9;
+      for (let cell = 0; cell < 9; cell++) {
+        if (run.actionFor(cell).kind === 'none') continue;
+        const score = cell === exitCell ? 1000 : -CELL_DIST(cell, exitCell) * 10 - (run.cards[cell]?.kind === 'enemy' ? 5 : 0);
+        if (score > bestScore) {
+          bestScore = score;
+          best = cell;
+        }
+      }
+      if (best >= 0 && run.tap(best).ok) continue;
+    }
     // проверяем результат: расходник может быть недоступен (артефакты — только у магов),
     // иначе бот зациклится на бесполезной попытке и не сделает ни одного хода
     if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0 && run.useItem('potion_heal').ok) continue;
@@ -172,7 +209,8 @@ const bot = (run: Run): void => {
         if (run.wouldKill(cell)) score = 100 + card.atk * 3;
         else if (a.kind === 'ranged') score = 60 + card.atk * 2;
         else score = 20 - card.atk * 2.5 - card.hp * 0.25 + (card.stun > 0 ? 40 : 0);
-      } else score = card.kind === 'chest' || card.kind === 'gold' ? 50 : 45;
+      } else if (card.kind === 'exit') score = -10;
+      else score = card.kind === 'chest' || card.kind === 'gold' ? 50 : 45;
       if (score > bestScore) {
         bestScore = score;
         bestCell = cell;
@@ -183,7 +221,8 @@ const bot = (run: Run): void => {
     if (bestCell < 0) {
       for (let cell = 0; cell < 9; cell++) {
         if (run.cards[cell] || run.actionFor(cell).kind !== 'move') continue;
-        const score = adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
+        // выход открыт — идём к переходу, а не к врагам
+        const score = run.exitOpen ? -nearestEnemy(run, cell) : adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
         if (score > bestScore) {
           bestScore = score;
           bestCell = cell;
@@ -229,11 +268,14 @@ const measure = (i: number): { wr: number; hp: number; turns: number } => {
 const play = (i: number, first: boolean): void => {
   const room = ROOMS[i];
   const probe = fight(i, seed++);
-  if (probe.win) gold += Math.round((probe.run.totals.gold + (first ? room.clearGold : room.clearGold * 0.25)) * FARM);
-  souls += Math.round(probe.run.totals.souls * FARM) + (probe.win && first ? Math.round(room.clearSouls * FARM) : 0);
+  if (probe.win) {
+    gold += Math.round((probe.run.totals.gold + (first ? room.clearGold : room.clearGold * 0.25)) * FARM);
+    souls += Math.round(probe.run.totals.souls * FARM) + (first ? Math.round(room.clearSouls * FARM) : 0);
+  }
   seconds += probe.run.totals.turns * SEC_PER_TURN + SEC_PER_ROOM;
-  if (weapon) weapon.durability = Math.max(0, weapon.durability - Math.round(probe.run.totals.turns * 0.6));
-  if (armor) armor.durability = Math.max(0, armor.durability - Math.round(probe.run.totals.turns * 0.25));
+  // износ берём не «на глазок», а такой, каким его посчитал сам бой
+  if (weapon) weapon.durability = probe.run.weapon?.durability ?? 0;
+  if (armor) armor.durability = probe.run.armor?.durability ?? 0;
 };
 
 for (let i = 0; i < ROOMS.length; i++) {

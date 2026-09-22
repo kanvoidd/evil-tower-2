@@ -332,6 +332,8 @@ export class GameScene extends Phaser.Scene {
 
   /** Короткая метка цены: она живёт в маленьком бейдже, поэтому не больше двух знаков. */
   private perkCostLabel(perk: PerkDef): string {
+    const cd = this.run.cooldownOf(perk);
+    if (cd > 0) return `⏱${cd}`;
     if (perk.goldCost !== undefined) return '$';
     const cost = this.run.perkCostOf(perk);
     if (cost === 0) return '0';
@@ -342,12 +344,13 @@ export class GameScene extends Phaser.Scene {
     for (const pb of this.perkBtns) {
       const ready = this.run.perkReady(pb.perk);
       const armed = this.run.armed?.id === pb.perk.id;
-      const free = this.run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
+      const cd = this.run.cooldownOf(pb.perk);
+      const free = cd === 0 && this.run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
       pb.btn.setStyle(armed ? 'gold' : 'raised');
       pb.btn.setLocked(!ready.ok);
       pb.frame.setVisible(armed);
       pb.costText.setText(this.perkCostLabel(pb.perk));
-      const costColor = !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
+      const costColor = cd > 0 ? HEX.soul : !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
       pb.costText.setColor(costColor);
       pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
       pb.name.setColor(armed ? HEX.dark : ready.ok ? HEX.text : HEX.textMute);
@@ -362,8 +365,10 @@ export class GameScene extends Phaser.Scene {
       AUDIO.play('error');
       const key: TKey = res.reason === 'once' ? 'game.once_used'
         : res.reason === 'active' ? 'game.perk_active'
-          : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
-      this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey) }), HEX.bad, 22);
+          : res.reason === 'cooldown' ? 'game.cooldown'
+            : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
+      const n = this.run.cooldownOf(perk);
+      this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey), n }), HEX.bad, 22);
       return;
     }
     Store.data.tutorial.perk = true;
@@ -460,11 +465,13 @@ export class GameScene extends Phaser.Scene {
     });
     // враги
     const total = r.totalEnemies;
-    const left = r.enemiesLeft;
-    this.enemyText.setText(t('game.enemies', { n: left }));
+    const left = r.killsLeft;
+    this.enemyText.setText(r.exitOpen ? t('game.exit_open') : t('game.enemies', { n: left }));
+    this.enemyText.setColor(r.exitOpen ? HEX.gold : HEX.textDim);
     this.enemyBar.clear();
     this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 214, 260, 7, 3.5);
-    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 214, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
+    const done = total > 0 ? Phaser.Math.Clamp(1 - left / total, 0, 1) : 0;
+    if (done > 0) this.enemyBar.fillStyle(r.exitOpen ? 0xf0c75e : 0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 214, Math.max(7, 260 * done), 7, 3.5);
     // слоты расходников
     this.slots.forEach((sl) => {
       const n = r.consumables[sl.id];
@@ -516,6 +523,7 @@ export class GameScene extends Phaser.Scene {
         if (def.boss) labelColor = HEX.gold;
         break;
       }
+      case 'exit': frameKey = 'card_exit'; spriteKey = 'spr_exit'; spriteSize = 120; label = t('game.exit'); labelColor = HEX.gold; break;
       case 'gold': frameKey = 'card_gold'; spriteKey = 'spr_gold'; label = `+${card.value}`; labelColor = HEX.gold; break;
       case 'chest': frameKey = 'card_chest'; spriteKey = 'spr_chest'; label = t('game.chest'); break;
       case 'potion_heal': spriteKey = 'item_potion_heal'; label = t('shop.potion_heal'); break;
@@ -618,6 +626,14 @@ export class GameScene extends Phaser.Scene {
   private viewAt(cell: number): View | undefined {
     for (const v of this.views.values()) if (v.cell === cell) return v;
     return undefined;
+  }
+
+  /** Снимает с клетки чужой вид: на поле не должно оказаться двух карт в одном месте. */
+  private dropViewAt(cell: number): void {
+    const v = this.viewAt(cell);
+    if (!v) return;
+    this.views.delete(v.uid);
+    void this.tw({ targets: v.c, scale: 0.4, alpha: 0, duration: 140 }).then(() => v.c.destroy());
   }
 
   // ------------------------------------------------------------------------------ ввод
@@ -764,6 +780,8 @@ export class GameScene extends Phaser.Scene {
   private async handle(ev: GameEvent): Promise<void> {
     switch (ev.type) {
       case 'spawn': {
+        // на клетке не должно остаться чужого вида — иначе карты наезжают друг на друга
+        this.dropViewAt(ev.cell);
         const v = this.buildCard(ev.card, ev.cell);
         this.views.set(ev.card.uid, v);
         v.c.setScale(0);
@@ -775,6 +793,23 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'attack': {
+        if (this.run.over === 'lose' && ev.by === 'enemy') {
+          // Добивающая волна: показываем коротко, иначе смерть тянется полминуты.
+          // Каждая карта возвращается ровно в свою клетку — иначе наложившиеся
+          // рывки уносят карточки к герою и оставляют их там.
+          const v0 = this.viewAt(ev.from);
+          if (v0) {
+            const home = cellPos(v0.cell);
+            this.tweens.killTweensOf(v0.c);
+            v0.c.setPosition(home.x, home.y);
+            void this.tw({
+              targets: v0.c, x: (home.x + this.playerView.c.x) / 2, y: (home.y + this.playerView.c.y) / 2,
+              duration: 80, yoyo: true,
+            }).then(() => v0.c.setPosition(home.x, home.y));
+          }
+          await this.sleep(70);
+          break;
+        }
         if (ev.by === 'player') {
           if (ev.ranged) await (ev.style === 'backstab' ? this.backstab(ev.to) : this.shoot(ev.to, ev.style === 'bolt' ? 'bolt' : 'shot'));
           else await this.lunge(this.playerView, ev.to);
@@ -871,7 +906,7 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'souls': {
-        Store.addSouls(ev.amount);
+        // Души, как и золото, копятся в забеге: поражение не приносит ничего.
         this.runSouls += ev.amount;
         this.loot.setValues(this.pouch, this.runSouls);
         const p = cellPos(ev.cell);
@@ -945,6 +980,25 @@ export class GameScene extends Phaser.Scene {
       }
       case 'fx': {
         await this.playFx(ev.cells, ev.style);
+        break;
+      }
+      case 'remove': {
+        const v = this.views.get(ev.uid);
+        if (!v) break;
+        this.views.delete(ev.uid);
+        void this.tw({ targets: v.c, scale: 0.4, alpha: 0, duration: 160 }).then(() => v.c.destroy());
+        break;
+      }
+      case 'swarm': {
+        // героя зажали и ему нечем ответить — карты идут рвать его по очереди
+        AUDIO.play('burst');
+        this.cameras.main.shake(520, 0.012);
+        this.popupAt(GAME_W / 2, NOTE_Y, t('game.cornered'), HEX.bad, 30);
+        for (const cell of ev.cells) {
+          const v = this.viewAt(cell);
+          if (v) this.tweens.add({ targets: v.c, scale: 1.1, duration: 140, yoyo: true });
+        }
+        await this.sleep(420);
         break;
       }
       case 'swap': {
@@ -1256,9 +1310,9 @@ export class GameScene extends Phaser.Scene {
       if (flawless) Store.bump('flawless');
       bonusGold = first ? room.clearGold : Math.round(room.clearGold * 0.25);
       bonusSouls = first ? room.clearSouls : 0;
-      // Сумка с золотом сдаётся в кошелёк только за победу.
+      // Сумка с золотом и души сдаются в кошелёк только за победу.
       Store.addGold(run.totals.gold + bonusGold);
-      if (bonusSouls) Store.addSouls(bonusSouls);
+      Store.addSouls(run.totals.souls + bonusSouls);
       void YSDK.submitScore('rooms', Store.data.cleared.length);
       void YSDK.setStats({ rooms: Store.data.cleared.length, kills: Store.data.stats.kills });
     } else {
@@ -1280,7 +1334,7 @@ export class GameScene extends Phaser.Scene {
     this.resultInfo = {
       result, first, flawless,
       totalGold: result === 'win' ? run.totals.gold + bonusGold : 0,
-      totalSouls: run.totals.souls + bonusSouls,
+      totalSouls: result === 'win' ? run.totals.souls + bonusSouls : 0,
     };
     this.showResult();
   }
@@ -1362,12 +1416,8 @@ export class GameScene extends Phaser.Scene {
         if (result === 'win') row('ico_gold', `+${fmt(totalGold)}`, HEX.gold);
         if (totalSouls > 0) row('ico_soul', `+${fmt(totalSouls)}`, HEX.soul);
         if (result === 'lose') {
-          c.add(txt(s, 0, y + 12, t('game.gold_lost'), 24, { color: HEX.bad, strokeThickness: 0 }));
+          c.add(txt(s, 0, y + 12, t('game.loot_lost'), 24, { color: HEX.bad, strokeThickness: 0 }));
           y += 34;
-          if (totalSouls > 0) {
-            c.add(txt(s, 0, y + 8, t('game.souls_kept'), 22, { color: HEX.textDim, strokeThickness: 0, weight: 700 }));
-            y += 30;
-          }
         }
         if (first) {
           c.add(txt(s, 0, y + 12, t('game.first_clear'), 24, { color: HEX.good, strokeThickness: 0 }));

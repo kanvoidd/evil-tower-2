@@ -71,16 +71,22 @@ export interface EnemyDef extends EnemyTraits {
 const pw = (m: number, floor: number): number => Math.pow(m, floor - 1);
 
 /**
- * Надбавка вершины башни. К девятому этажу герой получает финальный класс и восьмую ступень
- * снаряжения — скачок силы такой, что ровная кривая превращает последний этаж в прогулку.
- * Поэтому два верхних этажа получают собственную наценку: это единственное место, где кривая
- * не гладкая, и оно намеренное.
+ * Поправки на концах кривой — единственные места, где она намеренно не гладкая.
+ *
+ * Низ: первые этажи мягче расчётных. Ход врагов бьёт сразу всеми соседями, и на голом герое
+ * с двумя десятками здоровья ровная кривая превращает обучение в мясорубку.
+ *
+ * Верх: к девятому этажу герой получает финальный класс и восьмую ступень снаряжения —
+ * скачок силы такой, что без наценки последний этаж становится прогулкой.
  */
-const PEAK: Record<number, { hp: number; atk: number }> = {
+const FLOOR_TUNE: Record<number, { hp: number; atk: number }> = {
+  1: { hp: 0.8, atk: 0.6 },
+  2: { hp: 0.9, atk: 0.78 },
+  3: { hp: 1, atk: 0.9 },
   9: { hp: 1.08, atk: 1.06 },
   10: { hp: 1.55, atk: 1.46 },
 };
-const peak = (floor: number): { hp: number; atk: number } => PEAK[floor] ?? { hp: 1, atk: 1 };
+const peak = (floor: number): { hp: number; atk: number } => FLOOR_TUNE[floor] ?? { hp: 1, atk: 1 };
 
 const E = (
   id: string, ru: string, en: string, floor: number, role: EnemyRole, tag: EnemyTag, traits: EnemyTraits = {},

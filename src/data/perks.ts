@@ -48,14 +48,19 @@ export type PerkSlot = 'start' | 'p2' | 'p3' | 'legend';
  * Визуальный почерк способности. Рисуется в `src/ui/Vfx.ts`: у каждой семьи эффектов
  * свой цвет, форма и звук, поэтому по вспышке сразу понятно, что именно сработало.
  */
-export type VfxStyle =
-  | 'bolt' | 'chain' | 'arcane' | 'beam'
-  | 'fire' | 'explosion'
-  | 'holy' | 'banner'
-  | 'dark' | 'soul' | 'mark'
-  | 'quake' | 'slam' | 'blades'
-  | 'shot' | 'arrows'
-  | 'smoke' | 'swap' | 'rewind';
+export const VFX_STYLES = [
+  'bolt', 'chain', 'arcane', 'beam',
+  // огонь пироманта: тлеющее клеймо, летящий шар, цепная детонация, огненная буря
+  'fire', 'explosion', 'ignite', 'fireball', 'detonate', 'inferno',
+  'holy', 'banner',
+  // некромантия: взрыв плоти, призрачные слуги, нити вуду, жатва душ
+  'dark', 'soul', 'mark', 'corpse', 'ghost', 'voodoo', 'harvest',
+  'quake', 'slam', 'blades',
+  'shot', 'arrows',
+  'smoke', 'swap', 'rewind',
+] as const;
+
+export type VfxStyle = (typeof VFX_STYLES)[number];
 
 export interface PerkDef {
   id: string;
@@ -77,6 +82,8 @@ export interface PerkDef {
   target?: PerkTarget;
   /** Один раз за комнату. */
   once?: boolean;
+  /** Перезарядка в ходах после применения. */
+  cooldown?: number;
   /** Как способность выглядит на поле. */
   vfx: VfxStyle;
 }
@@ -97,6 +104,7 @@ interface Opts {
   passive?: boolean;
   basic?: boolean;
   once?: boolean;
+  cooldown?: number;
 }
 
 const P = (classId: ClassId, slot: PerkSlot, o: Opts): PerkDef => ({
@@ -113,6 +121,7 @@ const P = (classId: ClassId, slot: PerkSlot, o: Opts): PerkDef => ({
   goldCost: o.goldCost,
   target: o.target,
   once: o.once,
+  cooldown: o.cooldown,
   vfx: o.vfx,
 });
 
@@ -159,8 +168,8 @@ export const PERKS: PerkDef[] = [
   P('berserk', 'start', {
     ability: 'whirlwind', vfx: 'blades', cost: 4, target: 'self',
     ru: 'Вихрь', en: 'Whirlwind',
-    dru: 'Герой раскручивается и бьёт всех соседних врагов на 70% урона. Выжившие отвечают вполсилы.',
-    den: 'You spin and strike every adjacent enemy for 70% damage. Survivors answer at half strength.',
+    dru: 'Герой раскручивается и бьёт всех соседних врагов на 70% урона.',
+    den: 'You spin and strike every adjacent enemy for 70% damage.',
   }),
   P('berserk', 'p2', {
     ability: 'rage', vfx: 'slam', passive: true,
@@ -208,22 +217,22 @@ export const PERKS: PerkDef[] = [
 
   // ------------------------------------------------------------------ Маг · мана
   P('mage', 'start', {
-    ability: 'lightning', vfx: 'bolt', cost: 0, target: 'adjacent',
+    ability: 'lightning', vfx: 'bolt', cost: 4, target: 'adjacent',
     ru: 'Удар молнии', en: 'Lightning Bolt',
-    dru: 'Маг вообще не бьёт рукой — только молнией, и это его обычный удар: маны не стоит. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 90% урона заклинанием. Враг отвечает, как на удар рукой.',
-    den: 'The mage never strikes with his hands — lightning is his ordinary attack and costs no mana. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 90% spell damage. The enemy strikes back as it would against a melee blow.',
+    dru: 'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 190% урона заклинанием. Следите за маной: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
+    den: 'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 190% spell damage. Watch your mana: a mage cornered on every side with an empty bar is doomed.',
   }),
   P('mage', 'p2', {
-    ability: 'magic_shot', vfx: 'arcane', cost: 6, target: 'line',
+    ability: 'magic_shot', vfx: 'arcane', cost: 6, target: 'line', cooldown: 1,
     ru: 'Магический выстрел', en: 'Arcane Shot',
-    dru: '200% урона по цели на одной линии с героем, без ответного удара.',
-    den: '200% damage to a target in line with you, with no counterattack.',
+    dru: '150% урона по цели на одной линии с героем — но только ЧЕРЕЗ карту: вплотную выстрел не бьёт. Перезарядка 1 ход.',
+    den: '150% damage to a target in line with you — but only THROUGH a card: the shot cannot hit an adjacent enemy. 1-turn cooldown.',
   }),
   P('mage', 'p3', {
-    ability: 'chain_lightning', vfx: 'chain', cost: 5, target: 'enemy',
+    ability: 'chain_lightning', vfx: 'chain', cost: 5, target: 'enemy', cooldown: 2,
     ru: 'Цепная молния', en: 'Chain Lightning',
-    dru: 'Бьёт цель и перескакивает по соседним врагам: 100% → 75% → 50%. Ответных ударов нет.',
-    den: 'Strikes the target and arcs to neighbours: 100% → 75% → 50%. No counterattacks.',
+    dru: 'Бьёт цель и перескакивает по соседним врагам: 100% → 75% → 50%. Перезарядка 2 хода.',
+    den: 'Strikes the target and arcs to neighbours: 100% → 75% → 50%. 2-turn cooldown.',
   }),
 
   P('magister', 'start', {
@@ -246,50 +255,50 @@ export const PERKS: PerkDef[] = [
   }),
 
   P('necromancer', 'start', {
-    ability: 'corpse_blast', vfx: 'dark', cost: 3, target: 'self',
+    ability: 'corpse_blast', vfx: 'corpse', cost: 3, target: 'self',
     ru: 'Взрыв трупа', en: 'Corpse Blast',
     dru: 'Следующий убитый враг взрывается: соседи получают урон, равный половине его максимального здоровья. Взрывы идут цепью.',
     den: 'The next enemy you kill bursts: neighbours take half of its maximum health as damage, and the blasts chain.',
   }),
   P('necromancer', 'p2', {
-    ability: 'ghosts', vfx: 'soul', passive: true,
+    ability: 'ghosts', vfx: 'ghost', passive: true,
     ru: 'Призрачные слуги', en: 'Spectral Servants',
     dru: 'Каждое убийство поднимает призрака. В конце хода он бьёт случайного врага на 50% вашего урона, до трёх призраков.',
     den: 'Every kill raises a ghost. At the end of the turn it strikes a random enemy for 50% of your damage — up to three ghosts.',
   }),
   P('necromancer', 'p3', {
-    ability: 'voodoo', vfx: 'dark', cost: 5, target: 'enemy',
+    ability: 'voodoo', vfx: 'voodoo', cost: 5, target: 'enemy',
     ru: 'Кукла вуду', en: 'Voodoo Doll',
     dru: 'Связывает врага: половина урона, который он получает, достаётся всем остальным врагам на поле.',
     den: 'Binds an enemy: half of the damage it takes is dealt to every other enemy on the board.',
   }),
   P('necromancer', 'legend', {
-    ability: 'dead_harvest', vfx: 'soul', cost: FULL_BAR, target: 'self', once: true,
+    ability: 'dead_harvest', vfx: 'harvest', cost: FULL_BAR, target: 'self', once: true,
     ru: 'Жатва мёртвых', en: 'Harvest of the Dead',
     dru: 'Каждый враг теряет половину текущего здоровья (боссы — четверть). Умершие дают вдвое больше душ.',
     den: 'Every enemy loses half its current health (bosses a quarter). Those that die give double souls.',
   }),
 
   P('pyromancer', 'start', {
-    ability: 'ignite', vfx: 'fire', cost: 2, target: 'enemy',
+    ability: 'ignite', vfx: 'ignite', cost: 2, target: 'enemy',
     ru: 'Поджог', en: 'Ignite',
     dru: 'Поджигает любого врага. Умерший от огня передаёт пламя соседям.',
     den: 'Sets any enemy ablaze. One that dies burning passes the flame to its neighbours.',
   }),
   P('pyromancer', 'p2', {
-    ability: 'fireball', vfx: 'explosion', cost: 4, target: 'enemy',
+    ability: 'fireball', vfx: 'fireball', cost: 4, target: 'enemy',
     ru: 'Огненный шар', en: 'Fireball',
     dru: 'Дальний бросок: цель получает 150% урона, соседи — 70%, все загораются.',
     den: 'A long throw: the target takes 150% damage, neighbours 70%, and everyone catches fire.',
   }),
   P('pyromancer', 'p3', {
-    ability: 'detonate', vfx: 'explosion', cost: 5, target: 'self',
+    ability: 'detonate', vfx: 'detonate', cost: 5, target: 'self',
     ru: 'Детонация', en: 'Detonation',
     dru: 'Все горящие враги взрываются: 200% урона себе и 100% соседям. Взрывы идут цепью по всему полю.',
     den: 'Every burning enemy explodes for 200% on itself and 100% on its neighbours — the blasts chain across the board.',
   }),
   P('pyromancer', 'legend', {
-    ability: 'inferno', vfx: 'fire', cost: FULL_BAR, target: 'self', once: true,
+    ability: 'inferno', vfx: 'inferno', cost: FULL_BAR, target: 'self', once: true,
     ru: 'Инферно', en: 'Inferno',
     dru: 'Огненный шторм волнами расходится от героя: все враги горят 5 ходов по 40% вашего урона за ход.',
     den: 'A firestorm rolls out in waves: every enemy burns for 5 turns at 40% of your damage per turn.',
@@ -299,8 +308,8 @@ export const PERKS: PerkDef[] = [
   P('archer', 'start', {
     ability: 'pierce_shot', vfx: 'shot', basic: true, cost: 2, target: 'line',
     ru: 'Сквозной выстрел', en: 'Piercing Shot',
-    dru: 'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон без ответного удара.',
-    den: 'A shot through a card: tap an enemy two cells away in a straight line and it takes damage with no counterattack.',
+    dru: 'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон, оставаясь вне досягаемости руки.',
+    den: 'A shot through a card: tap an enemy two cells away in a straight line and it takes damage from outside melee reach.',
   }),
   P('archer', 'p2', {
     ability: 'diagonal', vfx: 'shot', passive: true,
@@ -451,7 +460,7 @@ export const PERKS: PerkDef[] = [
   P('ninja', 'start', {
     ability: 'shuriken_fan', vfx: 'blades', cost: 3, target: 'self',
     ru: 'Веер сюрикенов', en: 'Shuriken Fan',
-    dru: 'Четыре сюрикена летят в ближайших врагов по 60% урона с отдельными критами, без ответных ударов.',
+    dru: 'Четыре сюрикена летят в ближайших врагов по 60% урона с отдельными критами.',
     den: 'Four shuriken fly at the nearest enemies for 60% each, rolling separate crits and drawing no answer.',
   }),
   P('ninja', 'p2', {

@@ -18,7 +18,7 @@ export type Stats = Record<StatKey, number>;
 /** Три пути дерева талантов: У — урон и способности, З — здоровье и запас, Щ — защита и ослабление врагов. */
 export type TalentPath = 'attack' | 'vitality' | 'guard';
 
-export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact';
+export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact' | 'exit';
 
 /** Кем является враг: от этого зависят «Святая кара», «Луч правосудия» и прочие перки против нежити. */
 export type EnemyTag = 'undead' | 'demon' | 'beast' | 'construct' | 'humanoid';

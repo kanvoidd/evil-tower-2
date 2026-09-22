@@ -18,6 +18,8 @@ import type { ClassId, TalentPath } from '../types';
 export type TalentFx =
   // ---- урон и способности (путь У)
   | 'dmgPct' | 'crit' | 'critMul' | 'perkPower' | 'artifactMul' | 'execute' | 'pierce'
+  // усиление конкретных заклинаний мага
+  | 'lightningPower' | 'shotPower' | 'chainPower'
   | 'doubleStrike' | 'lowHpDmg' | 'fullHpDmg' | 'bossDmg' | 'ignite' | 'killDmg'
   | 'rageDmg' | 'goldDmg' | 'defDmg' | 'everyThird' | 'roomCrit'
   // ---- здоровье и запас (путь З)
@@ -52,6 +54,8 @@ export interface TalentDef {
   fx: TalentFx;
   /** Суммарное значение эффекта на каждом ранге. Длина массива = число рангов. */
   v: number[];
+  /** Второе значение ранга для эффектов из пары «шанс / сила» (например, раздвоение молнии). */
+  v2?: number[];
   name: { ru: string; en: string };
 }
 
@@ -62,9 +66,10 @@ interface Seed {
   en: string;
   fx: TalentFx;
   v: number[];
+  v2?: number[];
 }
 
-const T = (ru: string, en: string, fx: TalentFx, v: number[]): Seed => ({ ru, en, fx, v });
+const T = (ru: string, en: string, fx: TalentFx, v: number[], v2?: number[]): Seed => ({ ru, en, fx, v, v2 });
 
 /** Ярус: по цепочке на каждый путь. Последний талант цепочки — самый сильный. */
 interface Tier {
@@ -86,6 +91,7 @@ const build = (classId: ClassId, tiers: [Tier, Tier, Tier]): TalentDef[] => {
           step,
           fx: seed.fx,
           v: seed.v,
+          v2: seed.v2,
           name: { ru: seed.ru, en: seed.en },
         });
       });
@@ -227,28 +233,32 @@ export const TALENTS: TalentDef[] = [
   ...build('mage', [
     {
       a: [
-        T('Искра', 'Spark', 'dmgPct', [6, 12]),
-        T('Раздвоение молнии', 'Forked Bolt', 'basicSplit', [25, 50]),
-        T('Сила заклинаний', 'Spell Power', 'dmgPct', [10, 20, 30, 40, 50]),
+        T('Искра', 'Spark', 'dmgPct', [2, 5, 8]),
+        // шанс задеть второго врага и доля урона по нему идут парой
+        T('Раздвоение молнии', 'Forked Bolt', 'basicSplit', [8, 12, 16], [12, 14, 16]),
+        T('Сила молнии', 'Bolt Power', 'lightningPower', [5, 10, 15, 20, 25]),
       ],
       v: [T('Запас маны', 'Mana Reserve', 'resMaxPct', [15, 25, 35])],
       g: [T('Мана-щит', 'Mana Shield', 'manaShield', [10, 20, 30])],
     },
     {
-      a: [T('Мастер артефактов', 'Artifact Master', 'artifactMul', [25, 50, 75])],
+      a: [
+        T('Мастер артефактов', 'Artifact Master', 'artifactMul', [25, 50, 75]),
+        T('Сила магического выстрела', 'Arcane Shot Power', 'shotPower', [10, 20, 30, 40, 50]),
+      ],
       v: [
         T('Шаг сквозь эфир', 'Ether Step', 'stepHeal', [2, 4]),
         T('Мерцание', 'Blink', 'dodge', [4, 8, 12]),
       ],
       g: [
-        T('Рунные знаки', 'Runic Sigils', 'def', [2, 5]),
+        T('Рунные знаки', 'Runic Sigils', 'def', [2, 4, 6]),
         T('Рунная броня', 'Runic Armour', 'resDef', [10, 20, 30]),
       ],
     },
     {
       a: [
-        T('Концентрация', 'Focus', 'abilityCrit', [8, 16]),
-        T('Арканный резонанс', 'Arcane Resonance', 'crit', [10, 20]),
+        T('Арканный резонанс', 'Arcane Resonance', 'crit', [3, 9, 12]),
+        T('Сила цепной молнии', 'Chain Power', 'chainPower', [10, 15, 20, 25, 30]),
       ],
       v: [
         T('Эфирная плоть', 'Ether Flesh', 'hpPct', [14, 28]),
@@ -359,7 +369,7 @@ export const TALENTS: TalentDef[] = [
     {
       a: [
         T('Твёрдая рука', 'Steady Hand', 'crit', [3, 6]),
-        T('Двойной наконечник', 'Split Tip', 'basicSplit', [20, 40]),
+        T('Двойной наконечник', 'Split Tip', 'basicSplit', [12, 24], [25, 40]),
         T('Меткость', 'Marksmanship', 'crit', [4, 8, 12, 16, 20]),
       ],
       v: [T('Лёгкие ноги', 'Light Feet', 'dodge', [4, 8, 12])],
@@ -586,7 +596,7 @@ export const TALENTS: TalentDef[] = [
     {
       a: [
         T('Стойка', 'Stance', 'dmgPct', [6, 12]),
-        T('Скрытый бросок', 'Hidden Throw', 'basicSplit', [20, 40]),
+        T('Скрытый бросок', 'Hidden Throw', 'basicSplit', [12, 24], [25, 40]),
         T('Путь клинка', 'Way of the Blade', 'dmgPct', [10, 20, 30, 40, 50]),
       ],
       v: [T('Тень ветра', 'Wind Shadow', 'dodge', [5, 10, 15])],
@@ -630,6 +640,10 @@ export const maxRank = (t: TalentDef): number => t.v.length;
 
 /** Значение эффекта на купленном ранге (0 — талант не изучен). */
 export const talentValue = (t: TalentDef, rank: number): number => (rank <= 0 ? 0 : t.v[Math.min(rank, t.v.length) - 1]);
+
+/** Второе значение ранга — для эффектов вида «шанс / сила». */
+export const talentValue2 = (t: TalentDef, rank: number): number =>
+  rank <= 0 || !t.v2 ? 0 : t.v2[Math.min(rank, t.v2.length) - 1];
 
 /** Порядок путей в дереве слева направо. */
 export const PATH_ORDER: TalentPath[] = ['attack', 'vitality', 'guard'];

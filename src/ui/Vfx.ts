@@ -14,11 +14,19 @@ const TINT: Record<VfxStyle, number> = {
   beam: 0xfff0b0,
   fire: 0xff8a2a,
   explosion: 0xffb44a,
+  ignite: 0xff6a1a,
+  fireball: 0xffa03a,
+  detonate: 0xff5a2a,
+  inferno: 0xff7a18,
   holy: 0xfff3c4,
   banner: 0xf0c75e,
   dark: 0xb287ff,
   soul: 0xa98bff,
   mark: 0xff6a8a,
+  corpse: 0x8fd14f,
+  ghost: 0xa9e8ff,
+  voodoo: 0xd05aff,
+  harvest: 0x9a6bff,
   quake: 0xd2a15a,
   slam: 0xffe0a0,
   blades: 0xeaf2ff,
@@ -33,7 +41,9 @@ const TINT: Record<VfxStyle, number> = {
 const HOLD: Partial<Record<VfxStyle, number>> = {
   bolt: 210, chain: 260, arcane: 240, beam: 320,
   fire: 240, explosion: 300, holy: 340, banner: 420,
+  ignite: 260, fireball: 320, detonate: 380, inferno: 520,
   dark: 260, soul: 240, mark: 260,
+  corpse: 340, ghost: 320, voodoo: 340, harvest: 460,
   quake: 320, slam: 200, blades: 220,
   shot: 200, arrows: 300, smoke: 240, swap: 260, rewind: 420,
 };
@@ -61,11 +71,19 @@ export class Vfx {
       case 'beam': cells.forEach((c) => this.pillar(c, TINT.beam, 74)); break;
       case 'fire': cells.forEach((c) => this.flames(c)); break;
       case 'explosion': cells.forEach((c) => this.explosion(c)); break;
+      case 'ignite': cells.forEach((c) => this.ignite(c)); break;
+      case 'fireball': cells.forEach((c) => this.fireball(from, c)); break;
+      case 'detonate': this.detonate(cells); break;
+      case 'inferno': this.inferno(cells); break;
       case 'holy': cells.forEach((c) => this.holy(c)); break;
       case 'banner': this.banner(cells); break;
       case 'dark': cells.forEach((c) => this.dark(c)); break;
       case 'soul': cells.forEach((c) => this.souls(c)); break;
       case 'mark': cells.forEach((c) => this.mark(c)); break;
+      case 'corpse': cells.forEach((c) => this.corpse(c)); break;
+      case 'ghost': this.ghost(from, cells); break;
+      case 'voodoo': cells.forEach((c) => this.voodoo(from, c)); break;
+      case 'harvest': this.harvest(from, cells); break;
       case 'quake': this.quake(cells); break;
       case 'slam': cells.forEach((c) => this.slam(c)); break;
       case 'blades': cells.forEach((c) => this.blades(c)); break;
@@ -172,6 +190,137 @@ export class Vfx {
     this.s.tweens.add({ targets: [beam, core], displayHeight: 1400, duration: 160, ease: 'Quad.easeOut' });
     this.s.tweens.add({ targets: [beam, core], alpha: 0, delay: 150, duration: 220, onComplete: () => { beam.destroy(); core.destroy(); } });
     this.ring(p, color, 190, 420);
+  }
+
+  /** Тлеющее клеймо поджога: печать из угольков и тонкий дымок вверх. */
+  private ignite(p: Pt): void {
+    const r = this.s.add.image(p.x, p.y, 'ring').setTint(TINT.ignite).setDisplaySize(30, 30)
+      .setDepth(DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+    this.s.tweens.add({ targets: r, displayWidth: 130, displayHeight: 130, alpha: 0, duration: 300, ease: 'Cubic.easeOut', onComplete: () => r.destroy() });
+    for (let i = 0; i < 5; i++) {
+      const x = p.x + (Math.random() - 0.5) * 60;
+      const e = this.s.add.image(x, p.y + 20, 'dot').setTint(i % 2 ? 0xffd15a : TINT.ignite)
+        .setDisplaySize(9, 9).setDepth(DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+      this.s.tweens.add({
+        targets: e, y: p.y - 60 - Math.random() * 40, x: x + (Math.random() - 0.5) * 30,
+        alpha: 0, scale: 0.3, delay: i * 40, duration: 460, onComplete: () => e.destroy(),
+      });
+    }
+    this.glow(p, TINT.ignite, 110, 280);
+  }
+
+  /** Огненный шар: летит от героя, тянет хвост искр и лопается на цели. */
+  private fireball(from: Pt, to: Pt): void {
+    const ball = this.s.add.image(from.x, from.y, 'glow').setTint(TINT.fireball)
+      .setDisplaySize(52, 52).setDepth(DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+    const core = this.s.add.image(from.x, from.y, 'dot').setTint(0xfff1c0)
+      .setDisplaySize(22, 22).setDepth(DEPTH + 1).setBlendMode(Phaser.BlendModes.ADD);
+    const trail = this.s.time.addEvent({
+      delay: 22,
+      repeat: 9,
+      callback: () => {
+        const t = this.s.add.image(core.x, core.y, 'dot').setTint(TINT.fire)
+          .setDisplaySize(16, 16).setDepth(DEPTH - 1).setBlendMode(Phaser.BlendModes.ADD);
+        this.s.tweens.add({ targets: t, alpha: 0, scale: 0.2, duration: 260, onComplete: () => t.destroy() });
+      },
+    });
+    this.s.tweens.add({
+      targets: [ball, core], x: to.x, y: to.y, duration: 230, ease: 'Quad.easeIn',
+      onComplete: () => {
+        trail.remove();
+        ball.destroy();
+        core.destroy();
+        this.explosion(to);
+        this.flames(to);
+      },
+    });
+  }
+
+  /** Детонация: горящие цели рвутся одна за другой, волна идёт по полю. */
+  private detonate(cells: Pt[]): void {
+    cells.forEach((c, i) => {
+      this.s.time.delayedCall(i * 70, () => {
+        this.explosion(c);
+        this.sparks(c, TINT.detonate, 10, 120);
+      });
+    });
+    this.s.cameras.main.shake(300, 0.01);
+  }
+
+  /** Инферно: огненная буря по всему полю — столбы пламени и зарево. */
+  private inferno(cells: Pt[]): void {
+    const sheet = this.s.add.image(360, 640, 'px').setTint(TINT.inferno).setDisplaySize(720, 1280)
+      .setDepth(DEPTH - 3).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
+    this.s.tweens.add({ targets: sheet, alpha: 0.32, duration: 160, yoyo: true, hold: 120, onComplete: () => sheet.destroy() });
+    cells.forEach((c, i) => {
+      this.s.time.delayedCall(i * 55, () => {
+        this.pillar(c, TINT.inferno, 86);
+        this.flames(c);
+        this.sparks(c, 0xffd15a, 10, 90);
+      });
+    });
+    this.s.cameras.main.shake(420, 0.009);
+  }
+
+  /** Взрыв плоти: зелёная вспышка гнили и брызги во все стороны. */
+  private corpse(p: Pt): void {
+    this.ring(p, TINT.corpse, 230, 360);
+    this.glow(p, TINT.corpse, 170, 300);
+    for (let i = 0; i < 10; i++) {
+      const a = (Math.PI * 2 * i) / 10 + Math.random() * 0.3;
+      const seg = this.seg(p, { x: p.x + Math.cos(a) * 80, y: p.y + Math.sin(a) * 80 }, TINT.corpse, 7, 0.8);
+      this.s.tweens.add({ targets: seg, alpha: 0, duration: 280, onComplete: () => seg.destroy() });
+    }
+    this.sparks(p, 0xd7ff8a, 12, 100);
+  }
+
+  /** Призрачные слуги: полупрозрачные огоньки срываются от героя к целям. */
+  private ghost(from: Pt, cells: Pt[]): void {
+    cells.forEach((c, i) => {
+      const g = this.s.add.image(from.x, from.y, 'glow').setTint(TINT.ghost)
+        .setDisplaySize(44, 44).setDepth(DEPTH).setAlpha(0.85).setBlendMode(Phaser.BlendModes.ADD);
+      this.s.tweens.add({
+        targets: g, x: c.x, y: c.y, delay: i * 90, duration: 240, ease: 'Sine.easeInOut',
+        onComplete: () => {
+          g.destroy();
+          this.sparks(c, TINT.ghost, 6, 40);
+        },
+      });
+    });
+  }
+
+  /** Кукла вуду: нить от героя к цели и пульсирующая печать. */
+  private voodoo(from: Pt, to: Pt): void {
+    const parts: Phaser.GameObjects.Image[] = [];
+    // нить идёт не прямо, а провисает — рисуем тремя звеньями
+    const mid = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 + 40 };
+    parts.push(this.seg(from, mid, TINT.voodoo, 5, 0.9));
+    parts.push(this.seg(mid, to, TINT.voodoo, 5, 0.9));
+    this.s.tweens.add({ targets: parts, alpha: 0, duration: 340, delay: 120, onComplete: () => parts.forEach((x) => x.destroy()) });
+    const r = this.s.add.image(to.x, to.y, 'ring').setTint(TINT.voodoo).setDisplaySize(150, 150)
+      .setDepth(DEPTH).setAlpha(0);
+    this.s.tweens.add({
+      targets: r, displayWidth: 84, displayHeight: 84, alpha: { from: 1, to: 0 }, angle: 120,
+      duration: 340, ease: 'Cubic.easeIn', onComplete: () => r.destroy(),
+    });
+    this.glow(to, TINT.voodoo, 130, 320);
+  }
+
+  /** Жатва душ: от каждого врага к герою тянется огонёк, герой вспыхивает. */
+  private harvest(to: Pt, cells: Pt[]): void {
+    cells.forEach((c, i) => {
+      const w = this.s.add.image(c.x, c.y, 'dot').setTint(TINT.harvest)
+        .setDisplaySize(18, 18).setDepth(DEPTH).setBlendMode(Phaser.BlendModes.ADD);
+      this.s.tweens.add({
+        targets: w, x: to.x, y: to.y, delay: i * 55, duration: 320, ease: 'Quad.easeIn',
+        onComplete: () => {
+          w.destroy();
+          this.glow(to, TINT.harvest, 120, 220);
+        },
+      });
+      this.souls(c);
+    });
+    this.s.time.delayedCall(cells.length * 55 + 320, () => this.ring(to, TINT.harvest, 260, 420));
   }
 
   /** Языки пламени поднимаются от карточки. */

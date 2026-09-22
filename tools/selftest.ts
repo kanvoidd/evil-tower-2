@@ -2,7 +2,7 @@
 import { CLASSES, LINEAGE_ORDER, classesOfLineage } from '../src/data/classes';
 import { ENEMY_LIST } from '../src/data/enemies';
 import { FLOORS, MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
-import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR } from '../src/data/perks';
+import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/data/perks';
 import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
 import { perkCost, talentRankCost } from '../src/data/economy';
 import {
@@ -40,23 +40,25 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4 на класс)`);
 
   const talents = talentsOfClass(cls);
-  ok(talents.length === 15, `${cls}: талантов ${talents.length}, ожидалось 15`);
+  ok(talents.length >= 15 && talents.length <= 16, `${cls}: талантов ${talents.length}, ожидалось 15–16`);
+  let variedTiers = 0;
   for (const tier of [1, 2, 3] as const) {
     const list = talentsOfTier(cls, tier);
-    ok(list.length === 5, `${cls}: на ярусе ${tier} пять талантов (${list.length})`);
+    ok(list.length >= 5 && list.length <= 6, `${cls}: на ярусе ${tier} пять-шесть талантов (${list.length})`);
     ok(new Set(list.map((t) => t.path)).size === 3, `${cls}: на ярусе ${tier} все три пути`);
-    // цепочки путей разной длины — прокачка идёт «вразнобой», а не одинаковыми тройками
     const lens = PATH_ORDER.map((path) => talentChain(cls, tier, path).length);
-    ok(lens.reduce((a, b) => a + b, 0) === 5, `${cls}/${tier}: цепочки покрывают ярус (${lens.join('-')})`);
-    ok(new Set(lens).size > 1, `${cls}/${tier}: цепочки разной длины (${lens.join('-')})`);
+    ok(lens.reduce((a, b) => a + b, 0) === list.length, `${cls}/${tier}: цепочки покрывают ярус (${lens.join('-')})`);
+    if (new Set(lens).size > 1) variedTiers++;
     for (const path of PATH_ORDER) {
       const chain = talentChain(cls, tier, path);
       ok(chain.length >= 1 && chain.length <= 3, `${cls}/${tier}/${path}: длина цепочки ${chain.length}`);
       ok(chain.every((t, i) => t.step === i), `${cls}/${tier}/${path}: шаги цепочки по порядку`);
     }
   }
+  // прокачка идёт «вразнобой»: хотя бы на двух ярусах из трёх цепочки разной длины
+  ok(variedTiers >= 2, `${cls}: цепочки разной длины минимум на двух ярусах (${variedTiers})`);
   const ranks = talents.reduce((a, t) => a + maxRank(t), 0);
-  ok(ranks >= 30 && ranks <= 40, `${cls}: суммарно рангов ${ranks} (ожидалось 30–40)`);
+  ok(ranks >= 30 && ranks <= 50, `${cls}: суммарно рангов ${ranks} (ожидалось 30–50)`);
   for (const t of talents) {
     ok(t.v.length >= 1 && t.v.length <= 5, `${t.id}: рангов ${t.v.length}`);
     // значения суммарные, значит строго возрастают
@@ -79,13 +81,10 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
-const VFX_STYLES = new Set([
-  'bolt', 'chain', 'arcane', 'beam', 'fire', 'explosion', 'holy', 'banner', 'dark', 'soul',
-  'mark', 'quake', 'slam', 'blades', 'shot', 'arrows', 'smoke', 'swap', 'rewind',
-]);
+const STYLES = new Set<string>(VFX_STYLES);
 for (const p of PERKS) {
   ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
-  ok(VFX_STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
+  ok(STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
   if (p.cost === FULL_BAR) ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
 }
@@ -133,7 +132,8 @@ for (const lin of LINEAGE_ORDER) {
   const ls = newLineageSave(tree);
   ok(isClassOwned(tree, ls, lin), `${lin}: базовый класс открыт`);
   ok(activePerkIds(tree, ls, lin).length === 1, `${lin}: активна только стартовая способность`);
-  ok(tree.nodes.filter((n) => n.kind === 'talent').length === 15 * 4, `${lin}: 60 талантов в дереве`);
+  const talentNodes = tree.nodes.filter((n) => n.kind === 'talent').length;
+  ok(talentNodes >= 60 && talentNodes <= 64, `${lin}: талантов в дереве ${talentNodes}`);
 
   // ворота: перк 2 закрыт, пока ни один талант первого яруса не прокачан до максимума
   const p2 = tree.nodes.find((n) => n.kind === 'perk' && n.owner === lin && n.slot === 'p2')!;
@@ -270,17 +270,18 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       const run = new Run({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(7) });
       run.start();
       run.cards.fill(null);
-      run.playerCell = 4;
+      // герой в углу: «Магический выстрел» бьёт только ЧЕРЕЗ карту, а из центра
+      // поля на одной линии нет ни одной клетки на расстоянии двух
+      run.playerCell = 0;
       run.hp = 100000;
       run.res = stats.resMax;
-      // ставим врагов вокруг и в углах, чтобы сработали и соседские, и дальние способности
-      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
-      run.cards[4] = null;
+      for (const c of [1, 2, 3, 4, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
+      run.cards[0] = null;
       // «Сокол-курьер» и «Перестановка» работают с картами добычи, «Подкуп» — с золотом кошеля
       run.cards[8] = { ...enemy(1), kind: 'gold', defId: 'gold', value: 25, hp: 0, maxHp: 0, atk: 0, baseAtk: 0 };
       run.totals.gold = 400;
       if (perk.basic) {
-        const act = run.actionFor(0);
+        const act = run.actionFor(2);
         ok(act.kind === 'ranged' || act.kind === 'none', `${id}/${perk.id}: базовое действие определено`);
         continue;
       }
@@ -289,13 +290,13 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       if (!res.ok) continue;
       used++;
       if (run.armed) {
-        const cell = [0, 1, 2, 3, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
+        const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
         ok(cell !== undefined, `${id}/${perk.id}: нашлась подходящая цель`);
         if (cell !== undefined) {
           const r2 = run.tap(cell);
           ok(r2.ok, `${id}/${perk.id}: способность наводится на цель`);
           // «Перестановка» требует двух касаний
-          if (run.armed) ok(run.tap(cell === 0 ? 1 : 0).ok, `${id}/${perk.id}: второе касание`);
+          if (run.armed) ok(run.tap(cell === 1 ? 2 : 1).ok, `${id}/${perk.id}: второе касание`);
         }
       }
       ok(run.res >= 0 && run.res <= run.stats.resMax, `${id}/${perk.id}: ресурс в пределах шкалы`);
@@ -342,10 +343,125 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     }
   }
 
-  // тупик невозможен: даже в окружении и с пустой шкалой у героя есть ход
+  // Ход врагов: после любого действия бьют все соседи, а не только тот, кого ударили
+  {
+    const stats = build('warrior');
+    const mk2 = (seed: number) => {
+      const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(seed) });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 100000;
+      run.shield = 0;
+      run.res = stats.resMax;
+      return run;
+    };
+    const many = mk2(41);
+    for (const c of [1, 3, 5]) many.cards[c] = enemy(100000, 20);
+    const before = many.hp;
+    const hits = many.tap(1).events.filter((e) => e.type === 'attack' && e.by === 'enemy').length;
+    ok(hits === 3, `отвечают все соседние враги (${hits})`);
+    ok(many.hp < before, 'ответные удары доходят');
+
+    // способность тоже не бесплатна: ударил — получил в ответ
+    const magic = mk2(42);
+    magic.cards[1] = enemy(100000, 20);
+    const hp0 = magic.hp;
+    magic.usePerk('warrior_start');
+    magic.tap(1);
+    ok(magic.hp < hp0, 'после способности враг отвечает');
+
+    // шаг в сторону под удар другого врага
+    const step = mk2(43);
+    step.cards[1] = enemy(100000, 20);
+    step.cards[6] = enemy(100000, 20);
+    const hp1 = step.hp;
+    ok(step.tap(3).ok, 'шаг на пустую клетку рядом с другим врагом');
+    ok(step.hp < hp1, 'враг у новой клетки бьёт за уход');
+  }
+
+  // Колода бесконечна, карта перехода открывает выход только после нормы
+  {
+    const stats = build('warrior');
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(47) });
+    run.start();
+    run.hp = 100000;
+    ok(run.cards.every((c, i) => (i === run.playerCell ? c === null : c !== null)), 'после раздачи поле заполнено');
+    ok(!run.exitOpen, 'выход закрыт, пока норма не выполнена');
+    ok(run.totalEnemies > 0 && run.killsLeft === run.totalEnemies, 'норма комнаты задана');
+    let steps = 0;
+    for (; steps < 900 && !run.over; steps++) {
+      const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => run.actionFor(c).kind !== 'none');
+      if (!cells.length) break;
+      const exitCell = cells.find((c) => run.cards[c]?.kind === 'exit');
+      run.tap(exitCell ?? cells[0]);
+      run.hp = 100000;
+      if (!run.over) {
+        const empty = run.cards.filter((c, i) => !c && i !== run.playerCell).length;
+        ok(empty === 0, `поле не пустеет (пустых клеток ${empty})`);
+      }
+    }
+    ok(run.over === 'win', `комната закрывается шагом на переход (${run.over ?? 'не закончилась'}, ходов ${steps})`);
+    ok(run.exitOpen && run.killsLeft === 0, 'выход открылся после нормы');
+    // уходя, герой бросает всё, что не подобрал: в этом и выбор
+    ok(run.cards.some((c) => c && c.kind !== 'enemy'), 'добыча остаётся на поле после перехода');
+  }
+
+  // Норма выполнена — но враги лезть не перестают: либо уходи, либо рискуй и добирай
+  {
+    const stats = build('warrior');
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(61) });
+    run.start();
+    run.hp = 100000;
+    // выполняем норму искусственно и дальше играем, не трогая переход
+    for (let guard = 0; guard < 600 && !run.exitOpen; guard++) {
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      if (cell === undefined) break;
+      run.tap(cell);
+      run.hp = 100000;
+    }
+    ok(run.exitOpen, 'норма выполнена');
+    let spawned = 0;
+    for (let guard = 0; guard < 120 && !run.over; guard++) {
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      if (cell === undefined) break;
+      spawned += run.tap(cell).events.filter((e) => e.type === 'spawn' && e.card.kind === 'enemy').length;
+      run.hp = 100000;
+    }
+    ok(spawned > 0, `враги продолжают лезть после нормы (${spawned})`);
+  }
+
+  // Перезарядка способностей и дальность магического выстрела
+  {
+    const stats = build('mage');
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(53) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 0;
+    run.hp = 100000;
+    run.res = 100;
+    run.cards[2] = enemy(100000, 1);
+    run.cards[4] = enemy(100000, 1);
+    const shot = PERK_BY_ID.mage_p2;
+    ok(!run.perkTargetOk(shot, 1), 'магический выстрел не бьёт вплотную');
+    ok(run.perkTargetOk(shot, 2), 'магический выстрел бьёт через карту');
+    ok(run.usePerk(shot.id).ok && run.tap(2).ok, 'выстрел применяется');
+    run.res = 100;
+    const after = run.perkReady(shot);
+    ok(!after.ok && after.reason === 'cooldown', `выстрел на перезарядке (${after.reason ?? 'готов'})`);
+    ok(run.cooldownOf(shot) === 1, `перезарядка один ход (${run.cooldownOf(shot)})`);
+    const chain = PERK_BY_ID.mage_p3;
+    run.res = 100;
+    ok(run.usePerk(chain.id).ok && run.tap(2).ok, 'цепная молния применяется');
+    run.res = 100;
+    ok(run.cooldownOf(chain) === 2, `цепная молния на двух ходах (${run.cooldownOf(chain)})`);
+  }
+
+  // Кто умеет бить рукой — не попадает в тупик никогда.
   {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
+      if (!stats.melee) continue;
       const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(17) });
       run.start();
       run.cards.fill(null);
@@ -353,11 +469,60 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.hp = 100000;
       run.res = 0;
       for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
-      const canTap = [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.actionFor(c).kind !== 'none');
-      const canPerk = stats.abilities.some((p) => run.perkReady(p).ok && [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.perkTargetOk(p, c)));
-      const canSelf = stats.abilities.some((p) => p.target === 'self' && run.perkReady(p).ok);
-      ok(canTap || canPerk || canSelf, `${id}: в окружении и без ресурса ход всё равно есть`);
+      ok(!run.cornered(), `${id}: боец рукой в тупик не попадает`);
+      ok([1, 3, 5, 7].some((c) => run.actionFor(c).kind === 'melee'), `${id}: соседний враг доступен рукой`);
     }
+  }
+
+  // «Растерзание»: мага без маны, зажатого со всех сторон, карты добивают насмерть
+  {
+    const surround = (id: ClassId, patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {}) => {
+      const stats = build(id);
+      const run = new Run({
+        room: ROOMS[30], stats, weapon: null, armor: null,
+        consumables: { ...cons(), potion_regen: patch.potion_regen ?? 0, artifact: patch.artifact ?? 0 }, rng: makeRng(17),
+      });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 400;
+      run.res = patch.res ?? 0;
+      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(100000, 3);
+      return run;
+    };
+    for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
+      ok(surround(id).cornered(), `${id}: пустая шкала в окружении — это тупик`);
+    }
+    // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
+    // занимает новый враг — и в конце хода отбиваться уже нечем.
+    {
+      const stats = build('mage');
+      const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(29) });
+      run.start();
+      run.cards.fill(null);
+      run.pool.length = 0;
+      run.pool.push(enemy(100000, 4));
+      run.playerCell = 0;
+      run.hp = 400;
+      run.res = 0;
+      run.cards[1] = enemy(100000, 4);
+      run.cards[4] = enemy(100000, 4);
+      run.cards[6] = enemy(100000, 4);
+      const res = run.tap(3);
+      ok(res.ok, 'шаг на пустую клетку сделан');
+      ok(res.events.some((e) => e.type === 'swarm'), 'карты бросаются на героя');
+      ok(run.over === 'lose' && run.hp === 0, 'растерзание доводит до смерти');
+      const hits = res.events.filter((e) => e.type === 'hit' && e.target === 'player').length;
+      ok(hits >= 4, `бьют все карты по очереди (${hits})`);
+      // поднявшись, герой получает полную шкалу и снова может бить
+      run.revive();
+      ok(!run.cornered(), 'после воскрешения герой снова может ходить');
+    }
+    // выходы из окружения: мана, зелье восстановления, артефакт мага
+    ok(!surround('mage', { res: 20 }).cornered(), 'мана на молнию — не тупик');
+    ok(!surround('mage', { potion_regen: 1 }).cornered(), 'зелье восстановления — не тупик');
+    ok(!surround('mage', { artifact: 1 }).cornered(), 'артефакт мага — не тупик');
+    // поднявшись, герой получает полную шкалу и снова может бить
   }
 
   // постоянное клеймо не вешается на уже заклеймённую цель — ход не пропадает зря
@@ -404,16 +569,16 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         const run = new Run({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(13) });
         run.start();
         run.cards.fill(null);
-        run.playerCell = 4;
+        run.playerCell = 0;
         run.hp = 100000;
         run.res = stats.resMax;
         run.totals.gold = 400;
-        for (const c of [0, 1, 2, 3, 5, 6, 7]) run.cards[c] = enemy(500, 3);
+        for (const c of [1, 2, 3, 4, 5, 6, 7]) run.cards[c] = enemy(500, 3);
         run.cards[8] = { ...enemy(1), kind: 'gold', defId: 'gold', value: 25, hp: 0, maxHp: 0, atk: 0, baseAtk: 0 };
         const r = run.usePerk(perk.id);
         let events = r.events;
         while (run.armed) {
-          const cell = [0, 1, 2, 3, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
+          const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
           if (cell === undefined) break;
           // «Перестановка» требует двух касаний — эффект рисуется на последнем
           events = [...events, ...run.tap(cell).events];
@@ -450,13 +615,12 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     run.cards[1] = enemy(100000, 50);
     run.hp = 100000;
     run.res = stats.resMax;
-    run.usePerk('knight_start');
-    run.tap(1);
-    const target = run.cards.find((c) => c?.kind === 'enemy');
-    ok(!!target && target.stun > 0, 'таран щитом оглушает цель');
     const before = run.hp;
-    run.tap(run.cards.indexOf(target!));
-    ok(run.hp === before, 'оглушённый враг не отвечает на удар');
+    run.usePerk('knight_start');
+    const res = run.tap(1);
+    ok(res.ok, 'таран щитом применяется');
+    ok(res.events.some((e) => e.type === 'miss' && e.kind === 'stun'), 'оглушённый враг пропускает ход врагов');
+    ok(run.hp === before, 'оглушённый враг не наносит урона');
   }
 
   // горение тикает и гаснет
@@ -558,12 +722,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   heal.consumables.potion_heal = 0;
   ok(!needsHeal(heal), 'зелье исцеления: нет зелий — нечего применять');
 
-  // «Удар молнии» маны не стоит, поэтому зелье нужно ради платных заклинаний
-  const nothingToSpend = mk('mage');
-  nothingToSpend.cards[5] = enemy(1);
-  nothingToSpend.res = 0;
-  ok(!needsRegen(nothingToSpend), 'зелье восстановления: тратить ману ещё не на что — держим');
-  const regen = mk('mage', ['perk/mage/p2']);
+  const regen = mk('mage');
   regen.cards[5] = enemy(1);
   regen.res = 0;
   ok(needsRegen(regen), 'зелье восстановления: мане не хватает на заклинание — применяем');
@@ -730,7 +889,7 @@ for (const lin of LINEAGE_ORDER) {
         }
         if (run.over) break;
       }
-      if (run.over === 'win') ok(run.enemiesLeft === 0, 'победа только после уничтожения всех врагов');
+      if (run.over === 'win') ok(run.exitOpen, 'победа только после того, как открылся выход');
     }
   }
 }
