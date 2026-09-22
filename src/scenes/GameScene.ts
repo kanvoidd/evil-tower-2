@@ -12,16 +12,27 @@ import { maybeInterstitial, watchRewarded } from '../systems/Ads';
 import { fmt, perkDesc, perkName, t, tr } from '../i18n';
 import type { TKey } from '../i18n';
 import { makeRng, randomSeed } from '../logic/rng';
-import { Run, type Card, type GameEvent, type Loot } from '../logic/run';
+import { Run, type Card, type FxStyle, type GameEvent, type Loot } from '../logic/run';
 import { STATUS_TINT } from '../ui/Textures';
 import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../logic/autoUse';
 import { CARD_H, CARD_W } from '../ui/Textures';
+import { Vfx } from '../ui/Vfx';
 import {
   background, bindToasts, CurrencyBar, Dialog, dollyIn, fadeToScene, icon, outlineTexture, PlateButton, plateTexture, shadowTexture, soundButton,
   statChip, statPill, tapHint, tipOnHover, toast, txt, type DialogBtn, type Pill,
 } from '../ui/Kit';
 
-const BOARD = { x0: 42, y0: 246, gap: 18 };
+const BOARD = { x0: 46, y0: 226, gap: 14 };
+
+/**
+ * Нижняя панель: полоса ресурса, характеристики и сетка способностей.
+ * Способностей у поздних классов до десяти (перки сохраняются при метаморфозе),
+ * поэтому кнопки раскладываются в один или два ряда и всегда центрируются.
+ */
+const DOCK = { res: 992, chips: 1036, grid: 1158, rowGap: 92, btnW: 112, btnH: 84, btnGap: 14, perRow: 5 };
+
+/** Строка над полосой ресурса: подсказки обучения и названия применённых способностей. */
+const NOTE_Y = 958;
 
 const cellPos = (cell: number): { x: number; y: number } => ({
   x: BOARD.x0 + (cell % 3) * (CARD_W + BOARD.gap) + CARD_W / 2,
@@ -33,7 +44,7 @@ const RES_COLOR: Record<string, number> = {
 };
 
 /** Ряд расходников: слоты и под ними переключатели «АВТО». */
-const SLOT_Y = 68;
+const SLOT_Y = 58;
 const AUTO_KEY: Record<ConsumableId, keyof AutoUseSave> = { potion_heal: 'heal', potion_regen: 'regen', artifact: 'artifact' };
 const AUTO_TIP: Record<ConsumableId, TKey> = {
   potion_heal: 'auto.use.heal.tip', potion_regen: 'auto.use.regen.tip', artifact: 'auto.use.artifact.tip',
@@ -59,11 +70,13 @@ interface View {
   defId: string;
 }
 
-/** Кнопка способности класса в нижнем ряду. */
+/** Кнопка способности класса в нижней панели. */
 interface PerkBtn {
   perk: PerkDef;
   btn: PlateButton;
   costText: Phaser.GameObjects.Text;
+  costPlate: Phaser.GameObjects.Arc;
+  name: Phaser.GameObjects.Text;
   frame: Phaser.GameObjects.Image;
 }
 
@@ -109,6 +122,7 @@ export class GameScene extends Phaser.Scene {
   private hintText?: Phaser.GameObjects.Text;
   private hand?: Phaser.GameObjects.Container;
   private hintStage = 0;
+  private vfx!: Vfx;
   /** Сколько улучшений купила автопрокачка по итогам комнаты (сообщаем в окне результата). */
   private autoNote = 0;
   private resultInfo?: { result: 'win' | 'lose'; first: boolean; flawless: boolean; totalGold: number; totalSouls: number };
@@ -138,6 +152,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     dollyIn(this, 380);
     background(this);
+    this.vfx = new Vfx(this);
     bindToasts(this);
     this.events.once('shutdown', () => {
       this.alive = false;
@@ -176,58 +191,58 @@ export class GameScene extends Phaser.Scene {
     // расходники: три слота слева сверху, счётчик — в бейдже на углу (не перекрывает иконку),
     // а под каждым — переключатель автоприменения «АВТО»
     CONSUMABLE_SLOTS.forEach((id, i) => {
-      const x = 74 + i * 96;
+      const x = 62 + i * 84;
       const y = SLOT_Y;
       const locked = !!CONSUMABLES[id].lineage && CONSUMABLES[id].lineage !== this.run.lineage;
       const c = this.add.container(x, y);
-      c.add(this.add.image(0, 5, shadowTexture(this, 80, 80, 22, 10)).setAlpha(0.8));
-      c.add(this.add.image(0, 0, plateTexture(this, 80, 80, 1, 'panel', 22)));
-      const hint = this.add.image(0, 0, outlineTexture(this, 80, 80, 22, '#f0c75e', 4)).setVisible(false);
+      c.add(this.add.image(0, 5, shadowTexture(this, 74, 74, 22, 10)).setAlpha(0.8));
+      c.add(this.add.image(0, 0, plateTexture(this, 74, 74, 1, 'panel', 22)));
+      const hint = this.add.image(0, 0, outlineTexture(this, 74, 74, 22, '#f0c75e', 4)).setVisible(false);
       c.add(hint);
-      c.add(icon(this, 0, -1, locked ? 'svgw_lock' : CONSUMABLES[id].icon, locked ? 34 : 54).setAlpha(locked ? 0.4 : 1));
-      const badge = this.add.container(28, 28);
+      c.add(icon(this, 0, -1, locked ? 'svgw_lock' : CONSUMABLES[id].icon, locked ? 32 : 50).setAlpha(locked ? 0.4 : 1));
+      const badge = this.add.container(26, 26);
       badge.add(this.add.circle(0, 0, 15, 0x0b0d12).setStrokeStyle(2, 0xf0c75e));
       const count = txt(this, 0, -1, '', 18, { weight: 900, strokeThickness: 0 });
       badge.add(count);
       c.add(badge);
-      c.setSize(80, 80).setInteractive(new Phaser.Geom.Rectangle(0, 0, 80, 80), Phaser.Geom.Rectangle.Contains);
+      c.setSize(74, 74).setInteractive(new Phaser.Geom.Rectangle(0, 0, 74, 74), Phaser.Geom.Rectangle.Contains);
       c.on('pointerup', (p: Phaser.Input.Pointer) => {
         if (Phaser.Math.Distance.Between(p.x, p.y, p.downX, p.downY) < 20) this.useItem(id);
       });
       this.slots.push({ id, c, badge, count, hint, locked });
-      if (!locked) this.buildAutoPill(id, x, y + 59);
+      if (!locked) this.buildAutoPill(id, x, y + 55);
     });
 
-    // звук и добыча за комнату (золото в сумке + души) — справа сверху, без рамки
-    soundButton(this, 486, SLOT_Y, 60);
-    this.loot = new CurrencyBar(this, GAME_W - 32, 54, { manual: true, goldIcon: 'ico_pouch', compact: true });
+    // «сбежать», звук и добыча за комнату (золото в сумке + души) — верхняя полоса:
+    // весь низ экрана отдан кнопкам способностей
+    new PlateButton(this, 330, SLOT_Y, { w: 68, h: 68, icon: 'svg_arrow', iconSize: 34, radius: 22, onClick: () => this.askEscape() });
+    this.input.keyboard?.on('keydown-ESC', () => this.askEscape());
+    soundButton(this, 414, SLOT_Y, 56);
+    this.loot = new CurrencyBar(this, GAME_W - 32, 46, { manual: true, goldIcon: 'ico_pouch', compact: true });
 
     // название комнаты, рогаликовое свойство захода и счётчик врагов
-    txt(this, GAME_W / 2, 152, `${t(`floor.${room.floor}.name` as TKey)} · ${t('game.room', { r: room.id })}`, 30, { font: 'title', color: HEX.gold, strokeThickness: 5 });
+    txt(this, GAME_W / 2, 150, `${t(`floor.${room.floor}.name` as TKey)} · ${t('game.room', { r: room.id })}`, 30, { font: 'title', color: HEX.gold, strokeThickness: 5 });
     const mod = this.run.mod;
     if (mod.id !== 'plain') {
       this.modLabel = txt(this, 0, 0, t(`mod.${mod.id}` as TKey), 21, { color: HEX.soul, weight: 900, strokeThickness: 3 });
-      const holder = this.add.container(GAME_W / 2, 184, [this.modLabel]);
+      const holder = this.add.container(GAME_W / 2, 180, [this.modLabel]);
       holder.setSize(this.modLabel.width + 40, 34)
         .setInteractive(new Phaser.Geom.Rectangle(0, 0, this.modLabel.width + 40, 34), Phaser.Geom.Rectangle.Contains);
       tipOnHover(this, holder, () => `${t(`mod.${mod.id}` as TKey)}\n${t(`mod.${mod.id}.desc` as TKey)}`);
     }
-    this.enemyText = txt(this, GAME_W / 2, 212, '', 20, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
+    this.enemyText = txt(this, GAME_W / 2, 202, '', 20, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
     this.enemyBar = this.add.graphics();
 
     // полоса ресурса класса
-    this.add.image(GAME_W / 2, 1000, shadowTexture(this, 480, 40, 20, 10)).setAlpha(0.7);
-    this.add.image(GAME_W / 2, 1000, plateTexture(this, 480, 40, 1, 'dark', 20));
+    this.add.image(GAME_W / 2, DOCK.res, shadowTexture(this, 480, 36, 18, 10)).setAlpha(0.7);
+    this.add.image(GAME_W / 2, DOCK.res, plateTexture(this, 480, 36, 1, 'dark', 18));
     this.resGfx = this.add.graphics();
-    this.resText = txt(this, GAME_W / 2, 999, '', 20, { weight: 900 });
-    this.resBoost = txt(this, GAME_W / 2 + 268, 1000, '', 20, { color: HEX.gold, origin: [0, 0.5], weight: 900 });
+    this.resText = txt(this, GAME_W / 2, DOCK.res - 1, '', 20, { weight: 900 });
+    this.resBoost = txt(this, GAME_W / 2 + 250, DOCK.res, '', 19, { color: HEX.gold, origin: [0, 0.5], weight: 900 });
 
     this.chipsRow = this.add.container(0, 0);
     this.gearRow = this.add.container(0, 0);
 
-    // «сбежать» — левый нижний угол, правее — ряд кнопок способностей класса
-    new PlateButton(this, 66, 1206, { w: 76, h: 76, icon: 'svg_arrow', iconSize: 36, radius: 24, onClick: () => this.askEscape() });
-    this.input.keyboard?.on('keydown-ESC', () => this.askEscape());
     this.buildPerkRow();
 
     this.refreshHud();
@@ -239,11 +254,11 @@ export class GameScene extends Phaser.Scene {
    */
   private buildAutoPill(id: ConsumableId, x: number, y: number): void {
     const key = AUTO_KEY[id];
-    const w = 80;
-    const h = 34;
+    const w = 74;
+    const h = 30;
     const c = Object.assign(this.add.container(x, y), { swallowClick: false });
     const plate = this.add.image(0, 0, plateTexture(this, w, h, 1, 'dark', h / 2));
-    const label = txt(this, 0, -1, t('auto.tag'), 16, { weight: 900, strokeThickness: 0 });
+    const label = txt(this, 0, -1, t('auto.tag'), 15, { weight: 900, strokeThickness: 0 });
     c.add([plate, label]);
     const refresh = (): void => {
       const on = Store.autoUse[key];
@@ -279,41 +294,63 @@ export class GameScene extends Phaser.Scene {
   private buildPerkRow(): void {
     const list = this.run.stats.abilities;
     if (!list.length) return;
-    const w = 92;
-    const gap = 16;
-    const total = list.length * w + (list.length - 1) * gap;
-    const x0 = 130 + (560 - total) / 2 + w / 2;
+    // до пяти кнопок — один ряд, дальше две полки (у пироманта и берсерка их десять)
+    const rows = list.length > DOCK.perRow ? 2 : 1;
+    const perRow = rows === 1 ? list.length : Math.ceil(list.length / 2);
+    const { btnH: h, btnGap: gap } = DOCK;
+    // чем меньше кнопок, тем они крупнее — панель заполнена и на первом классе, и на финальном
+    const w = [220, 220, 180, 148, 128, DOCK.btnW][Math.min(perRow, 5)];
+    const nameSize = Math.min(16, Math.round(w / 8));
+    const yTop = DOCK.grid - ((rows - 1) * DOCK.rowGap) / 2;
     list.forEach((perk, i) => {
-      const x = x0 + i * (w + gap);
-      const btn = new PlateButton(this, x, 1206, {
-        w, h: 86, icon: perk.icon, iconSize: 54, radius: 24, style: 'raised',
+      const row = Math.floor(i / perRow);
+      const inRow = Math.min(perRow, list.length - row * perRow);
+      const total = inRow * w + (inRow - 1) * gap;
+      const x = (GAME_W - total) / 2 + w / 2 + (i - row * perRow) * (w + gap);
+      const y = yTop + row * DOCK.rowGap;
+      const btn = new PlateButton(this, x, y, {
+        w, h, icon: perk.icon, iconSize: 46, radius: 22, style: 'raised',
         onClick: () => this.onPerkTap(perk),
       });
-      const frame = this.add.image(0, 0, outlineTexture(this, w, 86, 24, '#f0c75e', 4)).setVisible(false);
+      btn.iconImg?.setY(-12);
+      const frame = this.add.image(0, 0, outlineTexture(this, w, h, 22, '#f0c75e', 4)).setVisible(false);
       btn.pulseC.add(frame);
-      const costText = txt(this, 0, 30, '', 17, { weight: 900, strokeThickness: 3, color: HEX.gold });
-      btn.pulseC.add(costText);
+      // название под значком: в ряду из десяти кнопок иначе не понять, что где
+      const name = txt(this, 0, h / 2 - 15, perkName(perk), nameSize, {
+        weight: 800, strokeThickness: 3, color: HEX.textDim, maxWidth: w - 12,
+      });
+      btn.pulseC.add(name);
+      // цена — бейдж в левом верхнем углу кнопки
+      const costPlate = this.add.circle(-w / 2 + 16, -h / 2 + 15, 14, 0x0b0d12).setStrokeStyle(2, 0xf0c75e);
+      const costText = txt(this, costPlate.x, costPlate.y - 1, '', 16, { weight: 900, strokeThickness: 0, color: HEX.gold });
+      btn.pulseC.add([costPlate, costText]);
       tipOnHover(this, btn, () => `${perkName(perk)}\n${perkDesc(perk)}`);
-      this.perkBtns.push({ perk, btn, costText, frame });
+      this.perkBtns.push({ perk, btn, costText, costPlate, name, frame });
     });
     this.refreshPerkRow();
   }
 
+  /** Короткая метка цены: она живёт в маленьком бейдже, поэтому не больше двух знаков. */
   private perkCostLabel(perk: PerkDef): string {
-    if (perk.goldCost !== undefined) return `${Math.round(perk.goldCost * 100)}%`;
+    if (perk.goldCost !== undefined) return '$';
     const cost = this.run.perkCostOf(perk);
-    return cost === 0 ? t('common.free') : perk.cost === FULL_BAR ? '⚡' : String(cost);
+    if (cost === 0) return '0';
+    return perk.cost === FULL_BAR ? '⚡' : String(cost);
   }
 
   private refreshPerkRow(): void {
     for (const pb of this.perkBtns) {
       const ready = this.run.perkReady(pb.perk);
       const armed = this.run.armed?.id === pb.perk.id;
+      const free = this.run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
       pb.btn.setStyle(armed ? 'gold' : 'raised');
       pb.btn.setLocked(!ready.ok);
       pb.frame.setVisible(armed);
       pb.costText.setText(this.perkCostLabel(pb.perk));
-      pb.costText.setColor(armed ? HEX.dark : ready.ok ? HEX.gold : HEX.textMute);
+      const costColor = !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
+      pb.costText.setColor(costColor);
+      pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
+      pb.name.setColor(armed ? HEX.dark : ready.ok ? HEX.text : HEX.textMute);
       pb.btn.pulseC.setAlpha(ready.ok || armed ? 1 : 0.55);
     }
   }
@@ -323,7 +360,9 @@ export class GameScene extends Phaser.Scene {
     const res = this.run.usePerk(perk.id);
     if (!res.ok) {
       AUDIO.play('error');
-      const key: TKey = res.reason === 'once' ? 'game.once_used' : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
+      const key: TKey = res.reason === 'once' ? 'game.once_used'
+        : res.reason === 'active' ? 'game.perk_active'
+          : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
       this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey) }), HEX.bad, 22);
       return;
     }
@@ -335,7 +374,7 @@ export class GameScene extends Phaser.Scene {
       this.refreshPerkRow();
       this.highlightTargets();
       if (this.run.armed) {
-        this.popupAt(GAME_W / 2, 980, t(this.run.armed.target === 'two' ? 'game.pick_two' : 'game.pick_target'), HEX.gold, 24);
+        this.popupAt(GAME_W / 2, NOTE_Y, t(this.run.armed.target === 'two' ? 'game.pick_two' : 'game.pick_target'), HEX.gold, 24);
       }
       return;
     }
@@ -367,9 +406,9 @@ export class GameScene extends Phaser.Scene {
     const s = this.run.stats;
     const k = Phaser.Math.Clamp(this.resShown / s.resMax, 0, 1);
     const g = this.resGfx;
-    const h = 30;
+    const h = 26;
     const x0 = GAME_W / 2 - 240 + 5;
-    const y0 = 1000 - h / 2;
+    const y0 = DOCK.res - h / 2;
     const w = Math.max(h, 470 * k);
     g.clear();
     if (k <= 0) return;
@@ -402,29 +441,30 @@ export class GameScene extends Phaser.Scene {
       ['damage', String(s.damage)], ['defense', String(s.defense)], ['crit', `${Math.round(s.crit)}%`],
       ['dodge', `${Math.round(s.dodge)}%`], ['parry', `${Math.round(s.parry)}%`],
     ];
-    chips.forEach(([k2, v], i) => this.chipsRow.add(statChip(this, 72 + i * 144, 1062, k2, v, 34, 22, 'center')));
+    chips.forEach(([k2, v], i) => this.chipsRow.add(statChip(this, 72 + i * 144, DOCK.chips, k2, v, 32, 21, 'center')));
     // экипировка: иконка + полоска прочности
     this.gearRow.removeAll(true);
+    // прочность снаряжения переехала наверх — низ экрана занят способностями
     const gear: Array<{ e: { id: string; durability: number } | null; x: number }> = [
-      { e: r.weapon && r.weapon.durability > 0 ? r.weapon : null, x: 190 },
-      { e: r.armor && r.armor.durability > 0 ? r.armor : null, x: 530 },
+      { e: r.weapon && r.weapon.durability > 0 ? r.weapon : null, x: 330 },
+      { e: r.armor && r.armor.durability > 0 ? r.armor : null, x: 470 },
     ];
     gear.forEach(({ e, x }) => {
       if (!e) return;
       const it = ITEM_BY_ID[e.id];
       const k = Phaser.Math.Clamp(e.durability / it.durability, 0, 1);
-      this.gearRow.add(icon(this, x - 66, 1122, it.icon, 46));
-      this.gearRow.add(txt(this, x + 4, 1112, `${e.durability}/${it.durability}`, 18, { weight: 800, strokeThickness: 0, color: k <= 0.2 ? HEX.bad : HEX.textDim }));
-      this.gearRow.add(this.add.rectangle(x + 4, 1132, 100, 7, 0x000000, 0.5));
-      this.gearRow.add(this.add.rectangle(x - 46, 1132, Math.max(3, 100 * k), 7, k > 0.2 ? 0x66e39c : 0xff7468).setOrigin(0, 0.5));
+      this.gearRow.add(icon(this, x - 48, SLOT_Y + 55, it.icon, 38));
+      this.gearRow.add(txt(this, x + 16, SLOT_Y + 46, `${e.durability}/${it.durability}`, 16, { weight: 800, strokeThickness: 0, color: k <= 0.2 ? HEX.bad : HEX.textDim }));
+      this.gearRow.add(this.add.rectangle(x + 16, SLOT_Y + 64, 84, 6, 0x000000, 0.5));
+      this.gearRow.add(this.add.rectangle(x - 26, SLOT_Y + 64, Math.max(3, 84 * k), 6, k > 0.2 ? 0x66e39c : 0xff7468).setOrigin(0, 0.5));
     });
     // враги
     const total = r.totalEnemies;
     const left = r.enemiesLeft;
     this.enemyText.setText(t('game.enemies', { n: left }));
     this.enemyBar.clear();
-    this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 228, 260, 7, 3.5);
-    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 228, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
+    this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 214, 260, 7, 3.5);
+    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 214, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
     // слоты расходников
     this.slots.forEach((sl) => {
       const n = r.consumables[sl.id];
@@ -633,6 +673,13 @@ export class GameScene extends Phaser.Scene {
       } else if (res.reason === 'range') {
         AUDIO.play('error');
         if (v) this.tweens.add({ targets: v.c, x: v.c.x + 8, duration: 50, yoyo: true, repeat: 2 });
+      } else if (res.reason === 'melee') {
+        // маг вообще не бьёт рукой — подсказываем, что нужна кнопка способности
+        AUDIO.play('error');
+        if (v) this.tweens.add({ targets: v.c, x: v.c.x + 8, duration: 50, yoyo: true, repeat: 2 });
+        this.popupAt(GAME_W / 2, NOTE_Y, t('game.no_melee'), HEX.gold, 22);
+        const first = this.perkBtns[0];
+        if (first) this.tweens.add({ targets: first.btn.pulseC, scale: 1.12, duration: 130, yoyo: true, repeat: 1 });
       }
       return;
     }
@@ -729,7 +776,7 @@ export class GameScene extends Phaser.Scene {
       }
       case 'attack': {
         if (ev.by === 'player') {
-          if (ev.ranged) await (ev.style === 'backstab' ? this.backstab(ev.to) : this.shoot(ev.to));
+          if (ev.ranged) await (ev.style === 'backstab' ? this.backstab(ev.to) : this.shoot(ev.to, ev.style === 'bolt' ? 'bolt' : 'shot'));
           else await this.lunge(this.playerView, ev.to);
         } else {
           const v = this.viewAt(ev.from);
@@ -875,7 +922,7 @@ export class GameScene extends Phaser.Scene {
       case 'perk': {
         AUDIO.play('burst');
         const def = PERK_BY_ID[ev.id];
-        this.popupAt(GAME_W / 2, 1120, perkName(def), HEX.gold, 30);
+        this.popupAt(GAME_W / 2, NOTE_Y, perkName(def), HEX.gold, 28);
         break;
       }
       case 'armed': {
@@ -916,9 +963,8 @@ export class GameScene extends Phaser.Scene {
       }
       case 'rewind': {
         AUDIO.play('burst');
-        this.cameras.main.flash(260, 150, 120, 255);
         this.rebuildBoard();
-        this.popupAt(GAME_W / 2, 1120, t('game.rewind'), HEX.soul, 30);
+        this.popupAt(GAME_W / 2, NOTE_Y, t('game.rewind'), HEX.soul, 28);
         await this.sleep(200);
         break;
       }
@@ -934,31 +980,16 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Визуальные эффекты способностей: луч, молния, стрелы, огонь, дым, свет, тьма, удар по земле. */
-  private async playFx(cells: number[], style: string): Promise<void> {
-    const tint: Record<string, number> = {
-      bolt: 0x9ecbff, beam: 0xffe38a, arrows: 0xd8f0a0, fire: 0xff7a2a, shock: 0x7fc4ff,
-      smoke: 0x8a8fa8, holy: 0xfff0b0, dark: 0xb287ff, quake: 0xd2a15a, blades: 0xffffff,
-    };
-    const col = tint[style] ?? 0xffffff;
+  /** Визуальные эффекты способностей — рисует модуль Vfx, у каждого перка свой стиль. */
+  private async playFx(cells: number[], style: FxStyle): Promise<void> {
+    if (!cells.length) return;
     AUDIO.play('burst');
-    if (style === 'quake') this.cameras.main.shake(260, 0.008);
-    if (style === 'holy' || style === 'fire') this.cameras.main.flash(180, (col >> 16) & 255, (col >> 8) & 255, col & 255);
-    for (const cell of cells.slice(0, 9)) {
-      const p = cellPos(cell);
-      if (style === 'beam') {
-        const beam = this.add.image(p.x, p.y, 'px').setTint(col).setDepth(78).setBlendMode(Phaser.BlendModes.ADD).setDisplaySize(64, 0);
-        this.tweens.add({ targets: beam, displayHeight: 1280, alpha: { from: 0.9, to: 0 }, duration: 380, onComplete: () => beam.destroy() });
-      } else if (style === 'arrows') {
-        const arrow = this.add.image(p.x, p.y - 260, 'spark').setTint(col).setDepth(78).setScale(1.1);
-        this.tweens.add({ targets: arrow, y: p.y, alpha: 0, duration: 260, onComplete: () => arrow.destroy() });
-      } else if (style === 'smoke') {
-        this.smoke(p.x, p.y);
-      } else {
-        this.burst(p.x, p.y, col, style === 'blades' ? 8 : 14);
-      }
+    if (style === 'holy' || style === 'fire') {
+      const col = style === 'holy' ? 0xfff3c4 : 0xff8a2a;
+      this.cameras.main.flash(170, (col >> 16) & 255, (col >> 8) & 255, col & 255);
     }
-    await this.sleep(cells.length ? 220 : 0);
+    const hold = this.vfx.play(style, cells.slice(0, 9).map(cellPos), this.playerView ? { x: this.playerView.c.x, y: this.playerView.c.y } : cellPos(this.run.playerCell));
+    await this.sleep(hold);
   }
 
   private setPlayerHp(hp: number): void {
@@ -979,14 +1010,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  private async shoot(toCell: number): Promise<void> {
+  /** Дальний удар: лучник пускает стрелу, маг — молнию. Летящей «звёздочки» в игре больше нет. */
+  private async shoot(toCell: number, style: 'shot' | 'bolt'): Promise<void> {
     await this.lungeDone;
     const a = this.playerView.c;
-    const b = cellPos(toCell);
-    const proj = this.add.image(a.x, a.y, 'spark').setDepth(70).setTint(RES_COLOR[this.run.stats.resource]).setScale(1.4);
     this.tweens.add({ targets: a, scale: 1.05, duration: 90, yoyo: true });
-    await this.tw({ targets: proj, x: b.x, y: b.y, angle: 360, duration: 200, ease: 'Quad.easeIn' });
-    proj.destroy();
+    AUDIO.play('burst');
+    const hold = this.vfx.play(style, [cellPos(toCell)], { x: a.x, y: a.y });
+    await this.sleep(hold);
   }
 
   /**
@@ -1004,7 +1035,7 @@ export class GameScene extends Phaser.Scene {
     // «за спиной» — с дальней от героя стороны цели; карточка героя не выходит за края экрана
     const behind = {
       x: Phaser.Math.Clamp(b.x + dx * 96, CARD_W / 2 + 4, GAME_W - CARD_W / 2 - 4),
-      y: Phaser.Math.Clamp(b.y + dy * 96, 300, 900),
+      y: Phaser.Math.Clamp(b.y + dy * 96, 280, 880),
     };
     const depth = v.depth;
     v.setDepth(60);
@@ -1035,9 +1066,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Тёмный фиолетовый дымок — появление/исчезновение при телепорте. */
   private smoke(x: number, y: number): void {
-    const puff = this.add.circle(x, y, 26, 0x1b1230, 0.85).setDepth(65);
-    this.tweens.add({ targets: puff, scale: 2.6, alpha: 0, duration: 320, ease: 'Cubic.easeOut', onComplete: () => puff.destroy() });
-    this.burst(x, y, 0x8a63ff, 10);
+    this.vfx.smoke({ x, y });
   }
 
   /** Быстрый белый росчерк клинка. */
@@ -1173,7 +1202,7 @@ export class GameScene extends Phaser.Scene {
   private showHint(text: string, cell?: number): void {
     this.clearHand();
     this.hintText?.destroy();
-    this.hintText = txt(this, GAME_W / 2, 963, text, 21, { color: HEX.gold, wrap: 640, align: 'center' }).setDepth(50);
+    this.hintText = txt(this, GAME_W / 2, NOTE_Y, text, 20, { color: HEX.gold, wrap: 660, align: 'center' }).setDepth(50);
     if (cell !== undefined) {
       const p = cellPos(cell);
       this.hand = tapHint(this, p.x, p.y + 10);

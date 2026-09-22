@@ -14,10 +14,10 @@ export interface LineageDef {
   goldBonus: number;
   artifacts: boolean;
   /**
-   * Обычный удар мага — слабый тычок посохом: он бьёт молнией (стартовый перк), а не рукой.
-   * 1 — обычный удар в полную силу.
+   * Может ли герой бить рукой по нажатию на соседнего врага.
+   * У линейки мага — нет: он вообще не бьёт обычным ударом, только заклинаниями по кнопке.
    */
-  meleeMul: number;
+  melee: boolean;
 }
 
 /**
@@ -29,25 +29,25 @@ export const LINEAGES: Record<LineageId, LineageDef> = {
     id: 'warrior',
     resource: 'stamina',
     base: { damage: 3, crit: 5, health: 30, dodge: 0, defense: 1, parry: 0, luck: 0 },
-    resMax: 10, resRegen: 1, goldBonus: 0, artifacts: false, meleeMul: 1,
+    resMax: 10, resRegen: 1, goldBonus: 0, artifacts: false, melee: true,
   },
   mage: {
     id: 'mage',
     resource: 'mana',
     base: { damage: 5, crit: 5, health: 18, dodge: 0, defense: 0, parry: 0, luck: 1 },
-    resMax: 14, resRegen: 2, goldBonus: 0, artifacts: true, meleeMul: 0.4,
+    resMax: 14, resRegen: 3, goldBonus: 0, artifacts: true, melee: false,
   },
   archer: {
     id: 'archer',
     resource: 'concentration',
     base: { damage: 3, crit: 18, health: 22, dodge: 4, defense: 0, parry: 0, luck: 0 },
-    resMax: 6, resRegen: 1, goldBonus: 0, artifacts: false, meleeMul: 1,
+    resMax: 7, resRegen: 2, goldBonus: 0, artifacts: false, melee: true,
   },
   mercenary: {
     id: 'mercenary',
     resource: 'vigilance',
     base: { damage: 3, crit: 10, health: 22, dodge: 5, defense: 0, parry: 0, luck: 0 },
-    resMax: 6, resRegen: 1, goldBonus: 0.2, artifacts: false, meleeMul: 1,
+    resMax: 7, resRegen: 2, goldBonus: 0.2, artifacts: false, melee: true,
   },
 };
 

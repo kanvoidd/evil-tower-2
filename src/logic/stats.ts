@@ -25,7 +25,8 @@ interface BasicDef {
 
 const BASIC: Record<LineageId, BasicDef> = {
   warrior: { mode: 'none', mul: 1, crit: false },
-  mage: { mode: 'any', mul: 1.5, crit: false },
+  // Маг бьёт только заклинаниями по кнопке — нажатия по врагу у него нет вовсе.
+  mage: { mode: 'none', mul: 1, crit: false },
   archer: { mode: 'skip', mul: 1, crit: false },
   mercenary: { mode: 'any', mul: 1, crit: true },
 };
@@ -43,8 +44,8 @@ export interface PlayerStats {
   luck: number;
   resMax: number;
   regen: number;
-  /** Множитель обычного удара рукой: у мага посох слаб — он бьёт молнией. */
-  meleeMul: number;
+  /** Может ли герой бить рукой. У линейки мага — нет. */
+  melee: boolean;
   /** Базовое действие линейки. */
   ranged: BasicMode;
   rangedCost: number;
@@ -75,6 +76,20 @@ export interface PlayerStats {
   roomCrit: boolean;
   lifesteal: number;
 
+  // ---- синергии: меняют уже полученные способности
+  abilityIgnite: number;
+  abilityStun: number;
+  abilitySplash: number;
+  abilityPoison: number;
+  abilityVuln: number;
+  abilityCrit: number;
+  abilityLifesteal: number;
+  abilityRefund: number;
+  abilityShield: number;
+  killBlast: number;
+  basicSplit: number;
+  perkCostDown: number;
+
   // ---- таланты пути здоровья
   lowHpDr: number;
   bigHitCut: number;
@@ -86,6 +101,7 @@ export interface PlayerStats {
   bossHp: number;
   freePerk: boolean;
   healShield: number;
+  stepHeal: number;
 
   // ---- таланты пути защиты
   block: number;
@@ -125,6 +141,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const g = (k: keyof typeof tb): number => tb[k] ?? 0;
 
   const basic = BASIC[cls.lineage];
+  // Способности не теряются при метаморфозе: у финального класса в руках весь путь линейки.
   const perks = activePerkIds(tree, l.lineage, l.classId);
   const perkDefs = perks.map((p) => PERK_BY_ID[p]).filter(Boolean);
   const basicPerk = perkDefs.find((p) => p.basic);
@@ -153,7 +170,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     luck: lin.base.luck + (cls.mods.luck ?? 0),
     resMax: Math.max(1, Math.round(lin.resMax * (1 + g('resMaxPct') / 100))),
     regen: lin.resRegen,
-    meleeMul: lin.meleeMul,
+    melee: lin.melee,
     ranged: basic.mode,
     rangedCost: basicPerk?.cost ?? 0,
     rangedMul: basic.mul,
@@ -166,7 +183,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     perkPower: 1 + g('perkPower') / 100,
 
     execute: g('execute') / 100,
-    pierce: g('pierce') / 100,
+    pierce: Math.min(1, g('pierce') / 100),
     doubleStrike: g('doubleStrike'),
     lowHpDmg: g('lowHpDmg') / 100,
     fullHpDmg: g('fullHpDmg') / 100,
@@ -180,6 +197,19 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     roomCrit: g('roomCrit') > 0,
     lifesteal: 0,
 
+    abilityIgnite: g('abilityIgnite'),
+    abilityStun: g('abilityStun'),
+    abilitySplash: g('abilitySplash') / 100,
+    abilityPoison: g('abilityPoison') / 100,
+    abilityVuln: g('abilityVuln') / 100,
+    abilityCrit: g('abilityCrit'),
+    abilityLifesteal: g('abilityLifesteal') / 100,
+    abilityRefund: g('abilityRefund') / 100,
+    abilityShield: g('abilityShield') / 100,
+    killBlast: g('killBlast') / 100,
+    basicSplit: g('basicSplit') / 100,
+    perkCostDown: g('perkCostDown'),
+
     lowHpDr: g('lowHpDr') / 100,
     bigHitCut: g('bigHitCut') / 100,
     startShieldPct: g('startShield') / 100,
@@ -190,6 +220,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     bossHp: g('bossHp') / 100,
     freePerk: g('freePerk') > 0,
     healShield: g('healShield') / 100,
+    stepHeal: g('stepHeal') / 100,
 
     block: Math.min(CAPS.block, g('block')),
     thorns: g('thorns') / 100,
@@ -216,6 +247,3 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   // «Мгновенное исполнение»: первая способность в комнате бесплатна — учитывается в Run.
   return s;
 };
-
-/** Цена основного действия класса в ресурсе (для подсказок и автоприменения). */
-export const coreCostOf = (s: PlayerStats): number => (s.ranged !== 'none' ? s.rangedCost : 0);

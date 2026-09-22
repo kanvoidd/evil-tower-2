@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { ClassId, LineageSave, TalentPath } from '../types';
 import { CLASSES } from '../data/classes';
 import { FULL_BAR, PERK_BY_ID } from '../data/perks';
+import { SYNERGY_FX, TALENT_BY_ID } from '../data/talents';
 import { GAME_H, GAME_W, GAMEPLAY, HEX } from '../config';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
@@ -26,6 +27,10 @@ const SIZE = { talent: 108, perk: 118, cls: 150, evo: 96 };
 const PANEL_H = 306;
 
 const PATH_ICON: Record<TalentPath, string> = { attack: 'svg_sword', vitality: 'svg_health', guard: 'svg_defense' };
+
+/** Значок таланта: у синергий — молния (они меняют способности), у остальных — символ пути. */
+const talentIcon = (n: TreeNode): string =>
+  SYNERGY_FX.has(TALENT_BY_ID[n.talentId!].fx) ? 'svg_bolt' : PATH_ICON[n.path!];
 
 interface NodeView {
   node: TreeNode;
@@ -171,7 +176,7 @@ export class SkillTreeScene extends Phaser.Scene {
       const main = this.add.image(x, y, key).setDisplaySize(size, size).setDepth(5);
       const view: NodeView = { node: n, x, y, size, main, glow };
       if (n.kind === 'talent') {
-        view.ico = icon(this, x, y - 4, PATH_ICON[n.path!], size * 0.44).setDepth(6);
+        view.ico = icon(this, x, y - 4, talentIcon(n), size * 0.44).setDepth(6);
         view.maxFrame = this.add.image(x, y, 'tal_max').setDisplaySize(size, size).setDepth(7).setVisible(false);
         // счётчик рангов в углу плитки — «2/3»
         const badge = this.add.container(x + size * 0.3, y + size * 0.32).setDepth(8);
@@ -192,7 +197,6 @@ export class SkillTreeScene extends Phaser.Scene {
 
   private refresh(): void {
     this.ls = Store.activeLineageSave;
-    const active = Store.activeClass;
     for (const n of this.tree.nodes) this.states.set(n.id, nodeState(this.tree, this.ls, n));
     for (const [id, v] of this.views) {
       const st = this.states.get(id)!;
@@ -200,7 +204,6 @@ export class SkillTreeScene extends Phaser.Scene {
       const dim = st === 'locked' || st === 'blocked';
       let tint = 0xffffff;
       if (dim) tint = st === 'blocked' ? 0x4a3030 : 0x3a3d4a;
-      if (n.kind === 'perk' && st === 'owned' && n.owner !== active) tint = 0x8a8fa8;
       if (tint === 0xffffff) v.main.clearTint();
       else v.main.setTint(tint);
       v.ico?.setAlpha(dim ? 0.3 : 1);
@@ -330,7 +333,7 @@ export class SkillTreeScene extends Phaser.Scene {
         sub: `${t('skill.tier_label', { n: n.tier!, path: t(`path.${n.path}` as TKey) })} · ${t('skill.rank', { n: rank, max: maxRankOf(n) })}`,
         desc: talentDesc(def, rank),
         tex: `tal_${n.path}`,
-        iconKey: PATH_ICON[n.path!],
+        iconKey: talentIcon(n),
       };
     }
     if (n.kind === 'perk') {
@@ -391,8 +394,9 @@ export class SkillTreeScene extends Phaser.Scene {
     p.add(txt(this, 158, y0 + 46, info.title, 32, { font: 'title', origin: [0, 0.5], maxWidth: 520, color: HEX.gold, strokeThickness: 0 }));
     if (info.sub) p.add(txt(this, 158, y0 + 82, info.sub, 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0, maxWidth: 520 }));
     let desc = info.desc;
+    // Способности прежних классов остаются с героем — показываем, откуда она пришла.
     if (n.kind === 'perk' && n.owner !== Store.activeClass) {
-      desc += `\n${t('skill.inactive', { c: t(`class.${n.owner}.name` as TKey) })}`;
+      desc += `\n${t('skill.from_class', { c: t(`class.${n.owner}.name` as TKey) })}`;
     }
     if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class')) desc += `\n${t('skill.gate')}`;
     const descText = txt(this, 158, y0 + 104, desc, 21, { origin: [0, 0], wrap: 520, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
@@ -410,9 +414,7 @@ export class SkillTreeScene extends Phaser.Scene {
         w: 340, h: 70, label: t('skill.cancel_meta'), fontSize: 22, style: 'red', radius: 24, onClick: () => this.confirmCancel(n),
       });
     } else if (st === 'owned') {
-      status = n.kind === 'talent'
-        ? t('skill.maxed')
-        : n.kind === 'perk' && n.owner !== Store.activeClass ? t('skill.lost') : t('skill.owned');
+      status = n.kind === 'talent' ? t('skill.maxed') : t('skill.owned');
       statusColor = HEX.good;
     } else if (st === 'available' || st === 'partial') {
       const can = Store.souls >= cost;
@@ -422,7 +424,7 @@ export class SkillTreeScene extends Phaser.Scene {
       });
       btn.setLocked(!can);
     } else if (st === 'blocked') {
-      status = n.kind === 'perk' ? t('skill.lost') : t('skill.blocked');
+      status = t('skill.blocked');
       statusColor = HEX.bad;
     } else {
       status = t('skill.locked');
@@ -543,10 +545,12 @@ export class SkillTreeScene extends Phaser.Scene {
     const ring = this.add.image(x, y, 'ring').setTint(color).setDepth(40).setDisplaySize(40, 40);
     this.tweens.add({ targets: ring, displayWidth: 240, displayHeight: 240, alpha: 0, duration: 500, onComplete: () => ring.destroy() });
     for (let i = 0; i < 14; i++) {
-      const s = this.add.image(x, y, 'spark').setTint(color).setDepth(40).setScale(0.5 + Math.random() * 0.6);
+      // мягкие точки света, а не звёздочки — «сюрикенов» в игре нет нигде
+      const s = this.add.image(x, y, 'dot').setTint(color).setDepth(40)
+        .setDisplaySize(14, 14).setBlendMode(Phaser.BlendModes.ADD).setScale(0.7 + Math.random() * 0.8);
       const a = Math.random() * Math.PI * 2;
       const d = 60 + Math.random() * 90;
-      this.tweens.add({ targets: s, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, alpha: 0, angle: 180, duration: 550, onComplete: () => s.destroy() });
+      this.tweens.add({ targets: s, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, alpha: 0, duration: 550, onComplete: () => s.destroy() });
     }
   }
 
