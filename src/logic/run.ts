@@ -1077,8 +1077,11 @@ export class Run {
 
   /** Враги, с которыми герой вступил в бой за этот ход (uid). */
   private engaged = new Set<number>();
-  /** Враги, из-под удара которых герой ушёл шагом на не-врага (uid). */
-  private fleeing = new Set<number>();
+  /**
+   * Герой мог ударить врага, но шагнул на клетку без врага. Тогда бьют те, до кого
+   * новая клетка достаёт: он сам подставился. Ушёл туда, где рядом никого, — ход бесплатный.
+   */
+  private exposed = false;
   /** Идёт действие героя: урон по врагу в это время — вступление в бой. */
   private acting = false;
 
@@ -1086,36 +1089,36 @@ export class Run {
     this.takeSnapshot();
     this.vacated = [];
     this.engaged.clear();
-    this.fleeing.clear();
+    this.exposed = false;
     this.acting = true;
   }
 
   /**
    * Ответ врагов. Бьёт не всё, что стоит рядом, а только:
    * — те, с кем герой вступил в бой за этот ход (ударил, накрыл способностью) и кто ещё рядом;
-   * — те, от кого он ушёл: мог ударить, но шагнул на не-врага — удар вдогонку.
-   * Кто стоит в стороне и не тронут, ждёт своей очереди. А бегать по добыче
-   * рядом с врагом, копя ману, больше не выйдет.
+   * — те, кто достаёт до новой клетки, если герой мог ударить, но шагнул на не-врага.
+   * Кто стоит в стороне и не тронут, ждёт своей очереди. Уйти от врага туда, где рядом
+   * никого нет, можно безнаказанно, а вот копить ману шагами мимо чужих лап — нет.
    */
   private retaliate(events: GameEvent[]): void {
     if (this.over || this.madness > 0 || this.noCounter > 0) {
       this.engaged.clear();
-      this.fleeing.clear();
+      this.exposed = false;
       return;
     }
     const cells: number[] = [];
     for (let c = 0; c < 9; c++) {
       const card = this.cards[c];
       if (card?.kind !== 'enemy') continue;
-      const inFight = this.engaged.has(card.uid) && NEIGHBORS[this.playerCell].includes(c);
-      if (inFight || this.fleeing.has(card.uid)) cells.push(c);
+      if (!NEIGHBORS[this.playerCell].includes(c)) continue;
+      if (this.exposed || this.engaged.has(card.uid)) cells.push(c);
     }
     for (const c of cells) {
       if (this.over) break;
       this.enemyStrike(c, events);
     }
     this.engaged.clear();
-    this.fleeing.clear();
+    this.exposed = false;
   }
 
   private enemyStrike(cell: number, events: GameEvent[]): void {
@@ -1796,11 +1799,8 @@ export class Run {
 
   private collect(cell: number, events: GameEvent[]): void {
     const from = this.playerCell;
-    // мог ударить — но ушёл: все, кто стоял рядом, бьют вдогонку
-    for (const n of NEIGHBORS[from]) {
-      const c = this.cards[n];
-      if (c?.kind === 'enemy') this.fleeing.add(c.uid);
-    }
+    // мог ударить — но пошёл мимо: если новая клетка у кого-то под рукой, тот бьёт
+    this.exposed = this.canStrike();
     const exit = this.cards[cell]?.kind === 'exit';
     events.push({ type: 'move', from, to: cell });
     this.playerCell = cell;
@@ -1950,6 +1950,23 @@ export class Run {
     const canRefill = this.consumables.potion_regen > 0 && this.stats.abilities.some(usable);
     if (canRefill) return true;
     if (this.consumables.artifact > 0 && this.lineageDef.artifacts) return true;
+    return false;
+  }
+
+  /**
+   * Может ли герой прямо сейчас ударить врага: рукой, выстрелом, ударом в спину,
+   * а маг — молнией, если на неё хватает маны и она не на перезарядке.
+   */
+  private canStrike(): boolean {
+    for (let c = 0; c < 9; c++) {
+      if (this.cards[c]?.kind !== 'enemy') continue;
+      const k = this.actionFor(c).kind;
+      if (k === 'melee' || k === 'ranged') return true;
+    }
+    for (const p of this.stats.abilities) {
+      if (p.ability !== 'lightning' || !this.perkReady(p).ok) continue;
+      for (let c = 0; c < 9; c++) if (this.perkTargetOk(p, c)) return true;
+    }
     return false;
   }
 
