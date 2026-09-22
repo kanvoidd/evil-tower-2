@@ -23,6 +23,7 @@ export const ru = {
   'select.change_title': 'Смена класса',
   'select.change_body': 'Играть за «{name}»?',
   'select.current': 'Текущий',
+  'select.climb': 'Башня: {n} / {max}',
   'select.locked': 'Не открыт',
   'select.first': 'Выберите своего героя',
 

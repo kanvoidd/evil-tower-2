@@ -32,7 +32,7 @@ const fresh = (): SaveData => ({
   weapon: {},
   armor: null,
   consumables: { potion_heal: 2, potion_regen: 1, artifact: 0 },
-  cleared: [],
+  cleared: {},
   stats: {
     kills: 0, goldEarned: 0, soulsEarned: 0, roomsCleared: 0, deaths: 0,
     chestsOpened: 0, metamorphoses: 0, flawless: 0, itemsBroken: 0,
@@ -101,6 +101,12 @@ class StoreImpl {
     if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
     out.auto = { use, skill: { ...auto?.skill } };
     out.lineages = { ...src.lineages };
+    // Раньше башня была общей на профиль. Старый список отдаём той линейке, которой играли:
+    // остальные герои начинают подъём заново, как и задумано.
+    const old = (src as unknown as { cleared?: unknown }).cleared;
+    out.cleared = Array.isArray(old)
+      ? { [CLASSES[src.activeClass ?? LINEAGE_ORDER[0]].lineage]: old as string[] }
+      : { ...((old ?? {}) as SaveData['cleared']) };
     return out;
   }
 
@@ -392,8 +398,13 @@ class StoreImpl {
 
   // ------------------------------------------------------------------ комнаты
 
+  /** Пройденные комнаты линейки. У каждого героя своя башня: сменил класс — начал сначала. */
+  clearedOf(lin: LineageId = this.activeLineage): string[] {
+    return this.data.cleared[lin] ?? [];
+  }
+
   isCleared(id: string): boolean {
-    return this.data.cleared.includes(id);
+    return this.clearedOf().includes(id);
   }
 
   get frontierRoom(): string {
@@ -405,13 +416,19 @@ class StoreImpl {
   }
 
   get allCleared(): boolean {
-    return this.data.cleared.length >= ROOMS.length;
+    return this.clearedOf().length >= ROOMS.length;
+  }
+
+  /** Лучший подъём по башне среди всех линеек — для таблицы рекордов и сводок. */
+  get bestClimb(): number {
+    return LINEAGE_ORDER.reduce((best, l) => Math.max(best, this.clearedOf(l).length), 0);
   }
 
   /** Возвращает true, если комната пройдена впервые. */
   markCleared(id: string): boolean {
     if (this.isCleared(id)) return false;
-    this.data.cleared.push(id);
+    const lin = this.activeLineage;
+    this.data.cleared[lin] = [...this.clearedOf(lin), id];
     return true;
   }
 

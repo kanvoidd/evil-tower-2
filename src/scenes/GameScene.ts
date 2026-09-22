@@ -1313,8 +1313,9 @@ export class GameScene extends Phaser.Scene {
       // Сумка с золотом и души сдаются в кошелёк только за победу.
       Store.addGold(run.totals.gold + bonusGold);
       Store.addSouls(run.totals.souls + bonusSouls);
-      void YSDK.submitScore('rooms', Store.data.cleared.length);
-      void YSDK.setStats({ rooms: Store.data.cleared.length, kills: Store.data.stats.kills });
+      // в таблицу рекордов идёт лучший подъём среди героев, а не сумма их башен
+      void YSDK.submitScore('rooms', Store.bestClimb);
+      void YSDK.setStats({ rooms: Store.bestClimb, kills: Store.data.stats.kills });
     } else {
       Store.bump('deaths');
     }

@@ -19,6 +19,7 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { SkillTreeScene } from './scenes/SkillTreeScene';
 import { GameScene } from './scenes/GameScene';
 import { AchievementsScene } from './scenes/AchievementsScene';
+import { Store } from './systems/Store';
 
 // Модерация Яндекс Игр: без контекстного меню и выделения текста.
 document.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -49,5 +50,8 @@ YSDK.onGameResume(() => {
   game.resume();
 });
 
-// Отладочный доступ к игре — только в режиме разработки.
-if (import.meta.env.DEV) (window as any).__game = game;
+// Отладочный доступ к игре и сохранению — только в режиме разработки.
+if (import.meta.env.DEV) {
+  (window as any).__game = game;
+  (window as any).__store = Store;
+}

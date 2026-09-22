@@ -47,7 +47,7 @@ export const applyDevParams = (): void => {
   if (souls) Store.addSouls(souls, false);
   const clear = Number(q.get('clear') ?? -1);
   if (clear >= 0) {
-    Store.data.cleared = ROOMS.slice(0, clear).map((r) => r.id);
+    Store.data.cleared[Store.activeLineage] = ROOMS.slice(0, clear).map((r) => r.id);
   }
   if (q.get('tut') === '1') Store.data.tutorial = { fight: true, hub: true, skill: true, shop: true, perk: true };
   const wt = Number(q.get('weapon') ?? 0);

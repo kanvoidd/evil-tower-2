@@ -217,7 +217,7 @@ export class HubScene extends Phaser.Scene {
     const left = -r.w / 2 + 32;
     c.add(txt(this, left, -22, t(`floor.${room.floor}.name` as TKey).toUpperCase(), 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0 }));
     c.add(txt(this, left, 8, t('game.room', { r: id }), 36, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 }));
-    const cleared = Store.data.cleared.length;
+    const cleared = Store.clearedOf().length;
     c.add(txt(this, r.w / 2 - 32, -6, `${cleared} / ${ROOMS.length}`, 26, { origin: [1, 0.5], color: HEX.textDim, weight: 800, strokeThickness: 0 }));
     // прогресс башни: три этажа
     const bw = r.w - 64;

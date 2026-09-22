@@ -25,6 +25,7 @@ export const en: Record<keyof typeof ru, string> = {
   'select.change_title': 'Change class',
   'select.change_body': 'Play as "{name}"?',
   'select.current': 'Current',
+  'select.climb': 'Tower: {n} / {max}',
   'select.locked': 'Locked',
   'select.first': 'Pick your hero',
 

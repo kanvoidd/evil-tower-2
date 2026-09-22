@@ -72,8 +72,8 @@ export interface SaveData {
   weapon: Partial<Record<LineageId, EquipmentSave | null>>;
   armor: EquipmentSave | null;
   consumables: Record<ConsumableId, number>;
-  /** Пройденные комнаты: id вида "2-3". */
-  cleared: string[];
+  /** Пройденные комнаты для каждой линейки отдельно: id вида "2-3". У каждого героя своя башня. */
+  cleared: Partial<Record<LineageId, string[]>>;
   stats: {
     kills: number;
     goldEarned: number;
