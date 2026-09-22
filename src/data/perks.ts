@@ -217,10 +217,10 @@ export const PERKS: PerkDef[] = [
 
   // ------------------------------------------------------------------ Маг · мана
   P('mage', 'start', {
-    ability: 'lightning', vfx: 'bolt', cost: 4, target: 'adjacent',
+    ability: 'lightning', vfx: 'bolt', cost: 3, target: 'adjacent',
     ru: 'Удар молнии', en: 'Lightning Bolt',
-    dru: 'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 190% урона заклинанием. Следите за маной: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
-    den: 'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 190% spell damage. Watch your mana: a mage cornered on every side with an empty bar is doomed.',
+    dru: 'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 250% урона заклинанием за 3 маны. Мана восстанавливается всего по 1 за ход — следите за ней: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
+    den: 'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 250% spell damage at 3 mana. Mana returns only 1 per turn — watch it: a mage cornered on every side with an empty bar is doomed.',
   }),
   P('mage', 'p2', {
     ability: 'magic_shot', vfx: 'arcane', cost: 6, target: 'line', cooldown: 1,

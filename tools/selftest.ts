@@ -863,7 +863,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   const stats = buildPlayerStats({ classId: 'mage', lineage: newLineageSave(TREES[lin]), weapon: null, armor: null });
   const mk = (carry?: RunCarryStats) => new Run({ room: ROOMS[1], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(5), carry });
   const first = mk();
-  ok(first.hp === stats.maxHp && first.res === Math.ceil(stats.resMax * 0.5), 'первая комната забега: полное здоровье и полшкалы ресурса');
+  ok(first.hp === stats.maxHp && first.res === stats.resMax, 'первая комната забега: полное здоровье и полная шкала');
   first.hp = 7;
   first.res = 3;
   const next = mk(first.carryOut());
@@ -880,6 +880,28 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   const after = new Run({ room: ROOMS[2], stats: rs, weapon: null, armor: null, consumables: cons(), rng: makeRng(6), carry: up.carryOut() });
   after.over = 'lose';
   ok(after.autoRevive() === null, '«Возвращение» не срабатывает второй раз в том же забеге');
+}
+
+// ---------------------------------------------------------------- мана: 1 за ход, цена ощущается
+{
+  const lin = CLASSES.mage.lineage;
+  const stats = buildPlayerStats({ classId: 'mage', lineage: newLineageSave(TREES[lin]), weapon: null, armor: null });
+  ok(stats.regen === 1, `мана восстанавливается по 1 за ход (${stats.regen})`);
+  const bolt = PERK_BY_ID.mage_start;
+  const run = new Run({ room: ROOMS[1], stats: { ...stats, maxHp: 100000 }, weapon: null, armor: null, consumables: cons(), rng: makeRng(7) });
+  run.start();
+  run.cards.fill(null);
+  run.playerCell = 4;
+  run.hp = 100000;
+  run.cards[1] = { uid: 777, kind: 'enemy', defId: 'skeleton', hp: 100000, maxHp: 100000, atk: 0, baseAtk: 0, value: 0, elite: false, stun: 0, burn: 0, burnDmg: 0, poison: 0, poisonDmg: 0, mark: 0, link: false, vuln: 0, hits: 0, swings: 0 };
+  run.res = 10;
+  run.usePerk('mage_start');
+  run.tap(1);
+  ok(run.res === 10 - (bolt.cost ?? 0) + 1, `молния за ${bolt.cost} маны: 10 → ${run.res} (с учётом +1 за ход)`);
+  // скидка «Экономия маны» не делает основной удар дешевле двух — иначе он окупался бы регенерацией
+  const cheap = new Run({ room: ROOMS[1], stats: { ...stats, perkCostDown: 1 }, weapon: null, armor: null, consumables: cons(), rng: makeRng(8) });
+  ok(cheap.perkCostOf(bolt) === 2, `скидка не опускает цену молнии ниже 2 (${cheap.perkCostOf(bolt)})`);
+  ok(cheap.perkCostOf(PERK_BY_ID.mage_p2) === (PERK_BY_ID.mage_p2.cost ?? 0) - 1, 'дорогие заклинания скидка удешевляет');
 }
 
 // ---------------------------------------------------------------- плавающий крит

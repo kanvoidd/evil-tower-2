@@ -35,7 +35,7 @@ export const LINEAGES: Record<LineageId, LineageDef> = {
     id: 'mage',
     resource: 'mana',
     base: { damage: 5, crit: 5, health: 18, dodge: 0, defense: 0, parry: 0, luck: 1 },
-    resMax: 14, resRegen: 3, goldBonus: 0, artifacts: true, melee: false,
+    resMax: 14, resRegen: 1, goldBonus: 0, artifacts: true, melee: false,
   },
   archer: {
     id: 'archer',
