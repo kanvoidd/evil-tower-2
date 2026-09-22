@@ -470,6 +470,16 @@ export const ENEMY_ART: Record<string, Draw> = {
 // ------------------------------------------------------------------ предметы
 
 export const ITEM_ART: Record<string, Draw> = {
+  // карта перехода на следующий этаж: арка с лестницей и светом за ней
+  exit: (g) => {
+    g.rect(2, 2, 12, 12, K.grayD).rect(3, 3, 10, 11, K.gray);
+    g.rect(4, 5, 8, 9, K.black);
+    g.rect(5, 4, 6, 1, K.gray).rect(6, 3, 4, 1, K.gray);
+    g.rect(5, 6, 6, 2, K.gold).rect(5, 8, 6, 1, K.goldD);
+    g.rect(6, 9, 4, 2, K.gold).rect(6, 11, 4, 1, K.goldD);
+    g.rect(7, 12, 2, 2, K.gold);
+    g.dot(4, 2, K.goldD).dot(11, 2, K.goldD);
+  },
   chest: (g) => {
     g.rect(2, 6, 12, 8, K.brown).rect(2, 6, 12, 2, K.brownL).rect(2, 9, 12, 1, K.brownD).rect(2, 13, 12, 1, K.brownD);
     g.rect(2, 6, 2, 8, K.iron).rect(12, 6, 2, 8, K.iron).rect(7, 8, 2, 3, K.gold).dot(8, 9, K.brownD).rect(3, 4, 10, 2, K.brownL).rect(4, 3, 8, 1, K.brown);

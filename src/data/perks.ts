@@ -82,6 +82,8 @@ export interface PerkDef {
   target?: PerkTarget;
   /** Один раз за комнату. */
   once?: boolean;
+  /** Перезарядка в ходах после применения. */
+  cooldown?: number;
   /** Как способность выглядит на поле. */
   vfx: VfxStyle;
 }
@@ -102,6 +104,7 @@ interface Opts {
   passive?: boolean;
   basic?: boolean;
   once?: boolean;
+  cooldown?: number;
 }
 
 const P = (classId: ClassId, slot: PerkSlot, o: Opts): PerkDef => ({
@@ -118,6 +121,7 @@ const P = (classId: ClassId, slot: PerkSlot, o: Opts): PerkDef => ({
   goldCost: o.goldCost,
   target: o.target,
   once: o.once,
+  cooldown: o.cooldown,
   vfx: o.vfx,
 });
 
@@ -164,8 +168,8 @@ export const PERKS: PerkDef[] = [
   P('berserk', 'start', {
     ability: 'whirlwind', vfx: 'blades', cost: 4, target: 'self',
     ru: 'Вихрь', en: 'Whirlwind',
-    dru: 'Герой раскручивается и бьёт всех соседних врагов на 70% урона. Выжившие отвечают вполсилы.',
-    den: 'You spin and strike every adjacent enemy for 70% damage. Survivors answer at half strength.',
+    dru: 'Герой раскручивается и бьёт всех соседних врагов на 70% урона.',
+    den: 'You spin and strike every adjacent enemy for 70% damage.',
   }),
   P('berserk', 'p2', {
     ability: 'rage', vfx: 'slam', passive: true,
@@ -215,20 +219,20 @@ export const PERKS: PerkDef[] = [
   P('mage', 'start', {
     ability: 'lightning', vfx: 'bolt', cost: 4, target: 'adjacent',
     ru: 'Удар молнии', en: 'Lightning Bolt',
-    dru: 'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 120% урона заклинанием, ответного удара нет. Следите за маной: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
-    den: 'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 120% spell damage with no counterattack. Watch your mana: a mage cornered on every side with an empty bar is doomed.',
+    dru: 'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): 190% урона заклинанием. Следите за маной: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
+    den: 'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for 190% spell damage. Watch your mana: a mage cornered on every side with an empty bar is doomed.',
   }),
   P('mage', 'p2', {
-    ability: 'magic_shot', vfx: 'arcane', cost: 6, target: 'line',
+    ability: 'magic_shot', vfx: 'arcane', cost: 6, target: 'line', cooldown: 1,
     ru: 'Магический выстрел', en: 'Arcane Shot',
-    dru: '200% урона по цели на одной линии с героем, без ответного удара.',
-    den: '200% damage to a target in line with you, with no counterattack.',
+    dru: '150% урона по цели на одной линии с героем — но только ЧЕРЕЗ карту: вплотную выстрел не бьёт. Перезарядка 1 ход.',
+    den: '150% damage to a target in line with you — but only THROUGH a card: the shot cannot hit an adjacent enemy. 1-turn cooldown.',
   }),
   P('mage', 'p3', {
-    ability: 'chain_lightning', vfx: 'chain', cost: 5, target: 'enemy',
+    ability: 'chain_lightning', vfx: 'chain', cost: 5, target: 'enemy', cooldown: 2,
     ru: 'Цепная молния', en: 'Chain Lightning',
-    dru: 'Бьёт цель и перескакивает по соседним врагам: 100% → 75% → 50%. Ответных ударов нет.',
-    den: 'Strikes the target and arcs to neighbours: 100% → 75% → 50%. No counterattacks.',
+    dru: 'Бьёт цель и перескакивает по соседним врагам: 100% → 75% → 50%. Перезарядка 2 хода.',
+    den: 'Strikes the target and arcs to neighbours: 100% → 75% → 50%. 2-turn cooldown.',
   }),
 
   P('magister', 'start', {
@@ -304,8 +308,8 @@ export const PERKS: PerkDef[] = [
   P('archer', 'start', {
     ability: 'pierce_shot', vfx: 'shot', basic: true, cost: 2, target: 'line',
     ru: 'Сквозной выстрел', en: 'Piercing Shot',
-    dru: 'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон без ответного удара.',
-    den: 'A shot through a card: tap an enemy two cells away in a straight line and it takes damage with no counterattack.',
+    dru: 'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон, оставаясь вне досягаемости руки.',
+    den: 'A shot through a card: tap an enemy two cells away in a straight line and it takes damage from outside melee reach.',
   }),
   P('archer', 'p2', {
     ability: 'diagonal', vfx: 'shot', passive: true,
@@ -456,7 +460,7 @@ export const PERKS: PerkDef[] = [
   P('ninja', 'start', {
     ability: 'shuriken_fan', vfx: 'blades', cost: 3, target: 'self',
     ru: 'Веер сюрикенов', en: 'Shuriken Fan',
-    dru: 'Четыре сюрикена летят в ближайших врагов по 60% урона с отдельными критами, без ответных ударов.',
+    dru: 'Четыре сюрикена летят в ближайших врагов по 60% урона с отдельными критами.',
     den: 'Four shuriken fly at the nearest enemies for 60% each, rolling separate crits and drawing no answer.',
   }),
   P('ninja', 'p2', {

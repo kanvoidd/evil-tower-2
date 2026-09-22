@@ -332,6 +332,8 @@ export class GameScene extends Phaser.Scene {
 
   /** Короткая метка цены: она живёт в маленьком бейдже, поэтому не больше двух знаков. */
   private perkCostLabel(perk: PerkDef): string {
+    const cd = this.run.cooldownOf(perk);
+    if (cd > 0) return `⏱${cd}`;
     if (perk.goldCost !== undefined) return '$';
     const cost = this.run.perkCostOf(perk);
     if (cost === 0) return '0';
@@ -342,12 +344,13 @@ export class GameScene extends Phaser.Scene {
     for (const pb of this.perkBtns) {
       const ready = this.run.perkReady(pb.perk);
       const armed = this.run.armed?.id === pb.perk.id;
-      const free = this.run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
+      const cd = this.run.cooldownOf(pb.perk);
+      const free = cd === 0 && this.run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
       pb.btn.setStyle(armed ? 'gold' : 'raised');
       pb.btn.setLocked(!ready.ok);
       pb.frame.setVisible(armed);
       pb.costText.setText(this.perkCostLabel(pb.perk));
-      const costColor = !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
+      const costColor = cd > 0 ? HEX.soul : !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
       pb.costText.setColor(costColor);
       pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
       pb.name.setColor(armed ? HEX.dark : ready.ok ? HEX.text : HEX.textMute);
@@ -362,8 +365,10 @@ export class GameScene extends Phaser.Scene {
       AUDIO.play('error');
       const key: TKey = res.reason === 'once' ? 'game.once_used'
         : res.reason === 'active' ? 'game.perk_active'
-          : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
-      this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey) }), HEX.bad, 22);
+          : res.reason === 'cooldown' ? 'game.cooldown'
+            : res.reason === 'gold' ? 'game.no_gold_perk' : 'game.no_res';
+      const n = this.run.cooldownOf(perk);
+      this.popupAt(this.playerView.c.x, this.playerView.c.y - 100, t(key, { r: t(`res.${this.run.stats.resource}` as TKey), n }), HEX.bad, 22);
       return;
     }
     Store.data.tutorial.perk = true;
@@ -460,11 +465,13 @@ export class GameScene extends Phaser.Scene {
     });
     // враги
     const total = r.totalEnemies;
-    const left = r.enemiesLeft;
-    this.enemyText.setText(t('game.enemies', { n: left }));
+    const left = r.killsLeft;
+    this.enemyText.setText(r.exitOpen ? t('game.exit_open') : t('game.enemies', { n: left }));
+    this.enemyText.setColor(r.exitOpen ? HEX.gold : HEX.textDim);
     this.enemyBar.clear();
     this.enemyBar.fillStyle(0x000000, 0.45).fillRoundedRect(GAME_W / 2 - 130, 214, 260, 7, 3.5);
-    if (total > 0 && left < total) this.enemyBar.fillStyle(0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 214, Math.max(7, 260 * (1 - left / total)), 7, 3.5);
+    const done = total > 0 ? Phaser.Math.Clamp(1 - left / total, 0, 1) : 0;
+    if (done > 0) this.enemyBar.fillStyle(r.exitOpen ? 0xf0c75e : 0xe5564d, 1).fillRoundedRect(GAME_W / 2 - 130, 214, Math.max(7, 260 * done), 7, 3.5);
     // слоты расходников
     this.slots.forEach((sl) => {
       const n = r.consumables[sl.id];
@@ -516,6 +523,7 @@ export class GameScene extends Phaser.Scene {
         if (def.boss) labelColor = HEX.gold;
         break;
       }
+      case 'exit': frameKey = 'card_exit'; spriteKey = 'spr_exit'; spriteSize = 120; label = t('game.exit'); labelColor = HEX.gold; break;
       case 'gold': frameKey = 'card_gold'; spriteKey = 'spr_gold'; label = `+${card.value}`; labelColor = HEX.gold; break;
       case 'chest': frameKey = 'card_chest'; spriteKey = 'spr_chest'; label = t('game.chest'); break;
       case 'potion_heal': spriteKey = 'item_potion_heal'; label = t('shop.potion_heal'); break;

@@ -3,7 +3,7 @@ import { CLASSES, LINEAGE_ORDER, classesOfLineage, secondOf, terminalsOf } from 
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../data/economy';
 import { PERK_BY_ID, perkId, perksOfClass, SLOT_ORDER, type PerkSlot } from '../data/perks';
 import {
-  maxRank, PATH_ORDER, TALENT_BY_ID, talentChain, talentValue, talentsOfClass, type TalentDef, type TalentFx,
+  maxRank, PATH_ORDER, TALENT_BY_ID, talentChain, talentValue, talentValue2, talentsOfClass, type TalentDef, type TalentFx,
 } from '../data/talents';
 import { GAMEPLAY } from '../config';
 
@@ -304,6 +304,24 @@ export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
     if (rank <= 0) continue;
     const def = talentOfNode(n);
     out[def.fx] = (out[def.fx] ?? 0) + talentValue(def, rank);
+  }
+  return out;
+};
+
+/**
+ * Второе значение эффектов-пар («шанс / сила»): у «Раздвоения молнии» в `v` лежит шанс,
+ * а в `v2` — доля урона по второму врагу. Берём максимум, а не сумму: это одна и та же
+ * механика, и складывать силу от двух классов линейки было бы неверно.
+ */
+export const talentBonuses2 = (tree: Tree, s: LineageSave): TalentBonus => {
+  const out: TalentBonus = {};
+  for (const n of tree.nodes) {
+    if (n.kind !== 'talent') continue;
+    const rank = rankOf(s, n.id);
+    if (rank <= 0) continue;
+    const def = talentOfNode(n);
+    const v2 = talentValue2(def, rank);
+    if (v2 > 0) out[def.fx] = Math.max(out[def.fx] ?? 0, v2);
   }
   return out;
 };

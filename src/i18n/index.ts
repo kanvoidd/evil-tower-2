@@ -1,7 +1,7 @@
 import type { Lang } from '../types';
 import type { PerkDef } from '../data/perks';
 import type { TalentDef, TalentFx } from '../data/talents';
-import { talentValue } from '../data/talents';
+import { talentValue, talentValue2 } from '../data/talents';
 import type { Trait } from '../logic/traits';
 import { ru, type TKey } from './ru';
 import { en } from './en';
@@ -27,8 +27,8 @@ export const perkDesc = (p: PerkDef): string => tr(p.desc);
 
 export const talentName = (t2: TalentDef): string => tr(t2.name);
 
-/** Строка эффекта таланта на конкретном ранге («+18% к урону»). */
-export const talentEffect = (fx: TalentFx, v: number): string => t(`tal.${fx}` as TKey, { v });
+/** Строка эффекта таланта на конкретном ранге («+18% к урону»). Пара «шанс / сила» — через `v2`. */
+export const talentEffect = (fx: TalentFx, v: number, v2 = 0): string => t(`tal.${fx}` as TKey, { v, v2 });
 
 /**
  * Описание таланта в панели: что даёт сейчас и что даст следующий ранг.
@@ -36,10 +36,10 @@ export const talentEffect = (fx: TalentFx, v: number): string => t(`tal.${fx}` a
  */
 export const talentDesc = (def: TalentDef, rank: number): string => {
   const lines: string[] = [];
-  if (rank > 0) lines.push(`${t('skill.now')}: ${talentEffect(def.fx, talentValue(def, rank))}`);
+  if (rank > 0) lines.push(`${t('skill.now')}: ${talentEffect(def.fx, talentValue(def, rank), talentValue2(def, rank))}`);
   if (rank < def.v.length) {
     const label = rank > 0 ? t('skill.next') : t('skill.rank_one');
-    lines.push(`${label}: ${talentEffect(def.fx, def.v[rank])}`);
+    lines.push(`${label}: ${talentEffect(def.fx, def.v[rank], def.v2?.[rank] ?? 0)}`);
   }
   return lines.join('\n');
 };

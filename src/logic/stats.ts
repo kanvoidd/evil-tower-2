@@ -3,7 +3,7 @@ import { CLASSES, LINEAGES } from '../data/classes';
 import { ITEM_BY_ID } from '../data/items';
 import { hasButton, PERK_BY_ID, type AbilityId, type PerkDef } from '../data/perks';
 import { GAMEPLAY } from '../config';
-import { activePerkIds, talentBonuses, TREES } from './skillTree';
+import { activePerkIds, talentBonuses, talentBonuses2, TREES } from './skillTree';
 
 export interface Loadout {
   classId: ClassId;
@@ -87,8 +87,14 @@ export interface PlayerStats {
   abilityRefund: number;
   abilityShield: number;
   killBlast: number;
-  basicSplit: number;
+  /** «Раздвоение молнии»: шанс задеть второго врага и доля урона по нему. */
+  splitChance: number;
+  splitDmg: number;
   perkCostDown: number;
+  /** Усиление отдельных заклинаний мага. */
+  lightningPower: number;
+  shotPower: number;
+  chainPower: number;
 
   // ---- таланты пути здоровья
   lowHpDr: number;
@@ -138,7 +144,9 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const lin = LINEAGES[cls.lineage];
   const tree = TREES[cls.lineage];
   const tb = talentBonuses(tree, l.lineage);
+  const tb2 = talentBonuses2(tree, l.lineage);
   const g = (k: keyof typeof tb): number => tb[k] ?? 0;
+  const g2 = (k: keyof typeof tb2): number => tb2[k] ?? 0;
 
   const basic = BASIC[cls.lineage];
   // Способности не теряются при метаморфозе: у финального класса в руках весь путь линейки.
@@ -207,7 +215,11 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     abilityRefund: g('abilityRefund') / 100,
     abilityShield: g('abilityShield') / 100,
     killBlast: g('killBlast') / 100,
-    basicSplit: g('basicSplit') / 100,
+    splitChance: g('basicSplit') / 100,
+    splitDmg: g2('basicSplit') / 100,
+    lightningPower: g('lightningPower') / 100,
+    shotPower: g('shotPower') / 100,
+    chainPower: g('chainPower') / 100,
     perkCostDown: g('perkCostDown'),
 
     lowHpDr: g('lowHpDr') / 100,

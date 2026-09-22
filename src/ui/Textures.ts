@@ -483,6 +483,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
 
   // --- предметы и валюты
   bakeSprite(scene, 'spr_chest', ITEM_ART.chest);
+  bakeSprite(scene, 'spr_exit', ITEM_ART.exit);
   bakeSprite(scene, 'spr_gold', ITEM_ART.gold);
   bakeSprite(scene, 'item_potion_heal', ITEM_ART.potion_heal);
   bakeSprite(scene, 'item_potion_regen', ITEM_ART.potion_regen);
@@ -715,6 +716,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
   frame('card_chest', '#b8823a', 'rgba(240,160,80,0.22)');
   frame('card_hero', '#f0c75e', 'rgba(240,199,94,0.20)', true);
   frame('card_kill', '#5ee39a', 'rgba(94,227,154,0.24)', true);
+  frame('card_exit', '#f0c75e', 'rgba(240,199,94,0.30)', true);
 
   // --- фон: глубокий градиент, мягкий свет сверху, едва заметная кладка и виньетка
   canvasTex(scene, 'bg_stone', 720, 1280, (ctx) => {

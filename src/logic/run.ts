@@ -221,12 +221,24 @@ export class Run {
     return LINEAGES[this.lineage];
   }
 
+  /** Враги, которые прямо сейчас на поле. Колода бесконечна, поэтому «сколько осталось» — не про неё. */
   get enemiesLeft(): number {
-    return this.pool.filter((c) => c.kind === 'enemy').length + this.cards.filter((c) => c?.kind === 'enemy').length;
+    return this.cards.filter((c) => c?.kind === 'enemy').length;
   }
 
+  /** Сколько врагов нужно уложить, чтобы открылся выход с этажа. */
   get totalEnemies(): number {
-    return this.plan.enemies.length;
+    return this.quota;
+  }
+
+  /** Сколько ещё нужно уложить. */
+  get killsLeft(): number {
+    return Math.max(0, this.quota - this.killsRoom) + (this.bossLeft ? 1 : 0);
+  }
+
+  /** Карта перехода уже подмешана в колоду. */
+  get exitOpen(): boolean {
+    return this.exitQueued;
   }
 
   // ------------------------------------------------------------------ подготовка
@@ -256,6 +268,45 @@ export class Run {
     return Math.max(1, Math.round(this.rng.int(lo, hi) * mul));
   }
 
+  /** Сколько врагов нужно уложить в этой комнате. */
+  private quota = 0;
+  /** Босс комнаты ещё жив — без него выход не откроется. */
+  private bossLeft = false;
+  /** Карта перехода уже подмешана. */
+  private exitQueued = false;
+
+  /**
+   * Колода бесконечна: пока выход не открыт, карты подсыпаются, и поле никогда не пустеет.
+   * Состав тот же, что и в начальной колоде — враги этажа и добыча в тех же долях.
+   */
+  private replenish(): void {
+    if (this.pool.length >= 9) return;
+    const { rng, room } = this;
+    const add: Card[] = [];
+    for (let i = this.pool.length; i < 14; i++) {
+      const r = rng.next();
+      if (r < 0.62) {
+        const def = ENEMIES[rng.pick(room.pool)];
+        if (def) add.push(this.mkEnemy(def, false));
+      } else if (r < 0.78) add.push(this.mkCard('gold', this.goldAmount(4, 9)));
+      else if (r < 0.86) add.push(this.mkCard('chest'));
+      else if (r < 0.95) add.push(this.mkCard('potion_heal'));
+      else add.push(this.mkCard('potion_regen'));
+    }
+    rng.shuffle(add);
+    this.pool.push(...add);
+  }
+
+  /**
+   * Норма выполнена — в ближайшие карты колоды замешивается переход на следующий этаж.
+   * Комната закончится только когда герой сам шагнёт на эту карту.
+   */
+  private queueExit(): void {
+    if (this.exitQueued || this.bossLeft || this.killsRoom < this.quota) return;
+    this.exitQueued = true;
+    this.pool.splice(this.rng.int(0, Math.min(3, this.pool.length)), 0, this.mkCard('exit'));
+  }
+
   private buildPool(): void {
     const { plan, rng } = this;
     const list: Card[] = [];
@@ -277,6 +328,8 @@ export class Run {
       list.splice(rng.int(from, list.length), 0, b);
     }
     this.pool = list;
+    this.quota = plan.enemies.length;
+    this.bossLeft = bosses.length > 0;
   }
 
   start(): GameEvent[] {
@@ -361,9 +414,10 @@ export class Run {
   // ------------------------------------------------------------------ способности
 
   /** Доступна ли способность прямо сейчас. */
-  perkReady(p: PerkDef): { ok: boolean; reason?: 'resource' | 'once' | 'gold' | 'targets' | 'active' } {
+  perkReady(p: PerkDef): { ok: boolean; reason?: 'resource' | 'once' | 'gold' | 'targets' | 'active' | 'cooldown' } {
     if (this.over) return { ok: false, reason: 'once' };
     if (p.once && this.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
+    if (this.cooldownOf(p) > 0) return { ok: false, reason: 'cooldown' };
     if (p.goldCost !== undefined) {
       return this.totals.gold >= 5 ? { ok: true } : { ok: false, reason: 'gold' };
     }
@@ -373,6 +427,11 @@ export class Run {
     const cost = this.perkCostOf(p);
     if (cost > this.res) return { ok: false, reason: 'resource' };
     return { ok: true };
+  }
+
+  /** Сколько ходов осталось до готовности способности. */
+  cooldownOf(p: PerkDef): number {
+    return this.cooldowns[p.id] ?? 0;
   }
 
   /** Держится ли уже эффект этой способности. */
@@ -440,13 +499,15 @@ export class Run {
     if (!card) return false;
     // Клеймо, приговор и кукла вуду держатся до смерти цели — вешать их второй раз
     // значит выбросить ход, поэтому такая цель просто не подсвечивается.
+    if (card.kind === 'exit') return false;
     if (p.ability === 'sentence' && card.vuln > 0) return false;
     if (p.ability === 'voodoo' && card.link) return false;
     if (p.ability === 'death_mark' && card.mark > 0) return false;
     switch (p.target) {
       case 'enemy': return card.kind === 'enemy';
       case 'adjacent': return card.kind === 'enemy' && NEIGHBORS[this.playerCell].includes(cell);
-      case 'line': return card.kind === 'enemy' && sameLine(this.playerCell, cell);
+      // выстрел идёт ЧЕРЕЗ карту: вплотную из него не бьют
+      case 'line': return card.kind === 'enemy' && sameLine(this.playerCell, cell) && dist(this.playerCell, cell) > 1;
       case 'card': return card.kind !== 'enemy';
       case 'any_card': return true;
       case 'two': return true;
@@ -477,6 +538,8 @@ export class Run {
 
   private payPerk(p: PerkDef, events: GameEvent[]): void {
     if (p.once) this.usedOnce.add(p.id);
+    // +1: перезарядка тикает в конце того же хода, поэтому «кулдаун 1» = пропуск одного хода
+    if (p.cooldown) this.cooldowns[p.id] = p.cooldown + 1;
     if (p.goldCost !== undefined) {
       const pay = Math.max(5, Math.round(this.totals.gold * p.goldCost));
       this.totals.gold = Math.max(0, this.totals.gold - pay);
@@ -586,9 +649,14 @@ export class Run {
     }
   }
 
+  /**
+   * Доспех снашивается не больше одного раза за ход. Ход врагов бьёт сразу всеми соседями,
+   * и снос за каждый удар сжигал бы броню втрое быстрее, чем на неё зарабатывают.
+   */
   private wearArmor(events: GameEvent[]): void {
     const a = this.armor;
-    if (!a || a.durability <= 0) return;
+    if (!a || a.durability <= 0 || this.armorWorn) return;
+    this.armorWorn = true;
     a.durability--;
     if (a.durability <= 0) {
       const it = ITEM_BY_ID[a.id];
@@ -617,11 +685,8 @@ export class Run {
       killed = this.strike(cell, dmg, this.rollCrit(this.cards[cell], false), events);
     }
     if (this.madness > 0) this.splashNeighbors(cell, Math.round(dmg * 0.6), events);
-    if (killed) {
-      this.stepInto(cell, events);
-      return;
-    }
-    if (this.cards[cell] === enemy && this.madness <= 0) this.enemyStrike(cell, events);
+    // ответный удар больше не привязан к конкретной цели — его даёт общий ход врагов
+    if (killed) this.stepInto(cell, events);
   }
 
   /** Базовое действие линейки: выстрел через карту, удар молнии, удар в спину. */
@@ -655,15 +720,16 @@ export class Run {
     }
   }
 
-  /** «Раздвоение молнии» / «Двойной наконечник»: основной удар цепляет ещё одного врага. */
+  /** «Раздвоение молнии» / «Двойной наконечник»: основной удар с шансом цепляет ещё одного врага. */
   private splitStrike(cell: number, dmg: number, events: GameEvent[]): void {
-    const ratio = this.stats.basicSplit;
-    if (ratio <= 0) return;
+    const { splitChance, splitDmg } = this.stats;
+    if (splitChance <= 0 || splitDmg <= 0) return;
+    if (!this.rng.chance(splitChance)) return;
     const extra = this.enemyCells().filter((c) => c !== cell);
     if (!extra.length) return;
     const c2 = extra[this.rng.int(0, extra.length - 1)];
     events.push({ type: 'fx', cells: [c2], style: 'chain' });
-    this.damageEnemy(c2, Math.max(1, Math.round(dmg * ratio)), false, events);
+    this.damageEnemy(c2, Math.max(1, Math.round(dmg * splitDmg)), false, events);
   }
 
   /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
@@ -773,6 +839,8 @@ export class Run {
     this.vacated.push(cell);
     this.totals.kills++;
     this.killsRoom++;
+    if (ENEMIES[enemy.defId]?.boss) this.bossLeft = false;
+    this.queueExit();
     this.killStreak++;
     const eliteMul = enemy.elite ? ELITE.value : 1;
     const gold = Math.round(def.gold * eliteMul * (this.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05));
@@ -927,6 +995,19 @@ export class Run {
     const h = Math.min(amount, this.stats.maxHp - this.hp);
     this.hp += h;
     events.push({ type: 'heal', amount: h, hp: this.hp, source });
+  }
+
+  /**
+   * Ход врагов: после ЛЮБОГО действия героя каждый соседний враг, который не оглушён, бьёт
+   * в ответ. Раньше отвечал только тот, кого ударили рукой, поэтому способности были
+   * бесплатным способом бить безнаказанно, а шаг в сторону ничего не стоил.
+   */
+  private enemyPhase(events: GameEvent[]): void {
+    if (this.over || this.madness > 0 || this.noCounter > 0) return;
+    for (const c of NEIGHBORS[this.playerCell]) {
+      if (this.over) break;
+      if (this.cards[c]?.kind === 'enemy') this.enemyStrike(c, events);
+    }
   }
 
   private enemyStrike(cell: number, events: GameEvent[]): void {
@@ -1085,7 +1166,6 @@ export class Run {
           if (behind >= 0 && this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, over, false, events);
         }
         if (killed) this.stepInto(cell, events);
-        else if (this.cards[cell]) this.enemyStrike(cell, events);
         break;
       }
       case 'earthquake': {
@@ -1154,17 +1234,7 @@ export class Run {
         const near = NEIGHBORS[this.playerCell].filter((c) => this.cards[c]?.kind === 'enemy');
         events.push({ type: 'fx', cells: near, style: 'blades' });
         const dmg = this.spellDamage(0.7);
-        const alive: number[] = [];
-        for (const c of near) {
-          if (!this.damageEnemy(c, dmg, this.rollCrit(this.cards[c], false), events, true)) alive.push(c);
-        }
-        for (const c of alive) {
-          const e = this.cards[c];
-          if (e?.kind === 'enemy' && e.stun <= 0 && this.noCounter <= 0) {
-            this.hurtPlayer(Math.round(this.reduce(e.atk, e) * 0.5), events, c, false);
-            e.swings++;
-          }
-        }
+        for (const c of near) this.damageEnemy(c, dmg, this.rollCrit(this.cards[c], false), events, true);
         break;
       }
       case 'madness': {
@@ -1182,7 +1252,6 @@ export class Run {
         events.push({ type: 'fx', cells: [cell], style: 'holy' });
         const killed = this.strike(cell, dmg, crit, events);
         if (killed) this.stepInto(cell, events);
-        else if (this.cards[cell]) this.enemyStrike(cell, events);
         break;
       }
       case 'justice_beam': {
@@ -1222,7 +1291,7 @@ export class Run {
       case 'lightning': {
         events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
         const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(1.2);
+        let dmg = this.spellDamage(1.9 * (1 + this.stats.lightningPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         this.strike(cell, dmg, crit, events);
         this.splitStrike(cell, dmg, events);
@@ -1231,7 +1300,7 @@ export class Run {
       case 'magic_shot': {
         events.push({ type: 'fx', cells: [cell], style: 'arcane' });
         const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(2);
+        let dmg = this.spellDamage(1.5 * (1 + this.stats.shotPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         this.strike(cell, dmg, crit, events);
         break;
@@ -1246,8 +1315,9 @@ export class Run {
           }
         }
         events.push({ type: 'fx', cells: chain, style: 'chain' });
+        const power = 1 + this.stats.chainPower;
         const mul = [1, 0.75, 0.5];
-        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i]), false, events));
+        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i] * power), false, events));
         break;
       }
       // ---------------- магистр
@@ -1551,7 +1621,6 @@ export class Run {
       events.push({ type: 'artifact', cells: targets });
       for (const t of targets) this.damageEnemy(t, dmg, false, events);
       this.refill(events);
-      this.checkWin(events);
     }
     return { ok: true, events };
   }
@@ -1597,13 +1666,18 @@ export class Run {
 
   private collect(cell: number, events: GameEvent[]): void {
     const from = this.playerCell;
-    const empty = !this.cards[cell];
+    const exit = this.cards[cell]?.kind === 'exit';
     events.push({ type: 'move', from, to: cell });
     this.playerCell = cell;
     this.vacated.push(from);
+    if (exit) {
+      this.cards[cell] = null;
+      this.finishRoom(events);
+      return;
+    }
     this.take(cell, events);
-    // «Второе дыхание»: шаг на свободную клетку — это передышка
-    if (empty && this.stats.stepHeal > 0) {
+    // «Шаг сквозь эфир»: передышка за любой шаг на клетку без врага — пустую или с добычей
+    if (this.stats.stepHeal > 0) {
       this.heal(Math.max(1, Math.round(this.stats.maxHp * this.stats.stepHeal)), 'perk', events);
     }
   }
@@ -1655,57 +1729,23 @@ export class Run {
     this.vacated = [];
     for (const c of cells) {
       if (c === this.playerCell || this.cards[c]) continue;
+      this.replenish();
       const card = this.pool.shift();
       if (!card) continue;
       this.cards[c] = card;
       events.push({ type: 'spawn', cell: c, card });
     }
-    if (this.pool.length === 0) this.compact(events);
   }
 
-  /** Когда колода закончилась, карты «складываются» к игроку — пустые клетки не разделяют их. */
-  private compact(events: GameEvent[]): void {
-    for (let guard = 0; guard < 16; guard++) {
-      const connected = new Set<number>([this.playerCell]);
-      const queue = [this.playerCell];
-      while (queue.length) {
-        const c = queue.shift()!;
-        for (const n of NEIGHBORS[c]) {
-          if (this.cards[n] && !connected.has(n)) {
-            connected.add(n);
-            queue.push(n);
-          }
-        }
-      }
-      const loose: number[] = [];
-      for (let i = 0; i < 9; i++) if (this.cards[i] && !connected.has(i)) loose.push(i);
-      if (!loose.length) return;
-      loose.sort((a, b) => dist(a, this.playerCell) - dist(b, this.playerCell));
-      const from = loose[0];
-      let best = -1;
-      let bestD = 99;
-      for (const n of NEIGHBORS[from]) {
-        if (this.cards[n] || n === this.playerCell) continue;
-        const d = dist(n, this.playerCell);
-        if (d < bestD) {
-          bestD = d;
-          best = n;
-        }
-      }
-      if (best < 0) return;
-      const card = this.cards[from]!;
-      this.cards[best] = card;
-      this.cards[from] = null;
-      events.push({ type: 'slide', uid: card.uid, from, to: best });
-    }
-  }
 
-  private checkWin(events: GameEvent[]): void {
+  /**
+   * Комната закончена: герой шагнул на карту перехода. Всё, что осталось на поле из добычи,
+   * он забирает с собой — иначе пришлось бы дочищать доску только ради золота.
+   */
+  private finishRoom(events: GameEvent[]): void {
     if (this.over) return;
-    if (this.pool.length > 0 || this.cards.some((c) => c?.kind === 'enemy')) return;
-    // Комната зачищена: остатки золота/расходников/сундуков подбираются автоматически.
     for (let i = 0; i < 9; i++) {
-      if (this.cards[i]) this.take(i, events);
+      if (this.cards[i] && this.cards[i]!.kind !== 'enemy') this.take(i, events);
     }
     this.over = 'win';
     events.push({ type: 'win' });
@@ -1823,9 +1863,11 @@ export class Run {
   }
 
   private finishTurn(events: GameEvent[]): void {
+    this.armorWorn = false;
+    this.enemyPhase(events);
+    if (this.over) return;
     this.tickStatuses(events);
     this.refill(events);
-    this.checkWin(events);
     if (this.over) return;
     this.totals.turns++;
     if (this.killsRoom === this.lastKills) this.killStreak = 0;
@@ -1841,6 +1883,9 @@ export class Run {
         events.push({ type: 'hit', cell: this.playerCell, amount: loss, crit: false, target: 'player', hp: this.hp });
       }
     }
+    for (const id of Object.keys(this.cooldowns)) {
+      if (--this.cooldowns[id] <= 0) delete this.cooldowns[id];
+    }
     const mul = this.boost > 0 ? GAMEPLAY.regenBoostMul : 1;
     if (this.boost > 0) this.boost--;
     if (this.res < this.stats.resMax) this.gain(this.stats.regen * mul, events);
@@ -1849,6 +1894,10 @@ export class Run {
   }
 
   private lastKills = 0;
+  /** Доспех уже снашивался на этом ходу. */
+  private armorWorn = false;
+  /** Оставшиеся ходы перезарядки по id способности. */
+  private cooldowns: Record<string, number> = {};
 
   resourceMax(): number {
     return this.stats.resMax;
