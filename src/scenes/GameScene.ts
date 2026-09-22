@@ -906,7 +906,7 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'souls': {
-        Store.addSouls(ev.amount);
+        // Души, как и золото, копятся в забеге: поражение не приносит ничего.
         this.runSouls += ev.amount;
         this.loot.setValues(this.pouch, this.runSouls);
         const p = cellPos(ev.cell);
@@ -1310,9 +1310,9 @@ export class GameScene extends Phaser.Scene {
       if (flawless) Store.bump('flawless');
       bonusGold = first ? room.clearGold : Math.round(room.clearGold * 0.25);
       bonusSouls = first ? room.clearSouls : 0;
-      // Сумка с золотом сдаётся в кошелёк только за победу.
+      // Сумка с золотом и души сдаются в кошелёк только за победу.
       Store.addGold(run.totals.gold + bonusGold);
-      if (bonusSouls) Store.addSouls(bonusSouls);
+      Store.addSouls(run.totals.souls + bonusSouls);
       void YSDK.submitScore('rooms', Store.data.cleared.length);
       void YSDK.setStats({ rooms: Store.data.cleared.length, kills: Store.data.stats.kills });
     } else {
@@ -1334,7 +1334,7 @@ export class GameScene extends Phaser.Scene {
     this.resultInfo = {
       result, first, flawless,
       totalGold: result === 'win' ? run.totals.gold + bonusGold : 0,
-      totalSouls: run.totals.souls + bonusSouls,
+      totalSouls: result === 'win' ? run.totals.souls + bonusSouls : 0,
     };
     this.showResult();
   }
@@ -1416,12 +1416,8 @@ export class GameScene extends Phaser.Scene {
         if (result === 'win') row('ico_gold', `+${fmt(totalGold)}`, HEX.gold);
         if (totalSouls > 0) row('ico_soul', `+${fmt(totalSouls)}`, HEX.soul);
         if (result === 'lose') {
-          c.add(txt(s, 0, y + 12, t('game.gold_lost'), 24, { color: HEX.bad, strokeThickness: 0 }));
+          c.add(txt(s, 0, y + 12, t('game.loot_lost'), 24, { color: HEX.bad, strokeThickness: 0 }));
           y += 34;
-          if (totalSouls > 0) {
-            c.add(txt(s, 0, y + 8, t('game.souls_kept'), 22, { color: HEX.textDim, strokeThickness: 0, weight: 700 }));
-            y += 30;
-          }
         }
         if (first) {
           c.add(txt(s, 0, y + 12, t('game.first_clear'), 24, { color: HEX.good, strokeThickness: 0 }));

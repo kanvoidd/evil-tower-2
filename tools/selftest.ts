@@ -403,6 +403,32 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     }
     ok(run.over === 'win', `комната закрывается шагом на переход (${run.over ?? 'не закончилась'}, ходов ${steps})`);
     ok(run.exitOpen && run.killsLeft === 0, 'выход открылся после нормы');
+    // уходя, герой бросает всё, что не подобрал: в этом и выбор
+    ok(run.cards.some((c) => c && c.kind !== 'enemy'), 'добыча остаётся на поле после перехода');
+  }
+
+  // Норма выполнена — но враги лезть не перестают: либо уходи, либо рискуй и добирай
+  {
+    const stats = build('warrior');
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(61) });
+    run.start();
+    run.hp = 100000;
+    // выполняем норму искусственно и дальше играем, не трогая переход
+    for (let guard = 0; guard < 600 && !run.exitOpen; guard++) {
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      if (cell === undefined) break;
+      run.tap(cell);
+      run.hp = 100000;
+    }
+    ok(run.exitOpen, 'норма выполнена');
+    let spawned = 0;
+    for (let guard = 0; guard < 120 && !run.over; guard++) {
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      if (cell === undefined) break;
+      spawned += run.tap(cell).events.filter((e) => e.type === 'spawn' && e.card.kind === 'enemy').length;
+      run.hp = 100000;
+    }
+    ok(spawned > 0, `враги продолжают лезть после нормы (${spawned})`);
   }
 
   // Перезарядка способностей и дальность магического выстрела
