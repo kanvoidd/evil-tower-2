@@ -404,7 +404,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     ok(hits.length === 2 && hits.every((c) => c === 1), `молния бьёт одну цель дважды (${hits.join(',')})`);
   }
 
-  // Агр: отвечает тот, с кем вступил в бой, и те, от кого ушёл. Кто в стороне — ждёт.
+  // Агр: отвечает тот, с кем вступил в бой, и те, под чью руку герой шагнул, отказавшись от удара.
   {
     const stats = build('warrior');
     const mk2 = (seed: number) => {
@@ -433,24 +433,56 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     const r2 = magic.tap(1);
     ok(JSON.stringify(strikers(r2.events)) === '[1]', 'после способности отвечает её цель, сосед молчит');
 
-    // ушёл от соседа на пустую клетку — он бьёт вдогонку
+    // мог ударить, но ушёл туда, где рядом никого, — урона нет
     const flee2 = mk2(44);
     flee2.cards[1] = enemy(100000, 20);
     const r3 = flee2.tap(3);
-    ok(JSON.stringify(strikers(r3.events)) === '[1]', 'ушёл от врага — удар вдогонку');
+    ok(strikers(r3.events).length === 0, 'ушёл от врага на свободную клетку — без урона');
 
-    // подошёл к врагу, но не бил его — он не бьёт (в бой ещё не вступили)
+    // мог ударить, но шагнул под руку другому врагу — бьёт тот, кто достаёт до новой клетки
+    const expose = mk2(48);
+    expose.cards[1] = enemy(100000, 20);
+    expose.cards[6] = enemy(100000, 20);
+    const r5 = expose.tap(3);
+    ok(JSON.stringify(strikers(r5.events)) === '[6]', `подставился — бьёт тот, кто рядом с новой клеткой (${strikers(r5.events).join(',')})`);
+
+    // подошёл к врагу, но не бил его и ударить было некого — он не бьёт (в бой ещё не вступили)
     const approach = mk2(45);
     approach.cards[6] = enemy(100000, 20);
     const r4 = approach.tap(3);
     ok(strikers(r4.events).length === 0, 'подошёл к врагу — он ждёт, а не бьёт');
 
-    // на добыче рядом с врагом ману не накопишь: каждый шаг прочь — удар
+    // на добыче рядом с врагами ману не накопишь: шаг мимо удара под чужую руку — больно
     const farm = mk2(46);
     farm.cards[1] = enemy(100000, 20);
+    farm.cards[0] = enemy(100000, 20);
     const hp0 = farm.hp;
     farm.tap(3);
-    ok(farm.hp < hp0, 'бегать по клеткам рядом с врагом больно');
+    ok(farm.hp < hp0, 'бегать по клеткам рядом с врагами больно');
+
+    // маг без маны ударить не может — значит, и шаг к другому врагу не наказывается
+    const mstats = build('mage');
+    const dry = new Run({ room: ROOMS[10], stats: mstats, weapon: null, armor: null, consumables: cons(), rng: makeRng(49) });
+    dry.start();
+    dry.cards.fill(null);
+    dry.playerCell = 4;
+    dry.hp = 100000;
+    dry.shield = 0;
+    dry.res = 0;
+    dry.cards[1] = enemy(100000, 20);
+    dry.cards[6] = enemy(100000, 20);
+    ok(strikers(dry.tap(3).events).length === 0, 'маг без маны шагает к врагу — удара нет');
+    // а с маной на молнию тот же шаг — уже подставиться
+    const wet = new Run({ room: ROOMS[10], stats: mstats, weapon: null, armor: null, consumables: cons(), rng: makeRng(50) });
+    wet.start();
+    wet.cards.fill(null);
+    wet.playerCell = 4;
+    wet.hp = 100000;
+    wet.shield = 0;
+    wet.res = mstats.resMax;
+    wet.cards[1] = enemy(100000, 20);
+    wet.cards[6] = enemy(100000, 20);
+    ok(JSON.stringify(strikers(wet.tap(3).events)) === '[6]', 'маг с маной прошёл мимо удара под чужую руку — бьют');
   }
 
   // Колода бесконечна, карта перехода открывает выход только после нормы
