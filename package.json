@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "prod": "npm run build && vite preview --host --port 4173 --strictPort",
     "sim": "tsx tools/sim.ts",
     "selftest": "tsx tools/selftest.ts",
     "store": "tsx tools/store-assets.ts && python store/render.py",
