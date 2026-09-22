@@ -10,7 +10,10 @@ export interface AchievementDef {
 }
 
 const count = (key: keyof SaveData['stats']) => (s: SaveData): number => s.stats[key];
-const floorCleared = (f: number) => (s: SaveData): number => (s.cleared.includes(`${f}-5`) ? 1 : 0);
+// Достижения общие на профиль: этаж считается взятым, если хоть один герой прошёл его за один забег
+// (в этаже пять комнат, рекорд героя — сколько комнат подряд он прошёл).
+const floorCleared = (f: number) => (s: SaveData): number =>
+  (Object.values(s.heroes).some((h) => (h?.best ?? 0) >= f * 5) ? 1 : 0);
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'first_blood', name: { ru: 'Первая кровь', en: 'First Blood' }, desc: { ru: 'Победите первого монстра', en: 'Defeat your first monster' }, target: 1, progress: count('kills') },

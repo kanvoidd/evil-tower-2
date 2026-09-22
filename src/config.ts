@@ -79,8 +79,8 @@ export const GAMEPLAY = {
   classUnlockCost: 600,
   reviveHpRatio: 0.6,
   /** Шанс, что сундук, помимо золота, даст расходник (и ещё один сверху). */
-  chestItemChance: 0.65,
-  chestBonusItemChance: 0.2,
+  chestItemChance: 0.35,
+  chestBonusItemChance: 0.08,
 } as const;
 
 export const ADS = {

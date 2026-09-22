@@ -91,6 +91,9 @@ export interface PlayerStats {
   splitChance: number;
   splitDmg: number;
   perkCostDown: number;
+  /** «Раздвоение молнии»: шанс второго разряда по той же цели и его доля урона. */
+  echoChance: number;
+  echoDmg: number;
   /** Усиление отдельных заклинаний мага. */
   lightningPower: number;
   shotPower: number;
@@ -217,6 +220,8 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     killBlast: g('killBlast') / 100,
     splitChance: g('basicSplit') / 100,
     splitDmg: g2('basicSplit') / 100,
+    echoChance: g('boltEcho') / 100,
+    echoDmg: g2('boltEcho') / 100,
     lightningPower: g('lightningPower') / 100,
     shotPower: g('shotPower') / 100,
     chainPower: g('chainPower') / 100,

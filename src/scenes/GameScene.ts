@@ -12,7 +12,7 @@ import { maybeInterstitial, watchRewarded } from '../systems/Ads';
 import { fmt, perkDesc, perkName, t, tr } from '../i18n';
 import type { TKey } from '../i18n';
 import { makeRng, randomSeed } from '../logic/rng';
-import { Run, type Card, type FxStyle, type GameEvent, type Loot } from '../logic/run';
+import { Run, type Card, type FxStyle, type GameEvent, type Loot, type RunCarryStats } from '../logic/run';
 import { STATUS_TINT } from '../ui/Textures';
 import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../logic/autoUse';
 import { CARD_H, CARD_W } from '../ui/Textures';
@@ -83,6 +83,8 @@ interface PerkBtn {
 /** Значки статусов на карточке врага: цвет и короткая подпись. */
 const STATUS_TAG: Record<string, string> = {
   stun: '\u2736', burn: '\u2668', poison: '\u2620', mark: '\u25C6', link: '\u26AF', vuln: '!', weak: '\u2193',
+  // метка «взрыв трупа», заражение призрачными слугами и оставшиеся ходы призрака
+  corpse: '\u2739', haunt: '\u2601', ghost: '\u23F3',
 };
 
 interface Slot {
@@ -94,6 +96,28 @@ interface Slot {
   hintTween?: Phaser.Tweens.Tween;
   locked: boolean;
 }
+
+/**
+ * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет
+ * или не уйдёт сам. Здоровье и ресурс переходят в следующую комнату. Награда за пройденную комнату
+ * (сумка, души и бонус за прохождение) сразу уходит в кошелёк героя — закрытая вкладка ничего не
+ * отнимает, — а добыча текущей комнаты пропадает при гибели или побеге.
+ */
+export interface RunCarry {
+  /** Индекс следующей комнаты в ROOMS. */
+  index: number;
+  /** Здоровье, ресурс и истраченные воскрешения; в первой комнате их нет. */
+  hero?: RunCarryStats;
+  /** Сколько комнат пройдено в этом забеге. */
+  rooms: number;
+  /** Золото и души, заработанные за пройденные комнаты (уже в кошельке). */
+  gold: number;
+  souls: number;
+  /** Рекорд героя до начала забега — чтобы в конце сказать «новый рекорд». */
+  best: number;
+}
+
+const freshCarry = (): RunCarry => ({ index: 0, rooms: 0, gold: 0, souls: 0, best: Store.best });
 
 export class GameScene extends Phaser.Scene {
   private roomId = '1-1';
@@ -125,14 +149,21 @@ export class GameScene extends Phaser.Scene {
   private vfx!: Vfx;
   /** Сколько улучшений купила автопрокачка по итогам комнаты (сообщаем в окне результата). */
   private autoNote = 0;
-  private resultInfo?: { result: 'win' | 'lose'; first: boolean; flawless: boolean; totalGold: number; totalSouls: number };
+  private carry!: RunCarry;
+  /** Итоги комнаты уже записаны (износ, убийства) — второй раз не пишем. */
+  private committed = false;
+  /** Забег уже подведён — итог и рекорд пишутся один раз. */
+  private ended = false;
 
   constructor() {
     super('Game');
   }
 
-  init(data: { roomId?: string } = {}): void {
-    this.roomId = data.roomId ?? Store.frontierRoom;
+  init(data: { carry?: RunCarry } = {}): void {
+    this.carry = data.carry ?? freshCarry();
+    this.roomId = ROOMS[Math.min(this.carry.index, ROOMS.length - 1)].id;
+    this.committed = false;
+    this.ended = false;
     this.views = new Map();
     this.slots = [];
     this.perkBtns = [];
@@ -165,8 +196,9 @@ export class GameScene extends Phaser.Scene {
       stats: Store.playerStats(),
       weapon: Store.equipped('weapon'),
       armor: Store.equipped('armor'),
-      consumables: { ...Store.data.consumables },
+      consumables: { ...Store.hero.consumables },
       rng: makeRng(randomSeed()),
+      carry: this.carry.hero,
     });
     this.buildHud();
     this.buildBoardBackdrop();
@@ -219,6 +251,7 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.askEscape());
     soundButton(this, 414, SLOT_Y, 56);
     this.loot = new CurrencyBar(this, GAME_W - 32, 46, { manual: true, goldIcon: 'ico_pouch', compact: true });
+    this.showLoot();
 
     // название комнаты, рогаликовое свойство захода и счётчик врагов
     txt(this, GAME_W / 2, 150, `${t(`floor.${room.floor}.name` as TKey)} · ${t('game.room', { r: room.id })}`, 30, { font: 'title', color: HEX.gold, strokeThickness: 5 });
@@ -524,6 +557,7 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'exit': frameKey = 'card_exit'; spriteKey = 'spr_exit'; spriteSize = 120; label = t('game.exit'); labelColor = HEX.gold; break;
+      case 'ghost': frameKey = 'card_ghost'; spriteKey = 'enemy_ghost'; spriteSize = 108; label = t('game.ghost'); labelColor = '#a9e8ff'; break;
       case 'gold': frameKey = 'card_gold'; spriteKey = 'spr_gold'; label = `+${card.value}`; labelColor = HEX.gold; break;
       case 'chest': frameKey = 'card_chest'; spriteKey = 'spr_chest'; label = t('game.chest'); break;
       case 'potion_heal': spriteKey = 'item_potion_heal'; label = t('shop.potion_heal'); break;
@@ -547,6 +581,13 @@ export class GameScene extends Phaser.Scene {
     } else if (card.kind === 'gold') {
       const amount = txt(this, 0, 74, label, 34, { color: labelColor, weight: 900 });
       c.add(amount);
+    } else if (card.kind === 'ghost') {
+      // призрак — союзник: вместо атаки и здоровья показываем, сколько ходов ему осталось
+      sprite.setAlpha(0.8);
+      view.statusRow = this.add.container(0, -92);
+      c.add(view.statusRow);
+      c.add(txt(this, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
+      this.updateStatuses(view, card);
     } else {
       c.add(txt(this, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
     }
@@ -585,6 +626,9 @@ export class GameScene extends Phaser.Scene {
     if (card.mark > 0) list.push(['mark', card.mark]);
     if (card.link) list.push(['link', 0]);
     if (card.vuln > 0) list.push(['vuln', 0]);
+    if (card.corpse) list.push(['corpse', 0]);
+    if (card.haunt) list.push(['haunt', 0]);
+    if (card.kind === 'ghost') list.push(['ghost', Math.max(2, card.ttl ?? 0)]);
     if (!list.length) return;
     const w = 38;
     const gap = 6;
@@ -602,7 +646,7 @@ export class GameScene extends Phaser.Scene {
 
   private refreshStatuses(): void {
     for (const v of this.views.values()) {
-      if (v.kind !== 'enemy') continue;
+      if (v.kind !== 'enemy' && v.kind !== 'ghost') continue;
       const card = this.run.cards[v.cell];
       if (card) this.updateStatuses(v, card);
     }
@@ -772,8 +816,13 @@ export class GameScene extends Phaser.Scene {
     if (this.alive) this.syncProfile();
   }
 
+  /** В сумке — всё, что принёс забег: пройденные комнаты плюс добыча текущей. */
+  private showLoot(): void {
+    this.loot.setValues(this.carry.gold + this.pouch, this.carry.souls + this.runSouls);
+  }
+
   private syncProfile(): void {
-    Store.data.consumables = { ...this.run.consumables };
+    Store.hero.consumables = { ...this.run.consumables };
     Store.save();
   }
 
@@ -895,9 +944,9 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'gold': {
-        // Золото копится в сумке и попадёт в кошелёк только после победы в комнате.
+        // Золото копится в сумке и попадёт в кошелёк, только когда комната будет пройдена.
         this.pouch += ev.amount;
-        this.loot.setValues(this.pouch, this.runSouls);
+        this.showLoot();
         const p = cellPos(ev.cell);
         this.popupAt(p.x, p.y + 6, `+${ev.amount}`, HEX.gold, 32);
         const dst = this.loot.iconWorld('gold');
@@ -906,9 +955,9 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'souls': {
-        // Души, как и золото, копятся в забеге: поражение не приносит ничего.
+        // Души, как и золото, копятся до конца комнаты: гибель в ней не приносит ничего.
         this.runSouls += ev.amount;
-        this.loot.setValues(this.pouch, this.runSouls);
+        this.showLoot();
         const p = cellPos(ev.cell);
         this.popupAt(p.x, p.y + 46, `+${ev.amount}`, HEX.soul, 26);
         const dst = this.loot.iconWorld('souls');
@@ -930,8 +979,15 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'chest': {
-        AUDIO.play('chest');
         const p = cellPos(ev.cell);
+        if (ev.empty) {
+          // пустой: глухой звук, серая пыль и подпись вместо добычи
+          AUDIO.play('error');
+          this.burst(p.x, p.y, 0x8a8fa8, 10);
+          this.popupAt(p.x, p.y - 20, t('game.chest_empty'), HEX.textDim, 26);
+          break;
+        }
+        AUDIO.play('chest');
         this.burst(p.x, p.y, 0xf1c40f, 18);
         this.lootPop(ev.cell, ev.loot);
         Store.bump('chestsOpened');
@@ -967,7 +1023,7 @@ export class GameScene extends Phaser.Scene {
       }
       case 'spend': {
         this.pouch = Math.max(0, this.pouch - ev.amount);
-        this.loot.setValues(this.pouch, this.runSouls);
+        this.showLoot();
         this.popupAt(this.playerView.c.x, this.playerView.c.y - 70, `-${ev.amount}`, HEX.bad, 28);
         AUDIO.play('coin');
         break;
@@ -979,7 +1035,7 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'fx': {
-        await this.playFx(ev.cells, ev.style);
+        await this.playFx(ev.cells, ev.style, ev.from);
         break;
       }
       case 'remove': {
@@ -1035,14 +1091,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Визуальные эффекты способностей — рисует модуль Vfx, у каждого перка свой стиль. */
-  private async playFx(cells: number[], style: FxStyle): Promise<void> {
+  private async playFx(cells: number[], style: FxStyle, fromCell?: number): Promise<void> {
     if (!cells.length) return;
     AUDIO.play('burst');
     if (style === 'holy' || style === 'fire') {
       const col = style === 'holy' ? 0xfff3c4 : 0xff8a2a;
       this.cameras.main.flash(170, (col >> 16) & 255, (col >> 8) & 255, col & 255);
     }
-    const hold = this.vfx.play(style, cells.slice(0, 9).map(cellPos), this.playerView ? { x: this.playerView.c.x, y: this.playerView.c.y } : cellPos(this.run.playerCell));
+    const origin = fromCell !== undefined ? cellPos(fromCell)
+      : this.playerView ? { x: this.playerView.c.x, y: this.playerView.c.y } : cellPos(this.run.playerCell);
+    const hold = this.vfx.play(style, cells.slice(0, 9).map(cellPos), origin);
     await this.sleep(hold);
   }
 
@@ -1272,89 +1330,176 @@ export class GameScene extends Phaser.Scene {
 
   private askEscape(): void {
     if (this.finished) return;
+    const lose = this.pouch > 0 || this.runSouls > 0;
     new Dialog(this, {
       title: t('game.escape_title'),
-      body: this.pouch > 0 ? t('game.escape_warn') : undefined,
+      body: [this.carry.rooms > 0 ? t('game.escape_keep') : '', lose ? t('game.escape_warn') : ''].filter(Boolean).join('\n') || undefined,
       buttons: [
-        { label: t('game.escape'), style: 'red', onClick: () => this.leave('Hub') },
+        { label: t('game.escape'), style: 'red', onClick: () => this.endRun('escape') },
         { label: t('common.continue'), style: 'gold' },
       ],
     });
   }
 
-  private leaveRun(): void {
+  /** Износ экипировки, расходники и убийства комнаты — в профиль (один раз за комнату). */
+  private commitRoom(): void {
+    if (this.committed) return;
+    this.committed = true;
     Store.commitRun(this.run.weapon, this.run.armor, this.run.consumables);
+    Store.bump('kills', this.run.totals.kills);
+    Store.data.tutorial.fight = true;
   }
 
   private async leave(scene: string, data?: object): Promise<void> {
     this.finished = true;
-    this.leaveRun();
+    this.commitRoom();
     Store.flush();
     if (scene !== 'Game' || data) await maybeInterstitial();
     fadeToScene(this, scene, scene === 'Hub' ? { from: 'game' } : data);
   }
 
   private async finish(result: 'win' | 'lose'): Promise<void> {
+    // конец хода может прийти дважды (например, два обработчика afterTurn) — награда платится один раз
+    if (this.finished) return;
     this.finished = true;
     YSDK.gameplayStop();
+    this.clearHand();
+    this.hintText?.destroy();
+    if (result === 'lose') {
+      AUDIO.play('lose');
+      await this.sleep(500);
+      if (this.alive) this.showDeath();
+      return;
+    }
     const run = this.run;
     const room = run.room;
-    this.leaveRun();
-    let bonusGold = 0;
-    let bonusSouls = 0;
-    let first = false;
-    const flawless = result === 'win' && run.totals.damageTaken === 0;
-    if (result === 'win') {
-      first = Store.markCleared(room.id);
-      Store.bump('roomsCleared');
-      if (flawless) Store.bump('flawless');
-      bonusGold = first ? room.clearGold : Math.round(room.clearGold * 0.25);
-      bonusSouls = first ? room.clearSouls : 0;
-      // Сумка с золотом и души сдаются в кошелёк только за победу.
-      Store.addGold(run.totals.gold + bonusGold);
-      Store.addSouls(run.totals.souls + bonusSouls);
-      void YSDK.submitScore('rooms', Store.data.cleared.length);
-      void YSDK.setStats({ rooms: Store.data.cleared.length, kills: Store.data.stats.kills });
-    } else {
-      Store.bump('deaths');
+    this.commitRoom();
+    // Пройденная комната сразу платит всё: сумку, души и бонус за прохождение.
+    const gold = run.totals.gold + room.clearGold;
+    const souls = run.totals.souls + room.clearSouls;
+    const flawless = run.totals.damageTaken === 0;
+    Store.addGold(gold);
+    Store.addSouls(souls);
+    Store.bump('roomsCleared');
+    if (flawless) Store.bump('flawless');
+    const c = this.carry;
+    this.carry = {
+      ...c, index: c.index + 1, rooms: c.rooms + 1, gold: c.gold + gold, souls: c.souls + souls, hero: run.carryOut(),
+    };
+    this.pouch = 0;
+    this.runSouls = 0;
+    // рекорд пишем сразу: закрытая посреди забега вкладка не должна его отнимать
+    Store.recordRun(this.carry.rooms);
+    Store.checkNow();
+    Store.flush();
+
+    AUDIO.play('win');
+    await this.sleep(700);
+    if (!this.alive) return;
+    if (this.carry.index >= ROOMS.length) this.endRun('complete');
+    else this.showRoomClear(gold, souls, flawless);
+  }
+
+  /** Между комнатами: что принесла эта, сколько здоровья осталось — и решение, идти ли выше. */
+  private showRoomClear(gold: number, souls: number, flawless: boolean): void {
+    const run = this.run;
+    const next = ROOMS[this.carry.index];
+    new Dialog(this, {
+      title: t('game.win'),
+      titleColor: HEX.gold,
+      vertical: true,
+      width: 620,
+      content: (s, c) => {
+        let y = 6;
+        y = this.rewardRows(s, c, y, gold, souls);
+        if (flawless) {
+          c.add(txt(s, 0, y + 12, t('game.flawless'), 24, { color: HEX.gold, strokeThickness: 0 }));
+          y += 36;
+        }
+        const hpColor = run.hp < run.stats.maxHp * 0.35 ? HEX.bad : HEX.good;
+        c.add(txt(s, 0, y + 14, t('game.hp_left', { hp: run.hp, max: run.stats.maxHp }), 26, { color: hpColor, weight: 900, strokeThickness: 0 }));
+        y += 40;
+        c.add(txt(s, 0, y + 12, t('game.run_so_far', { n: this.carry.rooms }), 22, { color: HEX.textDim, weight: 800, strokeThickness: 0 }));
+        return y + 36;
+      },
+      buttons: [
+        { label: t('game.next_room_id', { r: next.id }), style: 'gold', onClick: () => void this.leave('Game', { carry: this.carry }) },
+        { label: t('game.cash_out'), style: 'raised', onClick: () => this.endRun('cashout') },
+      ],
+    });
+  }
+
+  private showDeath(): void {
+    const run = this.run;
+    const lost = this.pouch > 0 || this.runSouls > 0;
+    const buttons: DialogBtn[] = [];
+    if (!run.revived) {
+      buttons.push({
+        label: t('game.revive'), icon: 'svg_video', style: 'green',
+        onClick: () => {
+          void watchRewarded().then((ok) => {
+            if (!ok) {
+              this.showDeath();
+              return;
+            }
+            this.finished = false;
+            this.busy = true;
+            YSDK.gameplayStart();
+            void this.playEvents(this.run.revive()).then(() => {
+              this.busy = false;
+              this.afterTurn();
+            });
+          });
+        },
+      });
     }
-    Store.bump('kills', run.totals.kills);
-    Store.data.tutorial.fight = true;
-    // Автопрокачка: заработанные души сразу уходят в выбранную ветку дерева (если включено).
+    buttons.push({ label: t('game.end_run'), style: run.revived ? 'gold' : 'raised', onClick: () => this.endRun('dead') });
+    new Dialog(this, {
+      title: t('game.lose'),
+      titleColor: HEX.bad,
+      vertical: true,
+      width: 620,
+      body: [lost ? t('game.loot_lost') : '', this.carry.rooms > 0 ? t('game.escape_keep') : ''].filter(Boolean).join('\n') || undefined,
+      buttons,
+    });
+  }
+
+  /**
+   * Конец забега: гибель, побег или вся башня. Награда за пройденные комнаты уже в кошельке,
+   * добыча недопройденной комнаты пропала. Здесь — итог, рекорд и автопрокачка на заработанные души.
+   */
+  private endRun(reason: 'dead' | 'escape' | 'cashout' | 'complete'): void {
+    if (this.ended) return;
+    this.ended = true;
+    this.finished = true;
+    YSDK.gameplayStop();
+    this.commitRoom();
+    if (reason === 'dead') Store.bump('deaths');
+    const c = this.carry;
+    const record = c.rooms > c.best;
+    Store.recordRun(c.rooms);
+    // в таблицу рекордов идёт лучший забег среди героев
+    void YSDK.submitScore('rooms', Store.bestClimb);
+    void YSDK.setStats({ rooms: Store.bestClimb, kills: Store.data.stats.kills });
     this.autoNote = Store.runAutoSkill()?.buys.length ?? 0;
     Store.checkNow();
     Store.flush();
     this.clearHand();
     this.hintText?.destroy();
-
-    AUDIO.play(result === 'win' ? 'win' : 'lose');
-    await this.sleep(result === 'win' ? 700 : 500);
-    if (!this.alive) return;
-
-    this.resultInfo = {
-      result, first, flawless,
-      totalGold: result === 'win' ? run.totals.gold + bonusGold : 0,
-      totalSouls: result === 'win' ? run.totals.souls + bonusSouls : 0,
-    };
-    this.showResult();
+    this.showSummary(reason, record);
   }
 
-  private showResult(): void {
-    const run = this.run;
-    const room = run.room;
-    const { result, first, flawless, totalGold, totalSouls } = this.resultInfo!;
+  private showSummary(reason: 'dead' | 'escape' | 'cashout' | 'complete', record: boolean): void {
+    const c = this.carry;
     if (this.autoNote > 0) {
       toast(this, t('auto.skill.result', { n: this.autoNote }), 'ico_soul');
       this.autoNote = 0;
     }
-    const idx = ROOMS.findIndex((r) => r.id === room.id);
-    const next = ROOMS[idx + 1];
-    const canNext = result === 'win' && !!next && Store.isRoomAvailable(next.id);
+    const lost = (reason === 'dead' || reason === 'escape') && (this.pouch > 0 || this.runSouls > 0);
     const buttons: DialogBtn[] = [];
     let doubled = false;
     let doubleBtn: PlateButton | undefined;
-
-    if (result === 'win') {
+    if (c.gold + c.souls > 0) {
       buttons.push({
         label: t('game.double'), icon: 'svg_video', style: 'green', keep: true,
         ref: (b) => (doubleBtn = b),
@@ -1363,8 +1508,8 @@ export class GameScene extends Phaser.Scene {
           void watchRewarded().then((ok) => {
             if (!ok) return;
             doubled = true;
-            Store.addGold(totalGold);
-            Store.addSouls(totalSouls);
+            Store.addGold(c.gold);
+            Store.addSouls(c.souls);
             Store.flush();
             toast(this, t('toast.reward'));
             doubleBtn?.setLocked(true).setLabel(t('toast.reward'));
@@ -1372,65 +1517,51 @@ export class GameScene extends Phaser.Scene {
           });
         },
       });
-      buttons.push({ label: canNext ? t('game.next_room') : t('game.replay'), style: 'gold', onClick: () => void this.leave('Game', { roomId: canNext ? next!.id : room.id }) });
-    } else {
-      if (!run.revived) {
-        buttons.push({
-          label: t('game.revive'), icon: 'svg_video', style: 'green',
-          onClick: () => {
-            void watchRewarded().then((ok) => {
-              if (!ok) {
-                this.showResult();
-                return;
-              }
-              this.finished = false;
-              this.busy = true;
-              YSDK.gameplayStart();
-              void this.playEvents(this.run.revive()).then(() => {
-                this.busy = false;
-                this.afterTurn();
-              });
-            });
-          },
-        });
-      }
-      buttons.push({ label: t('game.replay'), style: 'gold', onClick: () => void this.leave('Game', { roomId: room.id }) });
     }
+    buttons.push({ label: t('game.new_run'), style: 'gold', onClick: () => void this.leave('Game', {}) });
     buttons.push({ label: t('game.to_hub'), style: 'raised', onClick: () => void this.leave('Hub') });
 
     new Dialog(this, {
-      title: result === 'win' ? t('game.win') : t('game.lose'),
-      titleColor: result === 'win' ? HEX.gold : HEX.bad,
+      title: reason === 'complete' ? t('game.run_done') : t('game.run_over'),
+      titleColor: reason === 'complete' ? HEX.gold : reason === 'dead' ? HEX.bad : HEX.text,
       vertical: true,
       width: 620,
-      content: (s, c) => {
+      content: (s, cont) => {
         let y = 6;
-        const row = (key: string, text: string, color: string): void => {
-          const label = txt(s, 0, y + 28, text, 40, { color, weight: 900, origin: [0, 0.5] });
-          const total = 52 + 14 + label.width;
-          c.add(s.add.image(-total / 2 + 26, y + 28, key).setDisplaySize(52, 52));
-          label.setX(-total / 2 + 66);
-          c.add(label);
-          y += 62;
-        };
-        if (result === 'win') row('ico_gold', `+${fmt(totalGold)}`, HEX.gold);
-        if (totalSouls > 0) row('ico_soul', `+${fmt(totalSouls)}`, HEX.soul);
-        if (result === 'lose') {
-          c.add(txt(s, 0, y + 12, t('game.loot_lost'), 24, { color: HEX.bad, strokeThickness: 0 }));
+        cont.add(txt(s, 0, y + 20, t('game.run_rooms', { n: c.rooms, max: ROOMS.length }), 32, { font: 'title', color: HEX.gold, strokeThickness: 0 }));
+        y += 48;
+        if (record) {
+          cont.add(txt(s, 0, y + 12, t('game.new_record'), 26, { color: HEX.good, weight: 900, strokeThickness: 0 }));
+          y += 38;
+        } else {
+          cont.add(txt(s, 0, y + 12, t('game.record', { n: Store.best }), 22, { color: HEX.textDim, weight: 800, strokeThickness: 0 }));
           y += 34;
         }
-        if (first) {
-          c.add(txt(s, 0, y + 12, t('game.first_clear'), 24, { color: HEX.good, strokeThickness: 0 }));
-          y += 36;
-        }
-        if (flawless) {
-          c.add(txt(s, 0, y + 12, t('game.flawless'), 24, { color: HEX.gold, strokeThickness: 0 }));
-          y += 36;
+        y = this.rewardRows(s, cont, y + 4, c.gold, c.souls);
+        if (lost) {
+          cont.add(txt(s, 0, y + 12, t('game.loot_lost'), 22, { color: HEX.bad, strokeThickness: 0, wrap: 540 }));
+          y += 34;
         }
         return y + 4;
       },
       buttons,
     });
+  }
+
+  /** Строки «+золото» и «+души» по центру окна. */
+  private rewardRows(s: Phaser.Scene, c: Phaser.GameObjects.Container, y0: number, gold: number, souls: number): number {
+    let y = y0;
+    const row = (key: string, text: string, color: string): void => {
+      const label = txt(s, 0, y + 28, text, 40, { color, weight: 900, origin: [0, 0.5] });
+      const total = 52 + 14 + label.width;
+      c.add(s.add.image(-total / 2 + 26, y + 28, key).setDisplaySize(52, 52));
+      label.setX(-total / 2 + 66);
+      c.add(label);
+      y += 62;
+    };
+    row('ico_gold', `+${fmt(gold)}`, HEX.gold);
+    if (souls > 0) row('ico_soul', `+${fmt(souls)}`, HEX.soul);
+    return y;
   }
 }
 

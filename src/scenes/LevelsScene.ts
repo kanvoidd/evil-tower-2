@@ -6,7 +6,7 @@ import { Store } from '../systems/Store';
 import { t } from '../i18n';
 import type { TKey } from '../i18n';
 import {
-  background, bindToasts, closeButton, fadeToScene, leaveMenu, PlateButton, plateTexture, ScrollList, shadowTexture, staggerIn, toast, txt,
+  background, bindToasts, closeButton, leaveMenu, PlateButton, plateTexture, ScrollList, shadowTexture, staggerIn, toast, txt,
   zoomIn,
 } from '../ui/Kit';
 
@@ -19,8 +19,16 @@ const SLAB_PAD = 28;
 const GAP = 20;
 const SLAB_GAP = 8;
 
+/** Сколько комнат герой прошёл за лучший забег и докуда он дошёл. */
+const reached = (index: number): 'cleared' | 'frontier' | 'locked' => {
+  const best = Store.best;
+  return index < best ? 'cleared' : index === best ? 'frontier' : 'locked';
+};
+
 /**
- * Башня: снизу вверх. Все этажи — одинаковые плиты по центру; комнаты идут слева направо, снизу вверх:
+ * Башня — карта рекорда: зелёные комнаты герой уже проходил за один забег, золотая — та, где забег
+ * оборвался. Отсюда комнату не запустить: забег всегда начинается с 1-1 («Играть» в лобби).
+ * Башня снизу вверх. Все этажи — одинаковые плиты по центру; комнаты идут слева направо, снизу вверх:
  * нижний ряд из трёх плиток, верхний — обычная комната и широкая плитка босса.
  */
 export class LevelsScene extends Phaser.Scene {
@@ -39,6 +47,7 @@ export class LevelsScene extends Phaser.Scene {
     background(this);
     bindToasts(this);
     const title = txt(this, GAME_W / 2, 66, t('levels.title'), 54, { font: 'title', color: HEX.gold, strokeThickness: 6 });
+    const record = txt(this, GAME_W / 2, 106, t('levels.record', { n: Store.best, max: ROOMS.length }), 20, { color: HEX.textDim, weight: 800, strokeThickness: 0 });
     const close = closeButton(this, () => this.close());
 
     const lowRow = Math.ceil(ROOMS_PER_FLOOR / 2);
@@ -72,38 +81,39 @@ export class LevelsScene extends Phaser.Scene {
       }
 
       // заголовок этажа: название слева, прогресс справа
-      const done = ROOMS.filter((rm) => rm.floor === f && Store.isCleared(rm.id)).length;
+      const done = ROOMS.filter((rm, i) => rm.floor === f && reached(i) === 'cleared').length;
       c.add(txt(this, l + 34, yTop + 40, `${t('levels.floor', { n: f })} · ${t(`floor.${f}.name` as TKey)}`, 30, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 }));
       c.add(txt(this, r - 34, yTop + 40, `${done} / ${ROOMS_PER_FLOOR}`, 24, { origin: [1, 0.5], color: done === ROOMS_PER_FLOOR ? HEX.good : HEX.textDim, weight: 900, strokeThickness: 0 }));
 
       // комнаты: номера растут снизу вверх и слева направо
       const bottom = yTop + slabH;
       for (let i = 1; i <= ROOMS_PER_FLOOR; i++) {
-        const room = ROOMS.find((rm) => rm.floor === f && rm.index === i)!;
+        const index = ROOMS.findIndex((rm) => rm.floor === f && rm.index === i);
+        const room = ROOMS[index];
         const row = i <= lowRow ? 0 : 1;
         const col = row === 0 ? i - 1 : i - lowRow - 1;
         const boss = i === ROOMS_PER_FLOOR;
         const w = boss && row === 1 ? inner - col * (cell + GAP) : cell;
         const x = l + SLAB_PAD + col * (cell + GAP) + w / 2;
         const cy = bottom - 12 - row * ROW_H - ROW_H / 2;
-        c.add(this.roomButton(room.id, x, cy, w, boss));
-        if (room.id === Store.frontierRoom) frontierY = cy;
+        c.add(this.roomButton(room.id, reached(index), x, cy, w, boss));
+        if (reached(index) === 'frontier') frontierY = cy;
       }
     }
 
     this.list.scrollToContentY(frontierY);
     this.input.keyboard?.on('keydown-ESC', () => this.close());
     zoomIn(this);
-    staggerIn(this, [title, close], { dy: -22, delay: 200, gap: 60 });
+    staggerIn(this, [title, record, close], { dy: -22, delay: 200, gap: 60 });
     // башня проявляется плавно и «поднимается» на место
     const content = this.list.content;
     content.setAlpha(0);
     this.tweens.add({ targets: content, alpha: 1, duration: 420, delay: 300, ease: 'Sine.easeOut' });
   }
 
-  private roomButton(id: string, x: number, y: number, w: number, boss: boolean): Phaser.GameObjects.Container {
-    const cleared = Store.isCleared(id);
-    const frontier = id === Store.frontierRoom;
+  private roomButton(id: string, state: ReturnType<typeof reached>, x: number, y: number, w: number, boss: boolean): Phaser.GameObjects.Container {
+    const cleared = state === 'cleared';
+    const frontier = state === 'frontier';
     const available = cleared || frontier;
     const holder = this.add.container(x, y);
     if (frontier) {
@@ -119,13 +129,9 @@ export class LevelsScene extends Phaser.Scene {
       pulse: frontier ? { cycle: 2800, scale: 1.03 } : undefined,
       onClick: () => {
         if (!this.list.contains(this.input.activePointer)) return;
-        if (!available) {
-          AUDIO.play('error');
-          toast(this, t('levels.locked'), 'svg_lock');
-          return;
-        }
-        AUDIO.play('open');
-        fadeToScene(this, 'Game', { roomId: id });
+        // комнату отсюда не запустить: подсказываем, как устроен забег
+        AUDIO.play(available ? 'click' : 'error');
+        toast(this, available ? t('levels.run_hint') : t('levels.locked'), available ? 'svg_arrow' : 'svg_lock');
       },
     });
     if (!available) btn.pulseC.setAlpha(0.75);

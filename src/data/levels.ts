@@ -1,6 +1,6 @@
 import type { CardKind } from '../types';
 import type { Rng } from '../logic/rng';
-import { bossOfFloor, enemiesOfFloor, ENEMIES, FLOOR_GOLD, FLOOR_SOULS, type EnemyDef } from './enemies';
+import { bossOfFloor, enemiesOfFloor, ENEMIES, FLOOR_GOLD, FLOOR_SOULS, RUN_REWARD, type EnemyDef } from './enemies';
 
 export { ENEMIES, type EnemyDef } from './enemies';
 
@@ -28,7 +28,7 @@ export interface RoomDef {
   regen: [number, number];
   /** Множитель денежных наград на этой комнате. */
   goldScale: number;
-  /** Премия за первое прохождение. */
+  /** Премия за прохождение комнаты — платится в каждом забеге. */
   clearGold: number;
   clearSouls: number;
 }
@@ -76,13 +76,18 @@ export const MODIFIER_BY_ID: Record<string, RoomModifier> = Object.fromEntries(M
 const pwGold = (f: number): number => Math.pow(FLOOR_GOLD, f - 1);
 const pwSouls = (f: number): number => Math.pow(FLOOR_SOULS, f - 1);
 
-/** Разброс содержимого по номеру комнаты на этаже: чем дальше, тем гуще. */
+/**
+ * Разброс содержимого по номеру комнаты на этаже: чем дальше, тем гуще. Комнаты короткие —
+ * забег проходит их подряд, и вся башня за один заход не должна тянуться часами.
+ * Зелья — редкость: в забеге здоровье переносится из комнаты в комнату, и щедрые зелья
+ * превращали бы любую ошибку в бесплатную. Лечение нужно заслужить (сундук, талант, удача).
+ */
 const SHAPE: Array<{ count: [number, number]; gold: [number, number]; chests: [number, number]; heal: [number, number]; regen: [number, number] }> = [
-  { count: [7, 9], gold: [3, 5], chests: [1, 2], heal: [2, 3], regen: [0, 1] },
-  { count: [8, 11], gold: [3, 5], chests: [1, 3], heal: [2, 3], regen: [1, 2] },
-  { count: [10, 13], gold: [4, 6], chests: [2, 3], heal: [2, 4], regen: [1, 2] },
-  { count: [11, 14], gold: [4, 6], chests: [2, 4], heal: [3, 4], regen: [1, 2] },
-  { count: [9, 12], gold: [5, 7], chests: [2, 4], heal: [3, 5], regen: [2, 3] },
+  { count: [3, 4], gold: [2, 3], chests: [1, 1], heal: [0, 1], regen: [0, 0] },
+  { count: [3, 5], gold: [2, 3], chests: [1, 1], heal: [0, 1], regen: [0, 1] },
+  { count: [4, 5], gold: [2, 4], chests: [1, 2], heal: [0, 1], regen: [0, 1] },
+  { count: [4, 6], gold: [3, 4], chests: [1, 2], heal: [1, 1], regen: [0, 1] },
+  { count: [3, 5], gold: [3, 4], chests: [1, 2], heal: [1, 1], regen: [0, 1] },
 ];
 
 /** Пул комнаты: враги своего этажа плюс крепкие с предыдущего — переход между этажами не обрывистый. */
@@ -109,9 +114,9 @@ const room = (floor: number, index: number): RoomDef => {
     chests: s.chests,
     heal: s.heal,
     regen: s.regen,
-    goldScale: Math.round(pwGold(floor) * stepGold * 100) / 100,
-    clearGold: Math.round(24 * stepGold * (boss ? 2.6 : 1) * pwGold(floor)),
-    clearSouls: Math.round(22 * stepGold * (boss ? 3 : 1) * pwSouls(floor)),
+    goldScale: Math.round(pwGold(floor) * stepGold * RUN_REWARD * 100) / 100,
+    clearGold: Math.round(24 * stepGold * (boss ? 2.6 : 1) * pwGold(floor) * RUN_REWARD),
+    clearSouls: Math.round(22 * stepGold * (boss ? 3 : 1) * pwSouls(floor) * RUN_REWARD),
   };
 };
 

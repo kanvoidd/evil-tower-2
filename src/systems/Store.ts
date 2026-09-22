@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import type {
-  AutoSkillSave, AutoUseSave, ClassId, ConsumableId, EquipmentSave, Lang, LineageId, LineageSave, SaveData,
+  AutoSkillSave, AutoUseSave, ClassId, ConsumableId, EquipmentSave, HeroSave, Lang, LineageId, LineageSave, SaveData,
 } from '../types';
 import { CLASSES, LINEAGE_ORDER } from '../data/classes';
 import { CONSUMABLES, ITEM_BY_ID, REPAIR_RATIO, type ItemDef } from '../data/items';
-import { ROOMS, ROOM_BY_ID } from '../data/levels';
+import { ROOM_BY_ID } from '../data/levels';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { DAILY_REWARDS, GIFT_REWARD } from '../data/economy';
 import { ADS, GAMEPLAY } from '../config';
@@ -25,14 +25,10 @@ const fresh = (): SaveData => ({
   lang: 'ru',
   volume: 0.7,
   muted: false,
-  gold: 0,
-  souls: 0,
   activeClass: null,
   lineages: {},
   weapon: {},
-  armor: null,
-  consumables: { potion_heal: 2, potion_regen: 1, artifact: 0 },
-  cleared: [],
+  heroes: {},
   stats: {
     kills: 0, goldEarned: 0, soulsEarned: 0, roomsCleared: 0, deaths: 0,
     chestsOpened: 0, metamorphoses: 0, flawless: 0, itemsBroken: 0,
@@ -44,6 +40,11 @@ const fresh = (): SaveData => ({
   ads: { lastInterstitial: 0, runsSinceAd: 0 },
   auto: { use: { ...DEFAULT_AUTO_USE }, skill: {} },
   reviewAsked: false,
+});
+
+/** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
+export const emptyHero = (): HeroSave => ({
+  gold: 0, souls: 0, consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 }, armor: null, best: 0,
 });
 
 const dayKey = (d = new Date()): string =>
@@ -89,7 +90,6 @@ class StoreImpl {
   private merge(base: SaveData, src: SaveData): SaveData {
     const out: SaveData = { ...base, ...src };
     out.stats = { ...base.stats, ...src.stats };
-    out.consumables = { ...base.consumables, ...src.consumables };
     out.tutorial = { ...base.tutorial, ...src.tutorial };
     out.daily = { ...base.daily, ...src.daily };
     out.gift = { ...base.gift, ...src.gift };
@@ -101,6 +101,30 @@ class StoreImpl {
     if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
     out.auto = { use, skill: { ...auto?.skill } };
     out.lineages = { ...src.lineages };
+    out.heroes = { ...src.heroes };
+    // Раньше кошелёк, расходники и доспех были общими на профиль, а прогресс хранился
+    // списком пройденных комнат. Всё общее отдаём той линейке, которой играли; рекорд
+    // забега каждой линейки — сколько комнат она уже прошла.
+    const old = src as unknown as {
+      gold?: number; souls?: number; consumables?: HeroSave['consumables']; armor?: EquipmentSave | null;
+      cleared?: string[] | Partial<Record<LineageId, string[]>>;
+    };
+    if (!src.heroes) {
+      const active = CLASSES[src.activeClass ?? LINEAGE_ORDER[0]].lineage;
+      const cleared = Array.isArray(old.cleared) ? { [active]: old.cleared } : (old.cleared ?? {});
+      for (const lin of LINEAGE_ORDER) {
+        const done = (cleared as Partial<Record<LineageId, string[]>>)[lin]?.length ?? 0;
+        if (lin !== active && !done && !src.lineages?.[lin]) continue;
+        out.heroes[lin] = lin === active
+          ? {
+            gold: old.gold ?? 0, souls: old.souls ?? 0,
+            consumables: { ...emptyHero().consumables, ...old.consumables },
+            armor: old.armor ?? null, best: done,
+          }
+          : { ...emptyHero(), best: done };
+      }
+    }
+    for (const k of ['gold', 'souls', 'consumables', 'armor', 'cleared']) delete (out as unknown as Record<string, unknown>)[k];
     return out;
   }
 
@@ -235,16 +259,26 @@ class StoreImpl {
 
   // ------------------------------------------------------------------ кошелёк
 
+  /** Всё своё у активного героя; у нового класса создаётся с нулями. */
+  get hero(): HeroSave {
+    return this.heroOf(this.activeLineage);
+  }
+
+  heroOf(lin: LineageId): HeroSave {
+    const h = (this.data.heroes[lin] ??= emptyHero());
+    return h;
+  }
+
   get gold(): number {
-    return this.data.gold;
+    return this.hero.gold;
   }
 
   get souls(): number {
-    return this.data.souls;
+    return this.hero.souls;
   }
 
   addGold(n: number, track = true): void {
-    this.data.gold += n;
+    this.hero.gold += n;
     if (track && n > 0) this.data.stats.goldEarned += n;
     this.events.emit('wallet');
     this.checkAchievements();
@@ -252,7 +286,7 @@ class StoreImpl {
   }
 
   addSouls(n: number, track = true): void {
-    this.data.souls += n;
+    this.hero.souls += n;
     if (track && n > 0) this.data.stats.soulsEarned += n;
     this.events.emit('wallet');
     this.checkAchievements();
@@ -260,16 +294,16 @@ class StoreImpl {
   }
 
   spendGold(n: number): boolean {
-    if (this.data.gold < n) return false;
-    this.data.gold -= n;
+    if (this.hero.gold < n) return false;
+    this.hero.gold -= n;
     this.events.emit('wallet');
     this.save();
     return true;
   }
 
   spendSouls(n: number): boolean {
-    if (this.data.souls < n) return false;
-    this.data.souls -= n;
+    if (this.hero.souls < n) return false;
+    this.hero.souls -= n;
     this.events.emit('wallet');
     this.save();
     return true;
@@ -316,6 +350,8 @@ class StoreImpl {
 
   setActiveClass(c: ClassId): void {
     this.data.activeClass = c;
+    // у каждого героя свой кошелёк — полоска валют должна показать новый
+    this.events.emit('wallet');
     this.changed();
   }
 
@@ -330,14 +366,14 @@ class StoreImpl {
       classId: cls,
       lineage: this.lineageSave(lineage) ?? newLineageSave(TREES[lineage]),
       weapon: this.data.weapon[lineage] ?? null,
-      armor: this.data.armor,
+      armor: this.hero.armor,
     });
   }
 
   // ------------------------------------------------------------------ экипировка и расходники
 
   equipped(slot: 'weapon' | 'armor'): EquipmentSave | null {
-    const e = slot === 'weapon' ? this.data.weapon[this.activeLineage] ?? null : this.data.armor;
+    const e = slot === 'weapon' ? this.data.weapon[this.activeLineage] ?? null : this.hero.armor;
     return e && e.durability > 0 ? e : null;
   }
 
@@ -363,21 +399,24 @@ class StoreImpl {
     if (!this.spendGold(item.price)) return 'gold';
     const save: EquipmentSave = { id: item.id, durability: item.durability };
     if (item.slot === 'weapon') this.data.weapon[this.activeLineage] = save;
-    else this.data.armor = save;
+    else this.hero.armor = save;
     this.changed();
     return 'bought';
   }
 
-  buyConsumable(id: ConsumableId, count = 1): boolean {
+  /** Лавка не продаёт сверх предела; 'max' — уже полный запас. */
+  buyConsumable(id: ConsumableId, count = 1): 'bought' | 'gold' | 'max' {
     const def = CONSUMABLES[id];
-    if (!def.sold || !this.spendGold(def.price * count)) return false;
-    this.data.consumables[id] += count;
+    if (!def.sold) return 'gold';
+    if (def.max !== undefined && this.hero.consumables[id] + count > def.max) return 'max';
+    if (!this.spendGold(def.price * count)) return 'gold';
+    this.hero.consumables[id] += count;
     this.changed();
-    return true;
+    return 'bought';
   }
 
   addConsumable(id: ConsumableId, n: number): void {
-    this.data.consumables[id] += n;
+    this.hero.consumables[id] += n;
     this.changed();
   }
 
@@ -385,34 +424,29 @@ class StoreImpl {
   commitRun(weapon: EquipmentSave | null, armor: EquipmentSave | null, consumables: Record<ConsumableId, number>): void {
     const lin = this.activeLineage;
     if (weapon) this.data.weapon[lin] = weapon.durability > 0 ? weapon : null;
-    if (armor) this.data.armor = armor.durability > 0 ? armor : null;
-    this.data.consumables = { ...consumables };
+    if (armor) this.hero.armor = armor.durability > 0 ? armor : null;
+    this.hero.consumables = { ...consumables };
     this.changed();
   }
 
   // ------------------------------------------------------------------ комнаты
 
-  isCleared(id: string): boolean {
-    return this.data.cleared.includes(id);
+  /** Рекорд активного героя: сколько комнат он прошёл за один забег. */
+  get best(): number {
+    return this.hero.best;
   }
 
-  get frontierRoom(): string {
-    return ROOMS.find((r) => !this.isCleared(r.id))?.id ?? ROOMS[ROOMS.length - 1].id;
-  }
-
-  isRoomAvailable(id: string): boolean {
-    return this.isCleared(id) || id === this.frontierRoom;
-  }
-
-  get allCleared(): boolean {
-    return this.data.cleared.length >= ROOMS.length;
-  }
-
-  /** Возвращает true, если комната пройдена впервые. */
-  markCleared(id: string): boolean {
-    if (this.isCleared(id)) return false;
-    this.data.cleared.push(id);
+  /** Записывает итог забега. true — если это новый рекорд. */
+  recordRun(rooms: number): boolean {
+    if (rooms <= this.hero.best) return false;
+    this.hero.best = rooms;
+    this.changed();
     return true;
+  }
+
+  /** Лучший забег среди всех героев — для таблицы рекордов. */
+  get bestClimb(): number {
+    return LINEAGE_ORDER.reduce((best, l) => Math.max(best, this.data.heroes[l]?.best ?? 0), 0);
   }
 
   bump(key: keyof SaveData['stats'], n = 1): void {
@@ -460,8 +494,8 @@ class StoreImpl {
     const r = DAILY_REWARDS[st.dayIndex];
     if (r.gold) this.addGold(r.gold * multiplier);
     if (r.souls) this.addSouls(r.souls * multiplier);
-    if (r.heal) this.data.consumables.potion_heal += r.heal * multiplier;
-    if (r.regen) this.data.consumables.potion_regen += r.regen * multiplier;
+    if (r.heal) this.hero.consumables.potion_heal += r.heal * multiplier;
+    if (r.regen) this.hero.consumables.potion_regen += r.regen * multiplier;
     this.data.daily = { lastClaim: dayKey(), streak: st.streak + 1 };
     this.changed();
     return r;

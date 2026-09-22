@@ -11,7 +11,7 @@ import {
 } from '../src/logic/skillTree';
 import { buildPlayerStats, CAPS } from '../src/logic/stats';
 import { makeRng } from '../src/logic/rng';
-import { Run, type Card } from '../src/logic/run';
+import { Run, type Card, type RunCarryStats } from '../src/logic/run';
 import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/logic/autoUse';
 import { branchOf, inferBranch, planAutoSkill } from '../src/logic/autoSkill';
 import { classTraits, type TraitId } from '../src/logic/traits';
@@ -343,7 +343,68 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     }
   }
 
-  // Ход врагов: после любого действия бьют все соседи, а не только тот, кого ударили
+  // Пустые сундуки есть в колоде и ничего не дают; зелья стали редкостью
+  {
+    let empties = 0;
+    let chests = 0;
+    let potions = 0;
+    let cards = 0;
+    for (let seed = 1; seed <= 40; seed++) {
+      const run = new Run({ room: ROOMS[12], stats: build('warrior'), weapon: null, armor: null, consumables: cons(), rng: makeRng(seed) });
+      run.start();
+      for (const c of [...run.cards, ...run.pool]) {
+        if (!c) continue;
+        cards++;
+        if (c.kind === 'chest') chests++;
+        if (c.defId === 'chest_empty') empties++;
+        if (c.kind === 'potion_heal' || c.kind === 'potion_regen') potions++;
+      }
+    }
+    ok(empties > 0 && empties >= chests / 2, `пустых сундуков не меньше половины (${empties} из ${chests})`);
+    ok(potions / cards < 0.1, `зелий меньше 10% колоды (${((100 * potions) / cards).toFixed(1)}%)`);
+    const run = new Run({ room: ROOMS[12], stats: build('warrior'), weapon: null, armor: null, consumables: cons(), rng: makeRng(5) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
+    const box = { ...enemy(1), kind: 'chest' as const, defId: 'chest_empty', hp: 0, maxHp: 0, atk: 0, baseAtk: 0 };
+    run.cards[1] = box;
+    const gold = run.totals.gold;
+    const res = run.tap(1);
+    ok(res.events.some((e) => e.type === 'chest' && e.empty), 'пустой сундук открывается пустым');
+    ok(run.totals.gold === gold, 'из пустого сундука ничего не выпало');
+  }
+
+  // «Абсолютная защита» больше не даёт неуязвимости: после способности удар слабее не больше чем вдвое
+  {
+    const stats = build('magister', { perkDef: 3 } as Record<string, number>);
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(73) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
+    run.hp = 100000;
+    run.res = 100;
+    const inner = run as unknown as { perkGuard: number; afterPerk: (e: unknown[]) => void };
+    inner.afterPerk([]);
+    ok(inner.perkGuard === 0.5, `защита после способности не выше 50% (${inner.perkGuard})`);
+  }
+
+  // «Раздвоение молнии»: второй разряд по той же цели, соседи не задеты
+  {
+    const stats = build('mage', { echoChance: 1, echoDmg: 0.16 } as Record<string, number>);
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(71) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
+    run.hp = 100000;
+    run.res = stats.resMax;
+    run.cards[1] = enemy(100000, 1);
+    run.cards[3] = enemy(100000, 1);
+    run.usePerk('mage_start');
+    const hits = run.tap(1).events.filter((e) => e.type === 'hit' && e.target === 'enemy').map((e) => (e as { cell: number }).cell);
+    ok(hits.length === 2 && hits.every((c) => c === 1), `молния бьёт одну цель дважды (${hits.join(',')})`);
+  }
+
+  // Агр: отвечает тот, с кем вступил в бой, и те, от кого ушёл. Кто в стороне — ждёт.
   {
     const stats = build('warrior');
     const mk2 = (seed: number) => {
@@ -356,28 +417,40 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.res = stats.resMax;
       return run;
     };
-    const many = mk2(41);
-    for (const c of [1, 3, 5]) many.cards[c] = enemy(100000, 20);
-    const before = many.hp;
-    const hits = many.tap(1).events.filter((e) => e.type === 'attack' && e.by === 'enemy').length;
-    ok(hits === 3, `отвечают все соседние враги (${hits})`);
-    ok(many.hp < before, 'ответные удары доходят');
+    const strikers = (events: ReturnType<Run['tap']>['events']) =>
+      events.filter((e) => e.type === 'attack' && e.by === 'enemy').map((e) => (e as { from: number }).from).sort();
 
-    // способность тоже не бесплатна: ударил — получил в ответ
+    // бью одного из трёх соседей — отвечает только он
+    const fight = mk2(41);
+    for (const c of [1, 3, 5]) fight.cards[c] = enemy(100000, 20);
+    ok(JSON.stringify(strikers(fight.tap(1).events)) === '[1]', 'отвечает только тот, кого ударили');
+
+    // способность по врагу — тоже вступление в бой
     const magic = mk2(42);
     magic.cards[1] = enemy(100000, 20);
-    const hp0 = magic.hp;
+    magic.cards[3] = enemy(100000, 20);
     magic.usePerk('warrior_start');
-    magic.tap(1);
-    ok(magic.hp < hp0, 'после способности враг отвечает');
+    const r2 = magic.tap(1);
+    ok(JSON.stringify(strikers(r2.events)) === '[1]', 'после способности отвечает её цель, сосед молчит');
 
-    // шаг в сторону под удар другого врага
-    const step = mk2(43);
-    step.cards[1] = enemy(100000, 20);
-    step.cards[6] = enemy(100000, 20);
-    const hp1 = step.hp;
-    ok(step.tap(3).ok, 'шаг на пустую клетку рядом с другим врагом');
-    ok(step.hp < hp1, 'враг у новой клетки бьёт за уход');
+    // ушёл от соседа на пустую клетку — он бьёт вдогонку
+    const flee2 = mk2(44);
+    flee2.cards[1] = enemy(100000, 20);
+    const r3 = flee2.tap(3);
+    ok(JSON.stringify(strikers(r3.events)) === '[1]', 'ушёл от врага — удар вдогонку');
+
+    // подошёл к врагу, но не бил его — он не бьёт (в бой ещё не вступили)
+    const approach = mk2(45);
+    approach.cards[6] = enemy(100000, 20);
+    const r4 = approach.tap(3);
+    ok(strikers(r4.events).length === 0, 'подошёл к врагу — он ждёт, а не бьёт');
+
+    // на добыче рядом с врагом ману не накопишь: каждый шаг прочь — удар
+    const farm = mk2(46);
+    farm.cards[1] = enemy(100000, 20);
+    const hp0 = farm.hp;
+    farm.tap(3);
+    ok(farm.hp < hp0, 'бегать по клеткам рядом с врагом больно');
   }
 
   // Колода бесконечна, карта перехода открывает выход только после нормы
@@ -490,8 +563,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(100000, 3);
       return run;
     };
-    for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
+    for (const id of ['mage', 'magister', 'necromancer'] as ClassId[]) {
       ok(surround(id).cornered(), `${id}: пустая шкала в окружении — это тупик`);
+    }
+    // у пироманта огненный шар маны не стоит: пока он не на перезарядке, выход есть
+    {
+      const pyro = surround('pyromancer');
+      ok(!pyro.cornered(), 'пиромант: готовый огненный шар — не тупик');
+      (pyro as unknown as { cooldowns: Record<string, number> }).cooldowns.pyromancer_p2 = 3;
+      ok(pyro.cornered(), 'пиромант: шар на перезарядке и пустая шкала — тупик');
     }
     // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
     // занимает новый враг — и в конце хода отбиваться уже нечем.
@@ -548,16 +628,98 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     }
   }
 
-  // усиление нельзя навесить дважды: ход и ресурс не сгорают впустую
+  // «Взрыв трупа» по выбранной цели: рвётся именно она, помеченных повторно не метим
   {
     const stats = build('necromancer');
     const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(19) });
     run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
     run.hp = 100000;
-    run.res = stats.resMax;
-    ok(run.usePerk('necromancer_start').ok, 'взрыв трупа применяется');
-    const again = run.perkReady(PERK_BY_ID.necromancer_start);
-    ok(!again.ok && again.reason === 'active', `повторный взрыв трупа недоступен (${again.reason ?? 'ok'})`);
+    run.res = 100;
+    run.cards[1] = enemy(10, 1);
+    run.cards[0] = enemy(100000, 1);
+    run.cards[2] = enemy(100000, 1);
+    run.cards[7] = enemy(10, 1);
+    ok(run.usePerk('necromancer_start').ok && run.tap(1).ok, 'взрыв трупа наводится на врага');
+    ok(!!run.cards[1]?.corpse, 'цель помечена');
+    ok(!run.perkTargetOk(PERK_BY_ID.necromancer_start, 1), 'помеченного повторно не метят');
+    const hp0 = run.cards[0]!.hp;
+    run.res = 100;
+    run.usePerk('mage_start');
+    run.tap(1);
+    ok(run.cards[0]!.hp < hp0, 'смерть помеченного взрывает соседей');
+    // смерть непомеченного ничего не взрывает
+    const hp2 = run.cards[2] ? run.cards[2]!.hp : 0;
+    run.res = 100;
+    (run as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+    run.usePerk('mage_start');
+    const r = run.tap(7);
+    ok(!r.events.some((e) => e.type === 'fx' && e.style === 'corpse'), 'непомеченный умирает тихо');
+    void hp2;
+  }
+
+  // «Призрачные слуги»: призрак встаёт на месте заражённого, бьёт крестом три хода, максимум два
+  {
+    const stats = build('necromancer');
+    const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(23) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
+    run.hp = 100000;
+    run.res = 100;
+    run.cards[1] = enemy(10, 1);
+    run.cards[0] = enemy(100000, 1);
+    run.cards[2] = enemy(100000, 1);
+    run.cards[3] = enemy(100000, 1);
+    run.cards[5] = enemy(100000, 1);
+    run.cards[6] = enemy(100000, 1);
+    run.cards[7] = enemy(100000, 1);
+    run.cards[8] = enemy(100000, 1);
+    ok(run.usePerk('necromancer_p2').ok && run.tap(1).ok, 'заражение наводится на врага');
+    ok(!!run.cards[1]?.haunt, 'цель заражена');
+    run.res = 100;
+    run.usePerk('mage_start');
+    run.tap(1);
+    const ghost = run.cards[1];
+    ok(ghost?.kind === 'ghost', `на месте заражённого встал призрак (${ghost?.kind ?? 'пусто'})`);
+    ok(ghost?.ttl === 2, `призрак отработал первый ход (${ghost?.ttl})`);
+    // призрак бьёт соседей крестом: 0 и 2 — соседи клетки 1, 4 — герой
+    ok(run.cards[0]!.hp < 100000 || run.cards[2]!.hp < 100000, 'призрак бьёт соседа');
+    // ещё два хода — и призрак исчезает
+    for (let i = 0; i < 2; i++) {
+      run.res = 100;
+      (run as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+      run.usePerk('mage_start');
+      run.tap(3);
+    }
+    ok(run.cards[1]?.kind !== 'ghost', 'через три хода призрак растаял');
+  }
+
+  // Горение: число на значке — ровно столько тиков, сколько впереди
+  {
+    const stats = build('pyromancer');
+    const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(29) });
+    run.start();
+    run.cards.fill(null);
+    run.playerCell = 4;
+    run.hp = 100000;
+    run.res = 100;
+    run.cards[0] = enemy(100000, 1);
+    run.usePerk('pyromancer_start');
+    run.tap(0);
+    ok(run.cards[0]!.burn === 3, `после поджога на значке три хода (${run.cards[0]!.burn})`);
+    let ticks = 0;
+    for (let i = 0; i < 5; i++) {
+      const hp = run.cards[0]!.hp;
+      // любой шаг на не-врага — полноценный ход, горение тикает в его конце
+      const step = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind === 'move');
+      if (step === undefined) break;
+      run.tap(step);
+      run.hp = 100000;
+      if (run.cards[0]!.hp < hp) ticks++;
+    }
+    ok(ticks === 3, `поджог тикает ровно три раза (${ticks})`);
   }
 
   // у каждой способности есть своя вспышка
@@ -661,6 +823,31 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     };
     ok(hit(strong) > hit(weak), 'талант «способности сильнее» повышает урон способности');
   }
+}
+
+// ---------------------------------------------------------------- забег: перенос между комнатами
+{
+  const lin = CLASSES.mage.lineage;
+  const stats = buildPlayerStats({ classId: 'mage', lineage: newLineageSave(TREES[lin]), weapon: null, armor: null });
+  const mk = (carry?: RunCarryStats) => new Run({ room: ROOMS[1], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(5), carry });
+  const first = mk();
+  ok(first.hp === stats.maxHp && first.res === Math.ceil(stats.resMax * 0.5), 'первая комната забега: полное здоровье и полшкалы ресурса');
+  first.hp = 7;
+  first.res = 3;
+  const next = mk(first.carryOut());
+  ok(next.hp === 7 && next.res === 3, 'здоровье и мана переходят в следующую комнату');
+  const clamp = mk({ hp: stats.maxHp * 5, res: stats.resMax * 5, revived: false, selfRevived: false });
+  ok(clamp.hp === stats.maxHp && clamp.res === stats.resMax, 'перенос не превышает максимум');
+  ok(mk({ hp: 0, res: -4, revived: false, selfRevived: false }).hp === 1, 'в новую комнату герой входит живым');
+  ok(mk({ hp: 5, res: 0, revived: true, selfRevived: false }).revived, 'воскрешение за рекламу — одно на забег');
+  // «Возвращение» тоже одно на забег: истраченное в прошлой комнате не возвращается
+  const rs = { ...stats, reviveHp: 0.5 };
+  const up = new Run({ room: ROOMS[1], stats: rs, weapon: null, armor: null, consumables: cons(), rng: makeRng(5) });
+  up.over = 'lose';
+  ok(!!up.autoRevive(), '«Возвращение» поднимает героя');
+  const after = new Run({ room: ROOMS[2], stats: rs, weapon: null, armor: null, consumables: cons(), rng: makeRng(6), carry: up.carryOut() });
+  after.over = 'lose';
+  ok(after.autoRevive() === null, '«Возвращение» не срабатывает второй раз в том же забеге');
 }
 
 // ---------------------------------------------------------------- плавающий крит
