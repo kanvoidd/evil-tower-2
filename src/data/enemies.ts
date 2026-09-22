@@ -21,9 +21,9 @@ export type EnemyRole = 'weak' | 'normal' | 'tough' | 'elite' | 'boss';
  * Золото и опыт душ разведены: золото копится медленнее (под восемь ступеней экипировки),
  * души — быстрее (под дерево талантов, которое и есть долгая цель).
  */
-export const FLOOR_HP = 1.54;
-export const FLOOR_ATK = 1.47;
-export const FLOOR_GOLD = 1.45;
+export const FLOOR_HP = 1.66;
+export const FLOOR_ATK = 1.70;
+export const FLOOR_GOLD = 1.48;
 export const FLOOR_SOULS = 1.7;
 
 /** Сила обычного врага первого этажа — точка отсчёта для всей кривой. */
@@ -70,6 +70,18 @@ export interface EnemyDef extends EnemyTraits {
 
 const pw = (m: number, floor: number): number => Math.pow(m, floor - 1);
 
+/**
+ * Надбавка вершины башни. К девятому этажу герой получает финальный класс и восьмую ступень
+ * снаряжения — скачок силы такой, что ровная кривая превращает последний этаж в прогулку.
+ * Поэтому два верхних этажа получают собственную наценку: это единственное место, где кривая
+ * не гладкая, и оно намеренное.
+ */
+const PEAK: Record<number, { hp: number; atk: number }> = {
+  9: { hp: 1.08, atk: 1.06 },
+  10: { hp: 1.55, atk: 1.46 },
+};
+const peak = (floor: number): { hp: number; atk: number } => PEAK[floor] ?? { hp: 1, atk: 1 };
+
 const E = (
   id: string, ru: string, en: string, floor: number, role: EnemyRole, tag: EnemyTag, traits: EnemyTraits = {},
 ): EnemyDef => {
@@ -77,8 +89,8 @@ const E = (
   const round = (v: number): number => (v >= 100 ? Math.round(v / 5) * 5 : Math.max(1, Math.round(v)));
   return {
     id, floor, role, tag,
-    hp: round(BASE.hp * r.hp * pw(FLOOR_HP, floor)),
-    atk: round(BASE.atk * r.atk * pw(FLOOR_ATK, floor)),
+    hp: round(BASE.hp * r.hp * pw(FLOOR_HP, floor) * peak(floor).hp),
+    atk: round(BASE.atk * r.atk * pw(FLOOR_ATK, floor) * peak(floor).atk),
     gold: round(BASE.gold * r.val * pw(FLOOR_GOLD, floor)),
     souls: round(BASE.souls * r.val * pw(FLOOR_SOULS, floor)),
     boss: role === 'boss',

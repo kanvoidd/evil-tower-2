@@ -2,7 +2,7 @@ import type { CardKind, ConsumableId, EquipmentSave, StatusKind } from '../types
 import { ENEMIES, isHolyTarget, type EnemyDef } from '../data/enemies';
 import { ELITE, rollRoom, type RoomDef, type RoomModifier, type RoomPlan } from '../data/levels';
 import { ITEM_BY_ID } from '../data/items';
-import { FULL_BAR, PERK_BY_ID, type AbilityId, type PerkDef } from '../data/perks';
+import { FULL_BAR, PERK_BY_ID, type AbilityId, type PerkDef, type VfxStyle } from '../data/perks';
 import { LINEAGES } from '../data/classes';
 import { GAMEPLAY } from '../config';
 import type { PlayerStats } from './stats';
@@ -40,7 +40,8 @@ export interface Card {
 
 export type Loot = { kind: 'gold'; amount: number } | { kind: ConsumableId; amount: 1 };
 
-export type FxStyle = 'bolt' | 'beam' | 'arrows' | 'fire' | 'shock' | 'smoke' | 'holy' | 'dark' | 'quake' | 'blades';
+/** Визуальный почерк эффекта — тот же словарь, что у способностей. */
+export type FxStyle = VfxStyle;
 
 export type GameEvent =
   | { type: 'spawn'; cell: number; card: Card }
@@ -89,7 +90,7 @@ export type Action =
   | { kind: 'move' }
   | { kind: 'ranged' }
   | { kind: 'perk' }
-  | { kind: 'none'; reason: 'invalid' | 'resource' | 'range' };
+  | { kind: 'none'; reason: 'invalid' | 'resource' | 'range' | 'melee' };
 
 const NEIGHBORS: number[][] = Array.from({ length: 9 }, (_, i) => {
   const r = Math.floor(i / 3);
@@ -175,6 +176,10 @@ export class Run {
   private roomCritLeft = 0;
   private freePerkLeft = 0;
   private corpseBlast = false;
+  /** Урон сейчас наносит способность — работают таланты-синергии. */
+  private inAbility = false;
+  /** Цена применяемой способности (для возврата ресурса за убийство). */
+  private abilityCost = 0;
   private hitCounter = 0;     // для «Суда» (каждый третий удар)
   private playerPoison = 0;
   private playerPoisonDmg = 0;
@@ -291,9 +296,14 @@ export class Run {
     if (this.over || cell === this.playerCell) return { kind: 'none', reason: 'invalid' };
     if (this.armed) return this.perkTargetOk(this.armed, cell) ? { kind: 'perk' } : { kind: 'none', reason: 'range' };
     const card = this.cards[cell];
-    if (!card) return { kind: 'none', reason: 'invalid' };
     const d = dist(this.playerCell, cell);
-    if (d === 1) return card.kind === 'enemy' ? { kind: 'melee' } : { kind: 'move' };
+    // По пустой соседней клетке теперь тоже можно ходить — это полноценный ход.
+    if (!card) return d === 1 ? { kind: 'move' } : { kind: 'none', reason: 'invalid' };
+    if (d === 1) {
+      if (card.kind !== 'enemy') return { kind: 'move' };
+      // Маг вообще не бьёт рукой: только способностью по кнопке.
+      return this.stats.melee ? { kind: 'melee' } : { kind: 'none', reason: 'melee' };
+    }
     if (card.kind !== 'enemy') return { kind: 'none', reason: 'range' };
     const s = this.stats;
     if (s.ranged === 'none') return { kind: 'none', reason: 'range' };
@@ -325,8 +335,6 @@ export class Run {
     if (a.kind === 'ranged') {
       dmg = Math.round(dmg * this.stats.rangedMul);
       if (this.backstabs || this.reaping > 0) dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
-    } else {
-      dmg = Math.round(dmg * this.stats.meleeMul);
     }
     dmg = this.contextDamage(dmg, card);
     return this.afterArmor(dmg, card) >= card.hp;
@@ -349,22 +357,36 @@ export class Run {
   // ------------------------------------------------------------------ способности
 
   /** Доступна ли способность прямо сейчас. */
-  perkReady(p: PerkDef): { ok: boolean; reason?: 'resource' | 'once' | 'gold' | 'targets' } {
+  perkReady(p: PerkDef): { ok: boolean; reason?: 'resource' | 'once' | 'gold' | 'targets' | 'active' } {
     if (this.over) return { ok: false, reason: 'once' };
     if (p.once && this.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
     if (p.goldCost !== undefined) {
       return this.totals.gold >= 5 ? { ok: true } : { ok: false, reason: 'gold' };
     }
+    // Уже действующее усиление нельзя навесить второй раз — кнопка гаснет,
+    // иначе ход и ресурс уходят впустую.
+    if (this.buffActive(p)) return { ok: false, reason: 'active' };
     const cost = this.perkCostOf(p);
     if (cost > this.res) return { ok: false, reason: 'resource' };
     return { ok: true };
+  }
+
+  /** Держится ли уже эффект этой способности. */
+  private buffActive(p: PerkDef): boolean {
+    switch (p.ability) {
+      case 'corpse_blast': return this.corpseBlast;
+      case 'madness': return this.madness > 0;
+      case 'reaper': return this.reaping > 0;
+      case 'smoke_screen': return this.noCounter > 0;
+      default: return false;
+    }
   }
 
   /** Цена способности с учётом «первый перк в комнате бесплатен» и «Жнеца». */
   perkCostOf(p: PerkDef): number {
     if (this.freePerkLeft > 0) return 0;
     if (p.cost === FULL_BAR) return this.stats.resMax;
-    return p.cost ?? 0;
+    return Math.max(0, (p.cost ?? 0) - this.stats.perkCostDown);
   }
 
   /**
@@ -389,7 +411,7 @@ export class Run {
       this.vacated = [];
       this.payPerk(p, events);
       events.push({ type: 'perk', id: p.id, ability: p.ability });
-      this.applyAbility(p, -1, events);
+      this.runAbility(p, -1, events);
       this.afterPerk(events);
       this.finishTurn(events);
       return { ok: true, events };
@@ -412,6 +434,11 @@ export class Run {
     if (cell === this.playerCell) return false;
     const card = this.cards[cell];
     if (!card) return false;
+    // Клеймо, приговор и кукла вуду держатся до смерти цели — вешать их второй раз
+    // значит выбросить ход, поэтому такая цель просто не подсвечивается.
+    if (p.ability === 'sentence' && card.vuln > 0) return false;
+    if (p.ability === 'voodoo' && card.link) return false;
+    if (p.ability === 'death_mark' && card.mark > 0) return false;
     switch (p.target) {
       case 'enemy': return card.kind === 'enemy';
       case 'adjacent': return card.kind === 'enemy' && NEIGHBORS[this.playerCell].includes(cell);
@@ -437,7 +464,7 @@ export class Run {
     this.vacated = [];
     this.payPerk(p, events);
     events.push({ type: 'perk', id: p.id, ability: p.ability });
-    this.applyAbility(p, cell, events);
+    this.runAbility(p, cell, events);
     this.swapFirst = null;
     this.afterPerk(events);
     this.finishTurn(events);
@@ -459,8 +486,12 @@ export class Run {
 
   /** «Кровавая пелена», «Дымовая шашка», «Абсолютная защита»: после способности следующий удар слабее. */
   private afterPerk(events: GameEvent[]): void {
-    if (this.stats.perkDef > 0) this.perkGuard = Math.max(this.perkGuard, Math.min(1, this.stats.perkDef));
-    void events;
+    const s = this.stats;
+    if (s.perkDef > 0) this.perkGuard = Math.max(this.perkGuard, Math.min(1, s.perkDef));
+    if (s.abilityShield > 0 && !this.over) {
+      this.shield += Math.max(1, Math.round(s.maxHp * s.abilityShield));
+      events.push({ type: 'shield', now: this.shield });
+    }
   }
 
   // ------------------------------------------------------------------ расчёт урона
@@ -520,6 +551,7 @@ export class Run {
       return true;
     }
     if (s.passives.has('hunters_mark') && ranged && enemy && enemy.hits === 0) return true;
+    if (this.inAbility && s.abilityCrit > 0 && this.rng.chance(s.abilityCrit / 100)) return true;
     if (s.everyThird) {
       this.hitCounter++;
       if (this.hitCounter % 3 === 0) return true;
@@ -566,7 +598,7 @@ export class Run {
   private melee(cell: number, events: GameEvent[]): void {
     const enemy = this.cards[cell]!;
     const s = this.stats;
-    let dmg = Math.max(1, Math.round(this.currentDamage() * s.meleeMul));
+    let dmg = this.currentDamage();
     if (this.counterReady) {
       dmg = Math.round(dmg * (1 + s.counterBuff));
       this.counterReady = false;
@@ -608,6 +640,7 @@ export class Run {
       return;
     }
     const killed = this.strike(cell, dmg, crit, events);
+    this.splitStrike(cell, dmg, events);
     if (crit && s.passives.has('hunter_thrill')) this.gain(s.rangedCost, events);
     if (killed) {
       if (s.passives.has('cold_blood')) this.gain(3, events);
@@ -616,6 +649,17 @@ export class Run {
       const boss = !!ENEMIES[target.defId]?.boss;
       this.applyPoison(cell, Math.max(1, Math.round(target.maxHp * (boss ? 0.05 : 0.1))), 3, events);
     }
+  }
+
+  /** «Раздвоение молнии» / «Двойной наконечник»: основной удар цепляет ещё одного врага. */
+  private splitStrike(cell: number, dmg: number, events: GameEvent[]): void {
+    const ratio = this.stats.basicSplit;
+    if (ratio <= 0) return;
+    const extra = this.enemyCells().filter((c) => c !== cell);
+    if (!extra.length) return;
+    const c2 = extra[this.rng.int(0, extra.length - 1)];
+    events.push({ type: 'fx', cells: [c2], style: 'chain' });
+    this.damageEnemy(c2, Math.max(1, Math.round(dmg * ratio)), false, events);
   }
 
   /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
@@ -648,7 +692,34 @@ export class Run {
     }
     enemy.hits++;
     const dmg = this.afterArmor(this.contextDamage(raw, enemy), enemy);
+    if (this.inAbility) this.abilityRiders(cell, enemy, dmg, events);
     return this.damageEnemy(cell, dmg, crit, events, true);
+  }
+
+  /**
+   * Таланты-синергии: они меняют уже полученные способности, поэтому «Живое пламя» пироманта
+   * заставляет поджигать даже цепную молнию, взятую ещё магом.
+   */
+  private abilityRiders(cell: number, enemy: Card, dmg: number, events: GameEvent[]): void {
+    const s = this.stats;
+    if (s.abilityIgnite > 0 && this.rng.chance(s.abilityIgnite / 100)) {
+      this.applyBurn(cell, Math.max(1, Math.round(dmg * 0.3)), 3, events);
+    }
+    if (s.abilityStun > 0 && this.rng.chance(s.abilityStun / 100)) this.applyStun(cell, events);
+    if (s.abilityPoison > 0) {
+      this.applyPoison(cell, Math.max(1, Math.round(enemy.maxHp * s.abilityPoison)), 3, events);
+    }
+    if (s.abilityVuln > 0 && enemy.vuln < s.abilityVuln) {
+      enemy.vuln = s.abilityVuln;
+      events.push({ type: 'status', cell, uid: enemy.uid, kind: 'vuln', turns: 99 });
+    }
+    if (s.abilityLifesteal > 0) this.heal(Math.max(1, Math.round(dmg * s.abilityLifesteal)), 'lifesteal', events);
+    if (s.abilitySplash > 0) {
+      const share = Math.max(1, Math.round(dmg * s.abilitySplash));
+      for (const n of NEIGHBORS[cell]) {
+        if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, share, false, events);
+      }
+    }
   }
 
   /**
@@ -723,6 +794,15 @@ export class Run {
       events.push({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
     }
     if (s.killDefTurn > 0) this.defTurn = Math.max(this.defTurn, 1);
+    // «Взрыв плоти»: любое убийство разлетается осколками по соседям
+    if (s.killBlast > 0) {
+      const blast = Math.max(1, Math.round(enemy.maxHp * s.killBlast));
+      this.splashNeighbors(cell, blast, events);
+    }
+    // «Отработанный удар»: убийство способностью возвращает часть её цены
+    if (this.inAbility && s.abilityRefund > 0 && this.abilityCost > 0) {
+      this.gain(Math.max(1, Math.round(this.abilityCost * s.abilityRefund)), events);
+    }
     if (s.passives.has('ghosts')) this.ghosts = Math.min(3, this.ghosts + 1);
     if (s.passives.has('chain_mark') && enemy.mark > 0) this.jumpMark(cell, events);
     // взрыв трупа и огненная смерть
@@ -963,6 +1043,23 @@ export class Run {
 
   // ------------------------------------------------------------------ способности: реализация
 
+  /** Применяет способность, пометив урон как «от способности» — тогда работают таланты-синергии. */
+  private runAbility(p: PerkDef, cell: number, events: GameEvent[]): void {
+    this.inAbility = true;
+    this.abilityCost = this.perkCostOf(p);
+    const mark = events.length;
+    try {
+      this.applyAbility(p, cell, events);
+    } finally {
+      this.inAbility = false;
+      this.abilityCost = 0;
+    }
+    // У каждой способности есть своя вспышка. Если реализация не нарисовала ничего сама
+    // (усиления, лечение, щиты), показываем эффект перка на герое или на цели.
+    const drew = events.slice(mark).some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
+    if (!drew) events.splice(mark, 0, { type: 'fx', cells: [cell >= 0 ? cell : this.playerCell], style: p.vfx });
+  }
+
   private applyAbility(p: PerkDef, cell: number, events: GameEvent[]): void {
     const enemies = this.enemyCells();
     const target = cell >= 0 ? this.cards[cell] : null;
@@ -1020,7 +1117,7 @@ export class Run {
       }
       case 'war_cry': {
         this.warCry = Math.min(0.75, this.warCry + this.pp(0.4, 0.75));
-        events.push({ type: 'fx', cells: enemies, style: 'holy' });
+        events.push({ type: 'fx', cells: enemies, style: 'banner' });
         for (const c of enemies) {
           const e = this.cards[c]!;
           events.push({ type: 'status', cell: c, uid: e.uid, kind: 'weak', turns: 99 });
@@ -1037,6 +1134,7 @@ export class Run {
           }
         }
         if (best < 0) break;
+        events.push({ type: 'fx', cells: [best], style: 'swap' });
         const free = NEIGHBORS[this.playerCell].find((n) => !this.cards[n]) ?? NEIGHBORS[this.playerCell][0];
         if (free !== best) {
           const t = this.cards[free] ?? null;
@@ -1115,8 +1213,27 @@ export class Run {
         break;
       }
       // ---------------- маг
-      case 'magic_shot': {
+      // Удар молнии — единственный «обычный» удар мага: маны не стоит и доступен всегда,
+      // иначе маг, окружённый врагами с пустой шкалой, остался бы вовсе без хода.
+      // Цена за это — враг отвечает, как на удар рукой.
+      case 'lightning': {
+        const enemy = target!;
         events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
+        const crit = this.rollCrit(enemy, true);
+        let dmg = this.spellDamage(0.9);
+        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
+        this.wearWeapon(events);
+        const killed = this.strike(cell, dmg, crit, events);
+        this.splitStrike(cell, dmg, events);
+        if (killed) {
+          this.stepInto(cell, events);
+          break;
+        }
+        if (this.cards[cell] === enemy && this.madness <= 0) this.enemyStrike(cell, events);
+        break;
+      }
+      case 'magic_shot': {
+        events.push({ type: 'fx', cells: [cell], style: 'arcane' });
         const crit = this.rollCrit(target, true);
         let dmg = this.spellDamage(2);
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
@@ -1132,7 +1249,7 @@ export class Run {
             seen.add(n);
           }
         }
-        events.push({ type: 'fx', cells: chain, style: 'shock' });
+        events.push({ type: 'fx', cells: chain, style: 'chain' });
         const mul = [1, 0.75, 0.5];
         chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i]), false, events));
         break;
@@ -1142,6 +1259,7 @@ export class Run {
         const a = this.swapFirst!;
         const b = cell;
         if (a === b) break;
+        events.push({ type: 'fx', cells: [a, b], style: 'swap' });
         const t = this.cards[a];
         this.cards[a] = this.cards[b];
         this.cards[b] = t;
@@ -1152,6 +1270,7 @@ export class Run {
         const c = this.cards[cell];
         if (!c) break;
         if (c.kind === 'enemy' && ENEMIES[c.defId].boss) break;
+        events.push({ type: 'fx', cells: [cell], style: 'arcane' });
         this.cards[cell] = null;
         this.pool.push(c);
         const next = this.pool.shift();
@@ -1181,7 +1300,7 @@ export class Run {
         break;
       }
       case 'dead_harvest': {
-        events.push({ type: 'fx', cells: enemies, style: 'dark' });
+        events.push({ type: 'fx', cells: enemies, style: 'soul' });
         const bonus = this.stats.soulBonus;
         this.stats.soulBonus = bonus + 1;
         for (const c of enemies) {
@@ -1201,7 +1320,7 @@ export class Run {
       }
       case 'fireball': {
         const near = NEIGHBORS[cell].filter((c) => this.cards[c]?.kind === 'enemy');
-        events.push({ type: 'fx', cells: [cell, ...near], style: 'fire' });
+        events.push({ type: 'fx', cells: [cell, ...near], style: 'explosion' });
         const burn = this.spellDamage(0.25);
         this.applyBurn(cell, burn, 3, events);
         for (const c of near) this.applyBurn(c, burn, 3, events);
@@ -1211,7 +1330,7 @@ export class Run {
       }
       case 'detonate': {
         const burning = enemies.filter((c) => (this.cards[c]?.burn ?? 0) > 0);
-        events.push({ type: 'fx', cells: burning, style: 'fire' });
+        events.push({ type: 'fx', cells: burning, style: 'explosion' });
         for (const c of burning) {
           const e = this.cards[c];
           if (!e) continue;
@@ -1469,10 +1588,15 @@ export class Run {
 
   private collect(cell: number, events: GameEvent[]): void {
     const from = this.playerCell;
+    const empty = !this.cards[cell];
     events.push({ type: 'move', from, to: cell });
     this.playerCell = cell;
     this.vacated.push(from);
     this.take(cell, events);
+    // «Второе дыхание»: шаг на свободную клетку — это передышка
+    if (empty && this.stats.stepHeal > 0) {
+      this.heal(Math.max(1, Math.round(this.stats.maxHp * this.stats.stepHeal)), 'perk', events);
+    }
   }
 
   private take(cell: number, events: GameEvent[]): void {
@@ -1617,7 +1741,7 @@ export class Run {
     if (this.ghosts > 0 && !this.over) {
       const live = this.enemyCells();
       if (live.length) {
-        events.push({ type: 'fx', cells: live.slice(0, this.ghosts), style: 'dark' });
+        events.push({ type: 'fx', cells: live.slice(0, this.ghosts), style: 'soul' });
         for (let i = 0; i < this.ghosts; i++) {
           const cells = this.enemyCells();
           if (!cells.length) break;

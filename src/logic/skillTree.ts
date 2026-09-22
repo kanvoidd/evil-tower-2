@@ -1,8 +1,10 @@
 import type { ClassId, LineageId, LineageSave, TalentPath } from '../types';
 import { CLASSES, LINEAGE_ORDER, classesOfLineage, secondOf, terminalsOf } from '../data/classes';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../data/economy';
-import { PERK_BY_ID, perkId, perksOfClass, type PerkSlot } from '../data/perks';
-import { maxRank, TALENT_BY_ID, talentValue, talentsOfClass, talentsOfTier, type TalentDef, type TalentFx } from '../data/talents';
+import { PERK_BY_ID, perkId, perksOfClass, SLOT_ORDER, type PerkSlot } from '../data/perks';
+import {
+  maxRank, PATH_ORDER, TALENT_BY_ID, talentChain, talentValue, talentsOfClass, type TalentDef, type TalentFx,
+} from '../data/talents';
 import { GAMEPLAY } from '../config';
 
 export type NodeKind = 'class' | 'perk' | 'talent' | 'evo';
@@ -19,6 +21,8 @@ export interface TreeNode {
   talentId?: string;
   path?: TalentPath;
   tier?: 1 | 2 | 3;
+  /** Место в цепочке яруса. */
+  step?: number;
   ranks?: number;
   // perk
   slot?: PerkSlot;
@@ -41,21 +45,31 @@ export interface Tree {
 
 // ------------------------------------------------------------------ построение дерева
 
-/** Геометрия блока класса: от карточки класса вниз до последнего яруса талантов. */
+/**
+ * Геометрия блока класса. Цепочки яруса разной длины, поэтому высота яруса считается
+ * по самой длинной цепочке — короткие ветки просто заканчиваются выше и ведут стрелкой вниз,
+ * к общей способности.
+ */
 const LAYOUT = {
-  startPerk: 150,
-  tier: [340, 720, 1100],
-  perk: [530, 910],
-  legend: 1290,
-  talentDx: 195,
-  blockGap: 230,
-  evoGap: 230,
-  terminalDx: 570,
+  /** От карточки класса до стартовой способности. */
+  startPerk: 160,
+  /** От способности до первого таланта цепочки и от последнего таланта до следующей способности. */
+  gate: 158,
+  /** Шаг между талантами внутри цепочки (плитка 108 + зазор под значок ранга). */
+  step: 142,
+  /** Разнос путей по горизонтали. */
+  pathDx: 200,
+  /** Зазор между блоками классов и вокруг ворот эволюции. */
+  blockGap: 225,
+  terminalDx: 620,
 };
 
 const PATH_SLOT: Record<TalentPath, number> = { attack: -1, vitality: 0, guard: 1 };
 
-const classBlock = (classId: ClassId, x0: number, y0: number, parents: string[], out: TreeNode[], edges: Array<[string, string]>): { tier3: string[]; bottom: number } => {
+const classBlock = (
+  classId: ClassId, x0: number, y0: number, parents: string[],
+  out: TreeNode[], edges: Array<[string, string]>,
+): { gates: string[]; bottom: number } => {
   const cls = CLASSES[classId];
   const classNodeId = `cls/${classId}`;
   out.push({ id: classNodeId, kind: 'class', x: x0, y: y0, owner: classId, classId, parents });
@@ -64,45 +78,55 @@ const classBlock = (classId: ClassId, x0: number, y0: number, parents: string[],
   const perks = perksOfClass(classId);
   const perkNodeId = (slot: PerkSlot): string => `perk/${classId}/${slot}`;
 
-  // стартовый перк — бесплатный, открывается вместе с классом
+  // стартовая способность бесплатна и открывается вместе с классом
   out.push({
     id: perkNodeId('start'), kind: 'perk', x: x0, y: y0 + LAYOUT.startPerk, owner: classId, slot: 'start', parents: [classNodeId],
   });
   edges.push([classNodeId, perkNodeId('start')]);
 
   let above = perkNodeId('start');
-  let lastTier: string[] = [];
+  let y = y0 + LAYOUT.startPerk;
+  let gates: string[] = [];
+
   for (let tier = 1 as 1 | 2 | 3; tier <= 3; tier = (tier + 1) as 1 | 2 | 3) {
-    const list = talentsOfTier(classId, tier);
-    const ids: string[] = [];
-    for (const t of list) {
-      const id = `tal/${t.id}`;
-      out.push({
-        id, kind: 'talent', x: x0 + PATH_SLOT[t.path] * LAYOUT.talentDx, y: y0 + LAYOUT.tier[tier - 1],
-        owner: classId, talentId: t.id, path: t.path, tier, ranks: maxRank(t), parents: [above],
+    const top = y + LAYOUT.gate;
+    let maxLen = 1;
+    gates = [];
+    for (const path of PATH_ORDER) {
+      const chain = talentChain(classId, tier, path);
+      maxLen = Math.max(maxLen, chain.length);
+      let prev = above;
+      chain.forEach((t, step) => {
+        const id = `tal/${t.id}`;
+        out.push({
+          id, kind: 'talent', x: x0 + PATH_SLOT[path] * LAYOUT.pathDx, y: top + step * LAYOUT.step,
+          owner: classId, talentId: t.id, path, tier, step, ranks: maxRank(t), parents: [prev],
+        });
+        edges.push([prev, id]);
+        prev = id;
       });
-      edges.push([above, id]);
-      ids.push(id);
+      if (chain.length) gates.push(prev);
     }
-    lastTier = ids;
+    y = top + (maxLen - 1) * LAYOUT.step;
     if (tier < 3) {
       const slot: PerkSlot = tier === 1 ? 'p2' : 'p3';
       if (!perks.some((p) => p.slot === slot)) break;
       const pid = perkNodeId(slot);
-      out.push({ id: pid, kind: 'perk', x: x0, y: y0 + LAYOUT.perk[tier - 1], owner: classId, slot, parents: ids });
-      for (const i of ids) edges.push([i, pid]);
+      y += LAYOUT.gate;
+      out.push({ id: pid, kind: 'perk', x: x0, y, owner: classId, slot, parents: gates });
+      for (const g of gates) edges.push([g, pid]);
       above = pid;
     }
   }
 
-  let bottom = y0 + LAYOUT.tier[2];
+  let bottom = y;
   if (cls.stage === 2 && perks.some((p) => p.slot === 'legend')) {
     const lid = perkNodeId('legend');
-    out.push({ id: lid, kind: 'perk', x: x0, y: y0 + LAYOUT.legend, owner: classId, slot: 'legend', parents: lastTier });
-    for (const i of lastTier) edges.push([i, lid]);
-    bottom = y0 + LAYOUT.legend;
+    bottom = y + LAYOUT.gate;
+    out.push({ id: lid, kind: 'perk', x: x0, y: bottom, owner: classId, slot: 'legend', parents: gates });
+    for (const g of gates) edges.push([g, lid]);
   }
-  return { tier3: lastTier, bottom };
+  return { gates, bottom };
 };
 
 const buildTree = (lineage: LineageId): Tree => {
@@ -114,14 +138,14 @@ const buildTree = (lineage: LineageId): Tree => {
 
   const b1 = classBlock(base, 0, 0, [], nodes, edges);
   const y2 = b1.bottom + LAYOUT.blockGap;
-  const b2 = classBlock(second, 0, y2, b1.tier3, nodes, edges);
+  const b2 = classBlock(second, 0, y2, b1.gates, nodes, edges);
 
   const evoId = `evo/${lineage}`;
-  const evoY = b2.bottom + LAYOUT.evoGap;
-  nodes.push({ id: evoId, kind: 'evo', x: 0, y: evoY, owner: second, parents: b2.tier3 });
-  for (const p of b2.tier3) edges.push([p, evoId]);
+  const evoY = b2.bottom + LAYOUT.blockGap;
+  nodes.push({ id: evoId, kind: 'evo', x: 0, y: evoY, owner: second, parents: b2.gates });
+  for (const p of b2.gates) edges.push([p, evoId]);
 
-  const yT = evoY + LAYOUT.evoGap;
+  const yT = evoY + LAYOUT.blockGap;
   terminals.forEach((t, i) => {
     classBlock(t, (i === 0 ? -1 : 1) * LAYOUT.terminalDx, yT, [evoId], nodes, edges);
   });
@@ -174,16 +198,15 @@ export const currentClassOf = (tree: Tree, s: LineageSave): ClassId => {
   return list[list.length - 1] ?? tree.base;
 };
 
-const evolvedBeyond = (tree: Tree, s: LineageSave, owner: ClassId): boolean =>
-  classesOfLineage(tree.id).some((c) => CLASSES[c].parent === owner && isClassOwned(tree, s, c));
-
-/** Узел «выполнен» для открытия дочерних: талант прокачан до максимума, перк/класс куплен. */
+/**
+ * Узел «выполнен» для открытия дочерних. У таланта это максимальный ранг: цепочка линейная,
+ * поэтому максимум у последнего таланта означает, что вся цепочка пройдена.
+ */
 const satisfied = (tree: Tree, s: LineageSave, id: string): boolean => {
   const n = tree.byId.get(id);
   if (!n) return false;
   if (n.kind === 'talent') return isMaxed(s, n);
   if (n.kind === 'perk' && n.slot === 'start') return isClassOwned(tree, s, n.owner);
-  if (n.kind === 'perk') return rankOf(s, n.id) > 0 || evolvedBeyond(tree, s, n.owner);
   if (n.kind === 'evo') return n.parents.some((p) => satisfied(tree, s, p));
   return rankOf(s, n.id) > 0;
 };
@@ -202,8 +225,6 @@ export const nodeState = (tree: Tree, s: LineageSave, n: TreeNode): NodeState =>
     return gateOpen ? 'available' : 'locked';
   }
   if (rank > 0) return 'owned';
-  // перки прежнего класса потеряны при метаморфозе и заново не покупаются
-  if (n.kind === 'perk' && evolvedBeyond(tree, s, n.owner)) return 'blocked';
   if (n.kind === 'class') {
     const cls = CLASSES[n.classId!];
     if (cls.stage === 2) {
@@ -222,7 +243,7 @@ export const canInvest = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
 
 export const isPurchasable = (n: TreeNode): boolean => n.kind !== 'evo' && !(n.kind === 'perk' && n.slot === 'start');
 
-/** Цена следующего шага: у таланта — очередной ранг, у перка и класса — вся покупка. */
+/** Цена следующего шага: у таланта — очередной ранг, у способности и класса — вся покупка. */
 export const costOf = (s: LineageSave, n: TreeNode): number => {
   if (n.kind === 'talent') {
     const next = rankOf(s, n.id) + 1;
@@ -242,23 +263,13 @@ export const canBuy = (tree: Tree, s: LineageSave, n: TreeNode, souls: number): 
   return souls >= cost ? { ok: true, cost } : { ok: false, reason: 'souls' };
 };
 
-/** Покупает ранг узла (души списывает вызывающий). Возвращает перки, потерянные при метаморфозе. */
-export const applyBuy = (tree: Tree, s: LineageSave, n: TreeNode): { lostPerks: string[] } => {
-  const lost: string[] = [];
-  if (n.kind === 'class') {
-    const old = CLASSES[n.classId!].parent;
-    if (old) {
-      for (const node of tree.nodes) {
-        if (node.kind === 'perk' && node.slot !== 'start' && node.owner === old && rankOf(s, node.id) > 0) {
-          lost.push(perkIdOfNode(node));
-          delete s.ranks[node.id];
-        }
-      }
-    }
-  }
+/**
+ * Покупает ранг узла (души списывает вызывающий).
+ * Метаморфоза больше ничего не отнимает: способности прежних классов остаются с героем.
+ */
+export const applyBuy = (_tree: Tree, s: LineageSave, n: TreeNode): void => {
   s.ranks[n.id] = rankOf(s, n.id) + 1;
   s.last = n.id;
-  return { lostPerks: lost };
 };
 
 export const canCancelMetamorphosis = (tree: Tree, s: LineageSave, classId: ClassId): boolean =>
@@ -280,14 +291,11 @@ export const applyCancelMetamorphosis = (tree: Tree, s: LineageSave, classId: Cl
   return { refund: Math.floor(spent * GAMEPLAY.cancelMetamorphosisRefund) };
 };
 
-// ------------------------------------------------------------------ бонусы и перки
+// ------------------------------------------------------------------ бонусы и способности
 
 export type TalentBonus = Partial<Record<TalentFx, number>>;
 
-/**
- * Сумма эффектов всех изученных талантов линейки. Таланты сохраняются при метаморфозе —
- * это постоянный рост героя, в отличие от перков.
- */
+/** Сумма эффектов всех изученных талантов линейки — они тоже сохраняются при метаморфозе. */
 export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
   const out: TalentBonus = {};
   for (const n of tree.nodes) {
@@ -304,16 +312,22 @@ export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
 export const talentPointsSpent = (tree: Tree, s: LineageSave): number =>
   tree.nodes.reduce((a, n) => a + (n.kind === 'talent' ? rankOf(s, n.id) : 0), 0);
 
-/** Активные перки выбранного класса: стартовый (бесплатный) + купленные. */
-export const activePerkIds = (tree: Tree, s: LineageSave, active: ClassId): string[] => {
+/**
+ * Способности, доступные герою: все купленные в линейке плюс бесплатные стартовые каждого
+ * открытого класса. Метаморфоза ничего не забирает — у пироманта в руках и заклинания мага,
+ * и приёмы магистра, и своё пламя.
+ */
+export const activePerkIds = (tree: Tree, s: LineageSave, _active: ClassId): string[] => {
+  const order = classesOfLineage(tree.id);
   const ids: string[] = [];
-  for (const n of tree.nodes) {
-    if (n.kind !== 'perk' || n.owner !== active) continue;
-    if (n.slot === 'start' ? isClassOwned(tree, s, active) : rankOf(s, n.id) > 0) ids.push(perkIdOfNode(n));
+  for (const cls of order) {
+    for (const slot of SLOT_ORDER) {
+      const n = tree.byId.get(`perk/${cls}/${slot}`);
+      if (!n || !PERK_BY_ID[perkId(cls, slot)]) continue;
+      const owned = slot === 'start' ? isClassOwned(tree, s, cls) : rankOf(s, n.id) > 0;
+      if (owned) ids.push(perkId(cls, slot));
+    }
   }
-  // базовое действие линейки (выстрел через карту, удар в спину, удар молнии) остаётся у всех эволюций
-  const basic = perkId(tree.base, 'start');
-  if (PERK_BY_ID[basic]?.basic && !ids.includes(basic)) ids.unshift(basic);
   return ids;
 };
 
@@ -329,5 +343,5 @@ export const cheapestAvailable = (tree: Tree, s: LineageSave): number => {
   return best;
 };
 
-/** Таланты класса по путям — для панели дерева. */
+/** Таланты класса — для панели дерева. */
 export const classTalents = talentsOfClass;

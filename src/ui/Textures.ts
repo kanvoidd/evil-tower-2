@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { CLASS_ORDER, CLASSES } from '../data/classes';
 import { ITEMS } from '../data/items';
 import { ENEMIES } from '../data/levels';
-import { PERKS } from '../data/perks';
+import { PERKS, type VfxStyle } from '../data/perks';
 import { SVG_ICONS } from './SvgIcons';
 import { armorArt, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt, type Draw } from './PixelArt';
 
@@ -125,6 +125,211 @@ const polyStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, points:
   ctx.closePath();
 };
 
+/** Цвета семейств эффектов — те же, что у вспышек способностей в бою. */
+export const VFX_COLOR: Record<VfxStyle, string> = {
+  bolt: '#9ad8ff', chain: '#7fc4ff', arcane: '#b287ff', beam: '#fff0b0',
+  fire: '#ff8a2a', explosion: '#ffb44a', holy: '#fff3c4', banner: '#f0c75e',
+  dark: '#a678ff', soul: '#a98bff', mark: '#ff6a8a', quake: '#d2a15a',
+  slam: '#ffe0a0', blades: '#eaf2ff', shot: '#d8f0a0', arrows: '#c6e878',
+  smoke: '#9aa0b4', swap: '#7fe8d0', rewind: '#b79dff',
+};
+
+type Ctx = CanvasRenderingContext2D;
+
+/** Ломаная: удобно рисовать молнии, стрелы и клинки. */
+const path = (ctx: Ctx, pts: number[][], close = false): void => {
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+  if (close) ctx.closePath();
+};
+
+const stroke = (ctx: Ctx, w: number): void => {
+  ctx.lineWidth = w;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+};
+
+/** Дуга со стрелкой на конце — для «обмена местами» и «отката времени». */
+const arcArrow = (ctx: Ctx, cx: number, cy: number, r: number, a0: number, a1: number, w: number): void => {
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, a0, a1);
+  stroke(ctx, w);
+  const tip = [cx + r * Math.cos(a1), cy + r * Math.sin(a1)];
+  const n = [-Math.sin(a1), Math.cos(a1)];
+  const t = [Math.cos(a1), Math.sin(a1)];
+  path(ctx, [
+    [tip[0] + t[0] * 11, tip[1] + t[1] * 11],
+    [tip[0] - t[0] * 4 + n[0] * 9, tip[1] - t[1] * 4 + n[1] * 9],
+    [tip[0] - t[0] * 4 - n[0] * 9, tip[1] - t[1] * 4 - n[1] * 9],
+  ], true);
+  ctx.fill();
+};
+
+/**
+ * Значок семейства эффектов: у каждой способности свой узнаваемый рисунок, чтобы десять
+ * кнопок в нижней панели не сливались в один ряд одинаковых звёздочек.
+ */
+const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
+  // молния — ломаная стрела вниз
+  bolt: (ctx) => {
+    path(ctx, [[74, 22], [44, 62], [64, 64], [50, 106], [84, 60], [62, 58]], true);
+    ctx.fill();
+  },
+  // цепная молния — два разряда друг за другом
+  chain: (ctx) => {
+    path(ctx, [[46, 24], [30, 62], [44, 62], [32, 96]]);
+    stroke(ctx, 9);
+    path(ctx, [[90, 32], [74, 66], [88, 66], [76, 100]]);
+    stroke(ctx, 9);
+  },
+  // тайная магия — звезда в кольце
+  arcane: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 64, 42, 0, Math.PI * 2);
+    stroke(ctx, 7);
+    polyStar(ctx, 64, 64, 4, 30, 9);
+    ctx.fill();
+  },
+  // луч — столб света с гранями
+  beam: (ctx) => {
+    path(ctx, [[50, 18], [78, 18], [86, 110], [42, 110]], true);
+    ctx.fill();
+    ctx.globalAlpha = 0.45;
+    ctx.fillRect(58, 18, 12, 92);
+    ctx.globalAlpha = 1;
+  },
+  // огонь — язык пламени
+  fire: (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(64, 14);
+    ctx.bezierCurveTo(98, 52, 100, 78, 84, 96);
+    ctx.bezierCurveTo(70, 112, 44, 108, 36, 90);
+    ctx.bezierCurveTo(28, 70, 42, 54, 52, 60);
+    ctx.bezierCurveTo(48, 40, 56, 26, 64, 14);
+    ctx.closePath();
+    ctx.fill();
+  },
+  // взрыв — рваная вспышка
+  explosion: (ctx) => {
+    polyStar(ctx, 64, 64, 9, 48, 22);
+    ctx.fill();
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    ctx.arc(64, 64, 15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  },
+  // свет — солнце с лучами
+  holy: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 64, 22, 0, Math.PI * 2);
+    ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      const a = (Math.PI / 4) * i;
+      path(ctx, [[64 + Math.cos(a) * 32, 64 + Math.sin(a) * 32], [64 + Math.cos(a) * 48, 64 + Math.sin(a) * 48]]);
+      stroke(ctx, 8);
+    }
+  },
+  // знамя — флаг на древке
+  banner: (ctx) => {
+    ctx.fillRect(38, 16, 8, 96);
+    path(ctx, [[46, 22], [102, 22], [88, 46], [102, 70], [46, 70]], true);
+    ctx.fill();
+  },
+  // тьма — щупальца из тени
+  dark: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 70, 26, Math.PI, 0);
+    ctx.fill();
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI + (Math.PI / 4) * (i - 2) * 0.9;
+      path(ctx, [[64, 70], [64 + Math.cos(a) * 46, 70 + Math.sin(a) * 46]]);
+      stroke(ctx, 9);
+    }
+    ctx.fillRect(38, 70, 52, 14);
+  },
+  // души — огонёк с хвостом
+  soul: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 52, 24, Math.PI, 0);
+    ctx.bezierCurveTo(88, 86, 76, 96, 64, 110);
+    ctx.bezierCurveTo(52, 96, 40, 86, 40, 52);
+    ctx.closePath();
+    ctx.fill();
+  },
+  // клеймо — прицел
+  mark: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 64, 38, 0, Math.PI * 2);
+    stroke(ctx, 8);
+    ctx.beginPath();
+    ctx.arc(64, 64, 10, 0, Math.PI * 2);
+    ctx.fill();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      path(ctx, [[64 + dx * 34, 64 + dy * 34], [64 + dx * 54, 64 + dy * 54]]);
+      stroke(ctx, 8);
+    }
+  },
+  // землетрясение — трещина
+  quake: (ctx) => {
+    ctx.fillRect(22, 84, 84, 10);
+    path(ctx, [[46, 84], [60, 54], [52, 52], [72, 20]]);
+    stroke(ctx, 9);
+    path(ctx, [[84, 84], [92, 62]]);
+    stroke(ctx, 7);
+  },
+  // удар — четырёхлучевая вспышка
+  slam: (ctx) => {
+    polyStar(ctx, 64, 64, 4, 50, 12);
+    ctx.fill();
+  },
+  // клинки — скрещённые росчерки
+  blades: (ctx) => {
+    path(ctx, [[26, 26], [102, 102]]);
+    stroke(ctx, 11);
+    path(ctx, [[102, 26], [26, 102]]);
+    stroke(ctx, 11);
+  },
+  // выстрел — стрела вправо
+  shot: (ctx) => {
+    path(ctx, [[18, 64], [86, 64]]);
+    stroke(ctx, 10);
+    path(ctx, [[110, 64], [76, 44], [82, 64], [76, 84]], true);
+    ctx.fill();
+  },
+  // ливень стрел — три стрелы вниз
+  arrows: (ctx) => {
+    for (const x of [36, 64, 92]) {
+      path(ctx, [[x, 16], [x, 84]]);
+      stroke(ctx, 8);
+      path(ctx, [[x, 110], [x - 15, 80], [x, 86], [x + 15, 80]], true);
+      ctx.fill();
+    }
+  },
+  // дым — облако
+  smoke: (ctx) => {
+    for (const [x, y, r] of [[46, 74, 22], [70, 68, 26], [90, 80, 18], [58, 88, 20]]) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  },
+  // перестановка — две стрелки навстречу друг другу
+  swap: (ctx) => {
+    arcArrow(ctx, 64, 64, 34, Math.PI * 1.15, Math.PI * 1.85, 10);
+    arcArrow(ctx, 64, 64, 34, Math.PI * 0.15, Math.PI * 0.85, 10);
+  },
+  // откат времени — круговая стрелка назад плюс стрелка-указатель
+  rewind: (ctx) => {
+    ctx.beginPath();
+    ctx.arc(64, 64, 36, Math.PI * 0.75, Math.PI * 2.15);
+    stroke(ctx, 10);
+    path(ctx, [[36, 26], [40, 66], [4, 50]], true);
+    ctx.fill();
+  },
+};
+
 export const CARD_W = 200;
 export const CARD_H = 228;
 
@@ -194,13 +399,13 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
     bakeSprite(scene, it.icon, draw);
   }
 
-  // --- иконки перков
+  // --- иконки перков: рисунок по семейству эффекта, рамка по линейке, золото у легендарных
   for (const p of PERKS) {
     const col = LINEAGE_COLOR[CLASSES[p.classId].lineage];
-    const points = { start: 5, p2: 6, p3: 7, legend: 9 }[p.slot];
+    const fxCol = VFX_COLOR[p.vfx] ?? col;
     canvasTex(scene, p.icon, 128, 128, (ctx) => {
       const legend = p.slot === 'legend';
-      const g = ctx.createRadialGradient(64, 56, 6, 64, 64, 60);
+      const g = ctx.createRadialGradient(64, 54, 6, 64, 64, 62);
       g.addColorStop(0, legend ? '#5a3f9a' : '#343948');
       g.addColorStop(1, '#14161c');
       ctx.fillStyle = g;
@@ -209,13 +414,18 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       ctx.lineWidth = legend ? 8 : 6;
       ctx.strokeStyle = legend ? '#f5c518' : col;
       ctx.stroke();
-      ctx.fillStyle = legend ? '#f5c518' : col;
-      polyStar(ctx, 64, 64, points, 36, 18);
-      ctx.fill();
-      ctx.fillStyle = '#14161c';
-      ctx.beginPath();
-      ctx.arc(64, 64, 9, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.save();
+      rr(ctx, 10, 10, 108, 108, 30);
+      ctx.clip();
+      ctx.translate(64, 64);
+      ctx.scale(0.86, 0.86);
+      ctx.translate(-64, -64);
+      ctx.fillStyle = fxCol;
+      ctx.strokeStyle = fxCol;
+      ctx.shadowColor = fxCol;
+      ctx.shadowBlur = 10;
+      VFX_GLYPH[p.vfx](ctx);
+      ctx.restore();
     });
   }
 
@@ -313,9 +523,48 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, 4, 4);
   });
-  canvasTex(scene, 'spark', 32, 32, (ctx) => {
-    ctx.fillStyle = '#fff';
-    polyStar(ctx, 16, 16, 4, 15, 4);
+
+  // --- частицы для VFX способностей: мягкая точка, язык пламени и стрела
+  canvasTex(scene, 'dot', 32, 32, (ctx) => {
+    const g = ctx.createRadialGradient(16, 16, 0, 16, 16, 16);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.5, 'rgba(255,255,255,0.65)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 32, 32);
+  });
+  canvasTex(scene, 'flame', 48, 72, (ctx) => {
+    // капля-язычок: широкое основание, острый верх
+    ctx.beginPath();
+    ctx.moveTo(24, 2);
+    ctx.bezierCurveTo(40, 26, 46, 42, 40, 55);
+    ctx.bezierCurveTo(35, 68, 13, 68, 8, 55);
+    ctx.bezierCurveTo(2, 42, 8, 26, 24, 2);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(0, 72, 0, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.25, 'rgba(255,255,255,0.75)');
+    g.addColorStop(1, 'rgba(255,255,255,1)');
+    ctx.fillStyle = g;
+    ctx.fill();
+  });
+  canvasTex(scene, 'arrow_vfx', 64, 20, (ctx) => {
+    ctx.fillStyle = '#ffffff';
+    // наконечник справа, древко слева, оперение «ёлочкой»
+    ctx.beginPath();
+    ctx.moveTo(64, 10);
+    ctx.lineTo(44, 2);
+    ctx.lineTo(48, 10);
+    ctx.lineTo(44, 18);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(6, 8, 42, 4);
+    ctx.beginPath();
+    ctx.moveTo(0, 2);
+    ctx.lineTo(14, 10);
+    ctx.lineTo(0, 18);
+    ctx.lineTo(5, 10);
+    ctx.closePath();
     ctx.fill();
   });
 

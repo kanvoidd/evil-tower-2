@@ -3,7 +3,7 @@ import { CLASSES, LINEAGE_ORDER, classesOfLineage } from '../src/data/classes';
 import { ENEMY_LIST } from '../src/data/enemies';
 import { FLOORS, MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
 import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR } from '../src/data/perks';
-import { TALENTS, maxRank, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
+import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
 import { perkCost, talentRankCost } from '../src/data/economy';
 import {
   activePerkIds, applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, canInvest, costOf, currentClassOf,
@@ -36,19 +36,27 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   const stage = CLASSES[cls].stage;
   ok(perks.length === (stage === 2 ? 4 : 3), `${cls}: перков ${perks.length}, ожидалось ${stage === 2 ? 4 : 3}`);
   ok(!!perkOf(cls, 'start'), `${cls}: есть стартовая способность`);
-  // не больше четырёх кнопок на класс — требование раскладки поля боя
   const buttons = perks.filter(hasButton).length;
-  ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4)`);
+  ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4 на класс)`);
 
   const talents = talentsOfClass(cls);
-  ok(talents.length === 9, `${cls}: талантов ${talents.length}, ожидалось 9`);
-  for (const tier of [1, 2, 3]) {
+  ok(talents.length === 15, `${cls}: талантов ${talents.length}, ожидалось 15`);
+  for (const tier of [1, 2, 3] as const) {
     const list = talentsOfTier(cls, tier);
-    ok(list.length === 3, `${cls}: на ярусе ${tier} три таланта (${list.length})`);
+    ok(list.length === 5, `${cls}: на ярусе ${tier} пять талантов (${list.length})`);
     ok(new Set(list.map((t) => t.path)).size === 3, `${cls}: на ярусе ${tier} все три пути`);
+    // цепочки путей разной длины — прокачка идёт «вразнобой», а не одинаковыми тройками
+    const lens = PATH_ORDER.map((path) => talentChain(cls, tier, path).length);
+    ok(lens.reduce((a, b) => a + b, 0) === 5, `${cls}/${tier}: цепочки покрывают ярус (${lens.join('-')})`);
+    ok(new Set(lens).size > 1, `${cls}/${tier}: цепочки разной длины (${lens.join('-')})`);
+    for (const path of PATH_ORDER) {
+      const chain = talentChain(cls, tier, path);
+      ok(chain.length >= 1 && chain.length <= 3, `${cls}/${tier}/${path}: длина цепочки ${chain.length}`);
+      ok(chain.every((t, i) => t.step === i), `${cls}/${tier}/${path}: шаги цепочки по порядку`);
+    }
   }
   const ranks = talents.reduce((a, t) => a + maxRank(t), 0);
-  ok(ranks >= 20 && ranks <= 27, `${cls}: суммарно рангов ${ranks} (ожидалось 20–27)`);
+  ok(ranks >= 30 && ranks <= 40, `${cls}: суммарно рангов ${ranks} (ожидалось 30–40)`);
   for (const t of talents) {
     ok(t.v.length >= 1 && t.v.length <= 5, `${t.id}: рангов ${t.v.length}`);
     // значения суммарные, значит строго возрастают
@@ -57,15 +65,34 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   }
 }
 ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id талантов уникальны');
+// таланты-синергии: прокачка между способностями усиливает сами способности
+{
+  const fx = (cls: ClassId, f: string): boolean => talentsOfClass(cls).some((t) => t.fx === f);
+  ok(fx('pyromancer', 'abilityIgnite'), 'пиромант: талант «любая способность поджигает»');
+  ok(fx('necromancer', 'killBlast'), 'некромант: талант «взрыв трупа»');
+  for (const f of SYNERGY_FX) ok(TALENTS.some((t) => t.fx === f), `синергия ${f} встречается в дереве`);
+  const withSyn = (Object.keys(CLASSES) as ClassId[]).filter((c) => talentsOfClass(c).some((t) => SYNERGY_FX.has(t.fx)));
+  ok(withSyn.length === 16, `у каждого класса есть талант-синергия (${withSyn.length})`);
+  // у каждого класса есть талант на запас здоровья: иначе живучесть держится только на броне
+  for (const c of Object.keys(CLASSES) as ClassId[]) {
+    ok(talentsOfClass(c).some((t) => t.fx === 'hpPct'), `${c}: в дереве есть запас здоровья`);
+  }
+}
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
+const VFX_STYLES = new Set([
+  'bolt', 'chain', 'arcane', 'beam', 'fire', 'explosion', 'holy', 'banner', 'dark', 'soul',
+  'mark', 'quake', 'slam', 'blades', 'shot', 'arrows', 'smoke', 'swap', 'rewind',
+]);
 for (const p of PERKS) {
   ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
+  ok(VFX_STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
   if (p.cost === FULL_BAR) ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
 }
-// базовое действие есть ровно у трёх линеек (воин бьёт рукой)
+// базовое действие осталось у лучника (выстрел) и наёмника (удар в спину);
+// воин бьёт рукой, а маг вообще не бьёт — только молнией по кнопке
 const basics = PERKS.filter((p) => p.basic).map((p) => p.classId);
-ok(basics.length === 3 && !basics.includes('warrior'), `базовые действия линеек: ${basics.join(',')}`);
+ok(basics.length === 2 && !basics.includes('warrior') && !basics.includes('mage'), `базовые действия линеек: ${basics.join(',')}`);
 
 // ---------------------------------------------------------------- этажи и враги
 ok(ROOMS.length === FLOORS * ROOMS_PER_FLOOR, `комнат ${ROOMS.length}, ожидалось ${FLOORS * ROOMS_PER_FLOOR}`);
@@ -106,17 +133,30 @@ for (const lin of LINEAGE_ORDER) {
   const ls = newLineageSave(tree);
   ok(isClassOwned(tree, ls, lin), `${lin}: базовый класс открыт`);
   ok(activePerkIds(tree, ls, lin).length === 1, `${lin}: активна только стартовая способность`);
-  ok(tree.nodes.filter((n) => n.kind === 'talent').length === 9 * 4, `${lin}: 36 талантов в дереве`);
+  ok(tree.nodes.filter((n) => n.kind === 'talent').length === 15 * 4, `${lin}: 60 талантов в дереве`);
 
   // ворота: перк 2 закрыт, пока ни один талант первого яруса не прокачан до максимума
   const p2 = tree.nodes.find((n) => n.kind === 'perk' && n.owner === lin && n.slot === 'p2')!;
   ok(nodeState(tree, ls, p2) === 'locked', `${lin}: перк 2 закрыт до прокачки яруса`);
-  const t1 = tree.nodes.find((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1)!;
-  ok(nodeState(tree, ls, t1) === 'available', `${lin}: таланты первого яруса доступны сразу`);
+  const chainStarts = tree.nodes.filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.step === 0);
+  ok(chainStarts.length === 3, `${lin}: на первом ярусе три цепочки (${chainStarts.length})`);
+  for (const n of chainStarts) ok(nodeState(tree, ls, n) === 'available', `${lin}: начала цепочек первого яруса доступны сразу`);
+  // берём самую длинную цепочку — её середина должна открываться только после предыдущего таланта
+  const chain1 = tree.nodes
+    .filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === chainStarts[0].path)
+    .sort((a, b) => a.step! - b.step!);
+  const longest = (['attack', 'vitality', 'guard'] as TalentPath[])
+    .map((path) => tree.nodes.filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === path).sort((a, b) => a.step! - b.step!))
+    .sort((a, b) => b.length - a.length)[0];
+  void chain1;
+  if (longest.length > 1) ok(nodeState(tree, ls, longest[1]) === 'locked', `${lin}: продолжение цепочки закрыто до прокачки предыдущего`);
+  const t1 = longest[0];
   applyBuy(tree, ls, t1);
   ok(maxRank(TALENTS.find((t) => t.id === t1.talentId!)!) === 1 || nodeState(tree, ls, t1) === 'partial', `${lin}: талант частично прокачан`);
-  while (nodeState(tree, ls, t1) !== 'owned') applyBuy(tree, ls, t1);
-  ok(nodeState(tree, ls, p2) === 'available', `${lin}: максимальный ранг открыл перк 2`);
+  for (const n of longest) {
+    while (nodeState(tree, ls, n) !== 'owned') applyBuy(tree, ls, n);
+  }
+  ok(nodeState(tree, ls, p2) === 'available', `${lin}: пройденная цепочка открыла перк 2`);
   ok(rankOf(ls, t1.id) === (t1.ranks ?? 1), `${lin}: ранг не превышает максимум`);
   ok(costOf(ls, t1) === 0, `${lin}: у прокачанного до конца таланта нет цены`);
 
@@ -139,18 +179,18 @@ for (const lin of LINEAGE_ORDER) {
   };
   buyAll((n) => n.owner === lin && n.kind !== 'class');
   const bonusBefore = talentBonuses(tree, ls);
-  const perksBefore = activePerkIds(tree, ls, lin).length;
-  ok(perksBefore === 3, `${lin}: у базового класса три способности (${perksBefore})`);
-  // базовое действие линейки (выстрел, удар в спину, молния) переходит ко всем эволюциям
-  const basic = perkOf(lin, 'start')!.basic ? 1 : 0;
+  const perksBefore = activePerkIds(tree, ls, lin);
+  ok(perksBefore.length === 3, `${lin}: у базового класса три способности (${perksBefore.length})`);
 
   const second = tree.classNode[tree.second];
   ok(canBuy(tree, ls, second, 1e9).ok, `${lin}: метаморфоза доступна после прокачки третьего яруса`);
-  const { lostPerks } = applyBuy(tree, ls, second);
-  ok(lostPerks.length === 2, `${lin}: при метаморфозе потеряны покупные способности (${lostPerks.length})`);
+  applyBuy(tree, ls, second);
   const bonusAfter = talentBonuses(tree, ls);
   ok(JSON.stringify(bonusBefore) === JSON.stringify(bonusAfter), `${lin}: таланты сохранились при метаморфозе`);
-  ok(activePerkIds(tree, ls, tree.second).length === 1 + basic, `${lin}: у нового класса стартовая способность и базовое действие линейки`);
+  // способности прежнего класса остаются с героем — метаморфоза ничего не отнимает
+  const afterMeta = activePerkIds(tree, ls, tree.second);
+  ok(perksBefore.every((id) => afterMeta.includes(id)), `${lin}: способности базового класса сохранились`);
+  ok(afterMeta.length === perksBefore.length + 1, `${lin}: к ним добавилась стартовая способность нового класса (${afterMeta.length})`);
   ok(openedClasses(tree, ls).length === 2, `${lin}: открыты два класса`);
   ok(currentClassOf(tree, ls) === tree.second, `${lin}: в выборе класса новый класс заменил прежний`);
 
@@ -164,7 +204,10 @@ for (const lin of LINEAGE_ORDER) {
   ok(nodeState(tree, ls, legend) === 'locked', `${lin}: легендарная способность закрыта до третьего яруса`);
   buyAll((n) => n.owner === a && n.kind !== 'class');
   ok(nodeState(tree, ls, legend) === 'owned', `${lin}: легендарная способность покупается`);
-  ok(activePerkIds(tree, ls, a).length === 4 + basic, `${lin}: у финального класса четыре способности плюс базовое действие`);
+  // 3 (база) + 3 (второй класс) + 4 (финальный) — все они в руках героя одновременно
+  const full = activePerkIds(tree, ls, a);
+  ok(full.length === 10, `${lin}: у финального класса десять способностей (${full.length})`);
+  ok(perksBefore.every((id) => full.includes(id)), `${lin}: перки базового класса дошли до финала`);
 
   const { refund } = applyCancelMetamorphosis(tree, ls, a);
   ok(refund > 0 && !isClassOwned(tree, ls, a), `${lin}: ветка ${a} сброшена, возврат ${refund}`);
@@ -183,7 +226,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   ok(s.crit <= CAPS.crit && s.dodge <= CAPS.dodge && s.parry <= CAPS.parry && s.block <= CAPS.block, `${id}: потолки характеристик соблюдены`);
   ok(s.perkPower >= 1, `${id}: сила способностей не меньше базовой`);
   ok(s.abilities.every(hasButton), `${id}: в ряду кнопок только активные способности`);
-  ok(s.abilities.length <= 4, `${id}: кнопок не больше четырёх`);
+  // нижняя панель боя рассчитана на две полки по пять кнопок
+  ok(s.abilities.length <= 10, `${id}: кнопок не больше десяти (${s.abilities.length})`);
 }
 // пассивка линеек по ТЗ
 {
@@ -196,8 +240,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   ok(m.resMax > w.resMax && m.resMax > a.resMax && m.resMax > c.resMax, 'маг: самый большой запас ресурса');
   ok(a.crit > w.crit && a.crit > m.crit && a.crit > c.crit, 'лучник: самый высокий шанс крита');
   ok(Math.abs(c.goldBonus - 0.2) < 1e-9, 'наёмник: +20% золота');
-  ok(m.meleeMul < 1 && w.meleeMul === 1, 'маг бьёт рукой слабо, воин — в полную силу');
-  ok(m.ranged === 'any' && a.ranged === 'skip' && c.ranged === 'any' && w.ranged === 'none', 'базовые действия линеек');
+  ok(!m.melee && w.melee && a.melee && c.melee, 'маг вообще не бьёт рукой, остальные бьют');
+  ok(m.ranged === 'none' && a.ranged === 'skip' && c.ranged === 'any' && w.ranged === 'none', 'базовые действия линеек');
   ok(c.rangedCrit && !a.rangedCrit, 'гарантированный крит только у удара в спину');
 }
 
@@ -260,6 +304,128 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   }
   ok(used >= 35, `проверены все активные способности (${used})`);
 
+  // маг вообще не бьёт рукой, зато ходит по пустым клеткам
+  {
+    for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
+      const stats = build(id);
+      const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(11) });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.cards[1] = enemy(500, 3);
+      run.hp = 100000;
+      const act = run.actionFor(1);
+      ok(act.kind === 'none' && act.reason === 'melee', `${id}: рукой не бьёт (${act.kind}/${act.reason ?? ''})`);
+      ok(!run.tap(1).ok, `${id}: касание соседнего врага не тратит ход`);
+      ok(run.cards[1] !== null && run.cards[1]!.hp === 500, `${id}: враг не получил урона`);
+      // молния по кнопке — единственный способ ударить
+      run.res = stats.resMax;
+      // «Удар молнии» мага остаётся в руках у всей линейки — метаморфоза ничего не отнимает
+      ok(stats.abilities.some((p2) => p2.id === 'mage_start'), `${id}: молния мага сохранилась`);
+      ok(run.usePerk('mage_start').ok, `${id}: молния мага доступна`);
+      if (run.armed) ok(run.tap(1).ok, `${id}: молния наводится на соседнего врага`);
+      ok(run.cards[1] === null || run.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
+    }
+    // ход на пустую соседнюю клетку — полноценный ход для всех классов
+    for (const id of ['warrior', 'archer', 'mage', 'ninja'] as ClassId[]) {
+      const stats = build(id);
+      const run = new Run({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(12) });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 100000;
+      ok(run.actionFor(3).kind === 'move', `${id}: пустая соседняя клетка — ход`);
+      ok(run.actionFor(0).kind === 'none', `${id}: пустая клетка по диагонали недоступна`);
+      const turns = run.totals.turns;
+      ok(run.tap(3).ok && run.playerCell === 3, `${id}: герой встал на пустую клетку`);
+      ok(run.totals.turns > turns, `${id}: шаг по пустой клетке засчитан ходом`);
+    }
+  }
+
+  // тупик невозможен: даже в окружении и с пустой шкалой у героя есть ход
+  {
+    for (const id of Object.keys(CLASSES) as ClassId[]) {
+      const stats = build(id);
+      const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(17) });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 100000;
+      run.res = 0;
+      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
+      const canTap = [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.actionFor(c).kind !== 'none');
+      const canPerk = stats.abilities.some((p) => run.perkReady(p).ok && [0, 1, 2, 3, 5, 6, 7, 8].some((c) => run.perkTargetOk(p, c)));
+      const canSelf = stats.abilities.some((p) => p.target === 'self' && run.perkReady(p).ok);
+      ok(canTap || canPerk || canSelf, `${id}: в окружении и без ресурса ход всё равно есть`);
+    }
+  }
+
+  // постоянное клеймо не вешается на уже заклеймённую цель — ход не пропадает зря
+  {
+    const cases: Array<[ClassId, string, (c: Card) => void]> = [
+      ['assassin', 'assassin_p2', (c) => (c.vuln = 1)],
+      ['darkassassin', 'darkassassin_start', (c) => (c.mark = 3)],
+      ['necromancer', 'necromancer_p3', (c) => (c.link = true)],
+    ];
+    for (const [id, perkId2, apply] of cases) {
+      const stats = build(id);
+      const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(23) });
+      run.start();
+      run.cards.fill(null);
+      run.playerCell = 4;
+      run.hp = 100000;
+      run.res = stats.resMax;
+      run.cards[1] = enemy(500, 3);
+      const perk = PERK_BY_ID[perkId2];
+      ok(run.perkTargetOk(perk, 1), `${perkId2}: чистая цель подходит`);
+      apply(run.cards[1]!);
+      ok(!run.perkTargetOk(perk, 1), `${perkId2}: заклеймённая цель больше не подсвечивается`);
+    }
+  }
+
+  // усиление нельзя навесить дважды: ход и ресурс не сгорают впустую
+  {
+    const stats = build('necromancer');
+    const run = new Run({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(19) });
+    run.start();
+    run.hp = 100000;
+    run.res = stats.resMax;
+    ok(run.usePerk('necromancer_start').ok, 'взрыв трупа применяется');
+    const again = run.perkReady(PERK_BY_ID.necromancer_start);
+    ok(!again.ok && again.reason === 'active', `повторный взрыв трупа недоступен (${again.reason ?? 'ok'})`);
+  }
+
+  // у каждой способности есть своя вспышка
+  {
+    let noFx = 0;
+    for (const id of Object.keys(CLASSES) as ClassId[]) {
+      const stats = build(id);
+      for (const perk of stats.abilities) {
+        const run = new Run({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(13) });
+        run.start();
+        run.cards.fill(null);
+        run.playerCell = 4;
+        run.hp = 100000;
+        run.res = stats.resMax;
+        run.totals.gold = 400;
+        for (const c of [0, 1, 2, 3, 5, 6, 7]) run.cards[c] = enemy(500, 3);
+        run.cards[8] = { ...enemy(1), kind: 'gold', defId: 'gold', value: 25, hp: 0, maxHp: 0, atk: 0, baseAtk: 0 };
+        const r = run.usePerk(perk.id);
+        let events = r.events;
+        while (run.armed) {
+          const cell = [0, 1, 2, 3, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
+          if (cell === undefined) break;
+          // «Перестановка» требует двух касаний — эффект рисуется на последнем
+          events = [...events, ...run.tap(cell).events];
+        }
+        const drew = events.some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
+        if (!drew) noFx++;
+        ok(drew, `${id}/${perk.id}: способность рисует эффект`);
+      }
+    }
+    ok(noFx === 0, `все способности со вспышкой (без эффекта: ${noFx})`);
+  }
+
   // «один раз за комнату» действительно один раз
   {
     const stats = build('berserk');
@@ -308,8 +474,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     const burning = run.cards[0]!;
     ok(burning.burn > 0 && burning.burnDmg > 0, 'поджог вешает горение');
     const hp0 = burning.hp;
-    run.cards[1] = enemy(100000, 1);
-    run.tap(1);
+    // маг рукой не бьёт, зато ходит по пустым клеткам — это полноценный ход
+    ok(run.tap(1).ok, 'ход на пустую соседнюю клетку засчитывается');
     ok(run.cards[0]!.hp < hp0, 'горение отнимает здоровье в конце хода');
   }
 
@@ -363,9 +529,11 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 
 // ---------------------------------------------------------------- автоприменение расходников
 {
-  const mk = (lin: 'mage' | 'warrior' | 'archer' | 'mercenary'): Run => {
+  const mk = (lin: 'mage' | 'warrior' | 'archer' | 'mercenary', perks: string[] = []): Run => {
     const tree = TREES[lin];
-    const stats = buildPlayerStats({ classId: lin, lineage: newLineageSave(tree), weapon: null, armor: null });
+    const ls = newLineageSave(tree);
+    for (const id of perks) ls.ranks[id] = 1;
+    const stats = buildPlayerStats({ classId: lin, lineage: ls, weapon: null, armor: null });
     const run = new Run({
       room: ROOMS[0], stats, weapon: null, armor: null, consumables: { potion_heal: 2, potion_regen: 2, artifact: 2 }, rng: makeRng(3),
     });
@@ -390,10 +558,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   heal.consumables.potion_heal = 0;
   ok(!needsHeal(heal), 'зелье исцеления: нет зелий — нечего применять');
 
-  const regen = mk('mage');
+  // «Удар молнии» маны не стоит, поэтому зелье нужно ради платных заклинаний
+  const nothingToSpend = mk('mage');
+  nothingToSpend.cards[5] = enemy(1);
+  nothingToSpend.res = 0;
+  ok(!needsRegen(nothingToSpend), 'зелье восстановления: тратить ману ещё не на что — держим');
+  const regen = mk('mage', ['perk/mage/p2']);
   regen.cards[5] = enemy(1);
   regen.res = 0;
-  ok(needsRegen(regen), 'зелье восстановления: мане не хватает на молнию — применяем');
+  ok(needsRegen(regen), 'зелье восстановления: мане не хватает на заклинание — применяем');
   regen.res = regen.stats.resMax;
   ok(!needsRegen(regen), 'зелье восстановления: маны хватает — держим');
   const warrior = mk('warrior');
@@ -407,7 +580,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   merc.res = 0;
   ok(needsRegen(merc), 'зелье восстановления: шкала пуста — применяем');
 
-  const art = mk('mage');
+  const art = mk('mage', ['perk/mage/p2']);
   const dmg = art.artifactDamage();
   art.cards[0] = enemy(1, dmg);
   art.cards[1] = enemy(1, dmg);
@@ -416,7 +589,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   ok(worthArtifact(art), 'артефакт: три цели — применяем');
   ok(!worthArtifact(mk('warrior')), 'артефакт: только линейка мага');
 
-  const pick = mk('mage');
+  const pick = mk('mage', ['perk/mage/p2']);
   pick.cards[5] = enemy(500);
   pick.hp = 2;
   pick.res = 0;

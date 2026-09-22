@@ -23,26 +23,32 @@ interface Tier {
   price: number;
 }
 
+/**
+ * Восемь ступеней снаряжения на десять этажей. Цена растёт медленнее силы: доход с этажа
+ * умножается на FLOOR_GOLD (≈1.48), поэтому и цена ступени держится в тех же пределах —
+ * иначе верхние этажи упираются не в мастерство, а в кассу. Прочность верхних ступеней выше:
+ * дорогая вещь не должна рассыпаться за пять боёв.
+ */
 const WEAPON_TIERS: Tier[] = [
   { dmg: 1, def: 0, hp: 0, dur: 40, price: 50 },
   { dmg: 2, def: 0, hp: 0, dur: 55, price: 130 },
-  { dmg: 4, def: 0, hp: 0, dur: 70, price: 340 },
-  { dmg: 8, def: 0, hp: 0, dur: 85, price: 880 },
-  { dmg: 15, def: 0, hp: 0, dur: 100, price: 2300 },
-  { dmg: 28, def: 0, hp: 0, dur: 120, price: 6000 },
-  { dmg: 50, def: 0, hp: 0, dur: 140, price: 15000 },
-  { dmg: 90, def: 0, hp: 0, dur: 160, price: 40000 },
+  { dmg: 4, def: 0, hp: 0, dur: 70, price: 330 },
+  { dmg: 8, def: 0, hp: 0, dur: 90, price: 780 },
+  { dmg: 15, def: 0, hp: 0, dur: 110, price: 1800 },
+  { dmg: 28, def: 0, hp: 0, dur: 135, price: 4000 },
+  { dmg: 50, def: 0, hp: 0, dur: 165, price: 8600 },
+  { dmg: 90, def: 0, hp: 0, dur: 200, price: 18000 },
 ];
 
 const ARMOR_TIERS: Tier[] = [
   { dmg: 0, def: 1, hp: 2, dur: 40, price: 60 },
-  { dmg: 0, def: 2, hp: 5, dur: 55, price: 160 },
-  { dmg: 0, def: 4, hp: 10, dur: 70, price: 420 },
-  { dmg: 0, def: 7, hp: 20, dur: 85, price: 1100 },
-  { dmg: 0, def: 12, hp: 38, dur: 100, price: 2800 },
-  { dmg: 0, def: 20, hp: 70, dur: 120, price: 7200 },
-  { dmg: 0, def: 33, hp: 130, dur: 140, price: 18000 },
-  { dmg: 0, def: 55, hp: 240, dur: 160, price: 48000 },
+  { dmg: 0, def: 2, hp: 5, dur: 55, price: 155 },
+  { dmg: 0, def: 4, hp: 10, dur: 70, price: 390 },
+  { dmg: 0, def: 7, hp: 20, dur: 90, price: 930 },
+  { dmg: 0, def: 12, hp: 38, dur: 110, price: 2150 },
+  { dmg: 0, def: 20, hp: 70, dur: 135, price: 4800 },
+  { dmg: 0, def: 33, hp: 130, dur: 165, price: 10400 },
+  { dmg: 0, def: 55, hp: 240, dur: 200, price: 21600 },
 ];
 
 const WEAPON_NAMES: Record<LineageId, Array<[string, string]>> = {

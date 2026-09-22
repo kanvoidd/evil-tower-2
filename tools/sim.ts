@@ -96,15 +96,24 @@ const SKIP = new Set(['swap', 'deck_draw', 'bribe', 'falcon_courier', 'rewind'])
 /** Способности без цели, выгодные только при куче врагов. */
 const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_rain', 'shuriken_fan', 'heavens_wrath', 'starfall', 'inferno', 'dead_harvest', 'wind_shadow', 'shadow_reap']);
 
-const tryPerk = (run: Run): boolean => {
+/** Событие, по которому видно, что способность что-то изменила. */
+const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'swap', 'slide', 'rewind', 'gold', 'souls']);
+
+const tryPerk = (run: Run, dud: Set<string>): boolean => {
   const enemies = run.cards.filter((c) => c?.kind === 'enemy').length;
   for (const perk of run.stats.abilities as PerkDef[]) {
-    if (SKIP.has(perk.ability)) continue;
+    if (SKIP.has(perk.ability) || dud.has(perk.id)) continue;
     if (!run.perkReady(perk).ok) continue;
     const full = perk.cost === FULL_BAR;
     if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
     if (full && enemies < 4) continue;
-    if (perk.target === 'self') return run.usePerk(perk.id).ok;
+    if (perk.target === 'self') {
+      const r = run.usePerk(perk.id);
+      if (!r.ok) continue;
+      // усиление, которое ничего не поменяло, бот больше в этой комнате не трогает
+      if (!r.events.some((e) => CHANGED.has(e.type))) dud.add(perk.id);
+      return true;
+    }
     // ищем цель: самый опасный достижимый враг
     let best = -1;
     let bestScore = -1e9;
@@ -126,17 +135,31 @@ const tryPerk = (run: Run): boolean => {
   return false;
 };
 
+const CELL_DIST = (a: number, b: number): number =>
+  Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
+
+/** Сколько врагов достанет рука (или молния) с этой клетки. */
+const adjacentEnemies = (run: Run, cell: number): number => {
+  let n = 0;
+  for (let c = 0; c < 9; c++) if (run.cards[c]?.kind === 'enemy' && CELL_DIST(cell, c) === 1) n++;
+  return n;
+};
+
+/** Расстояние до ближайшего врага. */
+const nearestEnemy = (run: Run, cell: number): number => {
+  let best = 9;
+  for (let c = 0; c < 9; c++) if (run.cards[c]?.kind === 'enemy') best = Math.min(best, CELL_DIST(cell, c));
+  return best;
+};
+
 const bot = (run: Run): void => {
+  const dud = new Set<string>();
   for (let guard = 0; guard < 500 && !run.over; guard++) {
-    if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0) {
-      run.useItem('potion_heal');
-      continue;
-    }
-    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3) {
-      run.useItem('artifact');
-      continue;
-    }
-    if (tryPerk(run)) continue;
+    // проверяем результат: расходник может быть недоступен (артефакты — только у магов),
+    // иначе бот зациклится на бесполезной попытке и не сделает ни одного хода
+    if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0 && run.useItem('potion_heal').ok) continue;
+    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3 && run.useItem('artifact').ok) continue;
+    if (tryPerk(run, dud)) continue;
     let bestCell = -1;
     let bestScore = -1e9;
     for (let cell = 0; cell < 9; cell++) {
@@ -153,6 +176,18 @@ const bot = (run: Run): void => {
       if (score > bestScore) {
         bestScore = score;
         bestCell = cell;
+      }
+    }
+    // Ни одной карты под рукой (так живёт маг: рукой он не бьёт вовсе) — шагаем на пустую
+    // клетку поближе к врагу. Ход по пустому полю теперь разрешён и считается полноценным.
+    if (bestCell < 0) {
+      for (let cell = 0; cell < 9; cell++) {
+        if (run.cards[cell] || run.actionFor(cell).kind !== 'move') continue;
+        const score = adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
+        if (score > bestScore) {
+          bestScore = score;
+          bestCell = cell;
+        }
       }
     }
     if (bestCell < 0) break;
