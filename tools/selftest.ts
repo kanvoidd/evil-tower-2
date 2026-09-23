@@ -1,7 +1,9 @@
 /** Самопроверка логики: npm run selftest */
-import { CLASSES, LINEAGE_ORDER, classesOfLineage } from '../src/data/classes';
+import { CLASSES, classesOfLineage } from '../src/data/classes';
+import { LINEAGE_ORDER } from '../src/data/heroes';
 import { ENEMY_LIST } from '../src/data/enemies';
-import { FLOORS, MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
+import { MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
+import { FLOORS } from '../src/data/floors';
 import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/data/perks';
 import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
 import { perkCost, talentRankCost } from '../src/data/economy';

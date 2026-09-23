@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CLASS_ORDER, CLASSES } from '../data/classes';
 import { ITEMS } from '../data/items';
-import { ENEMIES } from '../data/levels';
+import { ENEMIES } from '../data/enemies';
 import { PERKS, type VfxStyle } from '../data/perks';
 import { SVG_ICONS } from './SvgIcons';
 import { armorArt, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt, type Draw } from './PixelArt';

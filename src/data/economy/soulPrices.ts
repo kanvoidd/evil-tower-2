@@ -1,6 +1,6 @@
-import type { ClassId } from '../types';
-import { CLASSES } from './classes';
-import type { PerkSlot } from './perks';
+import type { ClassId } from '../../types';
+import { CLASSES } from '../classes/classRegistry';
+import type { PerkSlot } from '../perks/interfaces/PerkSlot';
 
 /**
  * Экономика опыта душ. Узлов стало мало (девять талантов на класс вместо сотни шариков),
@@ -42,15 +42,3 @@ export const perkCost = (owner: ClassId, slot: PerkSlot): number => {
 export const classCost = (classId: ClassId): number => (CLASSES[classId].stage === 1 ? 3500 : 12000);
 
 export const metamorphosisCost = classCost;
-
-export const DAILY_REWARDS: Array<{ gold?: number; souls?: number; heal?: number; regen?: number }> = [
-  { gold: 120 },
-  { heal: 2, regen: 1 },
-  { souls: 180 },
-  { gold: 350 },
-  { heal: 3, regen: 3 },
-  { souls: 500, gold: 250 },
-  { gold: 1000, souls: 800, heal: 5, regen: 5 },
-];
-
-export const GIFT_REWARD = { gold: 70, souls: 40 };

@@ -1,5 +1,6 @@
 import type { ClassId, LineageId, LineageSave, TalentPath } from '../types';
-import { CLASSES, LINEAGE_ORDER, classesOfLineage, secondOf, terminalsOf } from '../data/classes';
+import { CLASSES, classesOfLineage, secondOf, terminalsOf } from '../data/classes';
+import { LINEAGE_ORDER } from '../data/heroes';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../data/economy';
 import { PERK_BY_ID, perkId, perksOfClass, SLOT_ORDER, type PerkSlot } from '../data/perks';
 import {

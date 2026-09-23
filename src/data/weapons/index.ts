@@ -1,0 +1,1 @@
+export { WEAPONS } from './weaponRegistry';

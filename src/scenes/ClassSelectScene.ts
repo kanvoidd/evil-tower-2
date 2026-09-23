@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { ClassId, LineageId } from '../types';
-import { CLASSES, LINEAGE_ORDER } from '../data/classes';
+import { CLASSES } from '../data/classes';
+import { LINEAGE_ORDER } from '../data/heroes';
 import { ROOMS } from '../data/levels';
 import { CAROUSEL, GAMEPLAY, GAME_W, HEX } from '../config';
 import { Store } from '../systems/Store';
