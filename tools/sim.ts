@@ -13,6 +13,7 @@ import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } fro
 import { buildPlayerStats } from '../src/logic/stats';
 import { makeRng } from '../src/logic/rng';
 import { Run, type RunCarryStats } from '../src/logic/run';
+import { needsRegen } from '../src/logic/autoUse';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
 const N = Number(process.argv[3] ?? 20);
@@ -89,6 +90,11 @@ const shop = (): void => {
   while (gold >= 55 && consumables.potion_heal < 5) {
     gold -= 55;
     consumables.potion_heal++;
+  }
+  // маг без маны беспомощен: зелья восстановления он берёт с собой на весь предел лавки
+  while (lineage === 'mage' && gold >= 85 && consumables.potion_regen < 3) {
+    gold -= 85;
+    consumables.potion_regen++;
   }
 };
 
@@ -197,6 +203,8 @@ const bot = (run: Run): void => {
     // иначе бот зациклится на бесполезной попытке и не сделает ни одного хода
     if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0 && run.useItem('potion_heal').ok) continue;
     if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3 && run.useItem('artifact').ok) continue;
+    // как у игрока с автоприменением: ресурса нет на основной удар, а шкала почти пуста
+    if (needsRegen(run) && run.useItem('potion_regen').ok) continue;
     if (tryPerk(run, dud)) continue;
     let bestCell = -1;
     let bestScore = -1e9;

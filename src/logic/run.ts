@@ -53,6 +53,8 @@ export type FxStyle = VfxStyle;
 
 /** Потолок «защиты после способности»: ослабляет удар, но никогда не гасит его целиком. */
 const PERK_GUARD_CAP = 0.5;
+/** Ниже этой цены талант-скидка способность не удешевляет. */
+const PERK_COST_FLOOR = 2;
 
 export type GameEvent =
   | { type: 'spawn'; cell: number; card: Card }
@@ -228,7 +230,8 @@ export class Run {
     this.mod = this.plan.mod;
     const carry = init.carry;
     this.hp = carry ? Math.max(1, Math.min(this.stats.maxHp, Math.round(carry.hp))) : this.stats.maxHp;
-    this.res = carry ? Math.max(0, Math.min(this.stats.resMax, carry.res)) : Math.ceil(this.stats.resMax * 0.5);
+    // в забег герой выходит отдохнувшим — с полной шкалой; дальше её несёт из комнаты в комнату
+    this.res = carry ? Math.max(0, Math.min(this.stats.resMax, carry.res)) : this.stats.resMax;
     this.revived = carry?.revived ?? false;
     this.selfRevived = carry?.selfRevived ?? false;
     this.cheatLeft = this.stats.cheatDeath;
@@ -483,7 +486,10 @@ export class Run {
   perkCostOf(p: PerkDef): number {
     if (this.freePerkLeft > 0) return 0;
     if (p.cost === FULL_BAR) return this.stats.resMax;
-    return Math.max(0, (p.cost ?? 0) - this.stats.perkCostDown);
+    // скидка не опускает цену ниже двух: иначе молния за единицу окупалась бы
+    // восстановлением каждого хода, и мана перестала бы что-то значить
+    const base = p.cost ?? 0;
+    return Math.max(Math.min(base, PERK_COST_FLOOR), base - this.stats.perkCostDown);
   }
 
   /**
@@ -1404,7 +1410,7 @@ export class Run {
       case 'lightning': {
         events.push({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
         const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(1.9 * (1 + this.stats.lightningPower));
+        let dmg = this.spellDamage(2.5 * (1 + this.stats.lightningPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         const killed = this.strike(cell, dmg, crit, events);
         // «Раздвоение молнии»: второй разряд бьёт ту же цель, а не соседа
