@@ -1,6 +1,7 @@
 import type { AutoUseSave, ConsumableId } from '../types';
 import { FULL_BAR } from '../data/perks';
-import { neighborsOf, type Run } from './run';
+import { Grid } from '../engine/grid/Grid';
+import type { IRunState } from './run';
 import type { PlayerStats } from './stats';
 
 /** По умолчанию всё выключено: игрок включает автоприменение сам, рядом с нужным расходником. */
@@ -17,9 +18,9 @@ export const coreCost = (s: PlayerStats): number => {
 };
 
 /** Наибольший урон, который может нанести контратака соседнего врага. */
-export const worstStrike = (run: Run): number => {
+export const worstStrike = (run: IRunState): number => {
   let worst = 0;
-  for (const c of neighborsOf(run.playerCell)) {
+  for (const c of Grid.neighbors(run.playerCell)) {
     const card = run.cards[c];
     if (card?.kind === 'enemy' && card.stun <= 0) worst = Math.max(worst, run.strikeDamage(card.atk));
   }
@@ -27,13 +28,13 @@ export const worstStrike = (run: Run): number => {
 };
 
 /** Следующий ответный удар может убить героя (щит считается за здоровье). */
-export const inDanger = (run: Run): boolean => run.hp + run.shield <= worstStrike(run);
+export const inDanger = (run: IRunState): boolean => run.hp + run.shield <= worstStrike(run);
 
 /**
  * Зелье исцеления «по необходимости»: когда здоровья не хватает на весь объём лечения (ничего не пропадает зря)
  * либо следующий удар врага мог бы стать смертельным.
  */
-export const needsHeal = (run: Run): boolean => {
+export const needsHeal = (run: IRunState): boolean => {
   if (run.over || run.consumables.potion_heal <= 0) return false;
   const missing = run.stats.maxHp - run.hp;
   if (missing <= 0) return false;
@@ -44,7 +45,7 @@ export const needsHeal = (run: Run): boolean => {
  * Зелье восстановления: ресурса не хватает на основное действие, шкала почти пуста (вернёт не меньше 60%),
  * а враги ещё есть.
  */
-export const needsRegen = (run: Run): boolean => {
+export const needsRegen = (run: IRunState): boolean => {
   if (run.over || run.consumables.potion_regen <= 0) return false;
   const need = coreCost(run.stats);
   if (need <= 0 || run.res >= need || run.enemiesLeft <= 0) return false;
@@ -52,7 +53,7 @@ export const needsRegen = (run: Run): boolean => {
 };
 
 /** Артефакт (маг): одним ударом уничтожает 3+ врагов, а при опасности — хотя бы двух. */
-export const worthArtifact = (run: Run): boolean => {
+export const worthArtifact = (run: IRunState): boolean => {
   if (run.over || !run.lineageDef.artifacts || run.consumables.artifact <= 0) return false;
   const dmg = run.artifactDamage();
   let kills = 0;
@@ -61,7 +62,7 @@ export const worthArtifact = (run: Run): boolean => {
 };
 
 /** Что применить прямо сейчас (не больше одного предмета за ход) — или null. Порядок: жизнь, ресурс, артефакт. */
-export const pickAutoUse = (run: Run, cfg: AutoUseSave): ConsumableId | null => {
+export const pickAutoUse = (run: IRunState, cfg: AutoUseSave): ConsumableId | null => {
   if (run.over) return null;
   if (cfg.heal && needsHeal(run)) return 'potion_heal';
   if (cfg.regen && needsRegen(run)) return 'potion_regen';
