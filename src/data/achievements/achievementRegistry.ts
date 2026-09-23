@@ -1,13 +1,5 @@
-import type { SaveData } from '../types';
-
-export interface AchievementDef {
-  id: string;
-  name: { ru: string; en: string };
-  desc: { ru: string; en: string };
-  target: number;
-  /** Текущее значение прогресса из сохранения. */
-  progress: (s: SaveData) => number;
-}
+import type { SaveData } from '../../types';
+import type { AchievementDef } from './interfaces/AchievementDef';
 
 const count = (key: keyof SaveData['stats']) => (s: SaveData): number => s.stats[key];
 // Достижения общие на профиль: этаж считается взятым, если хоть один герой прошёл его за один забег

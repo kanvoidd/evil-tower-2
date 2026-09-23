@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { AutoUseSave, CardKind, ConsumableId } from '../types';
-import { CONSUMABLE_SLOTS, CONSUMABLES, ITEM_BY_ID } from '../data/items';
+import { ITEM_BY_ID } from '../data/items';
+import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables';
 import { ENEMIES } from '../data/enemies';
 import { ROOM_BY_ID, ROOMS } from '../data/levels';
 import { FULL_BAR, PERK_BY_ID, type PerkDef } from '../data/perks';

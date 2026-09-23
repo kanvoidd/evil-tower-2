@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { CLASSES, LINEAGES } from '../data/classes';
+import { CLASSES } from '../data/classes';
+import { LINEAGES } from '../data/heroes';
 import { ITEM_BY_ID } from '../data/items';
 import { COLOR, HEX } from '../config';
 import { Store } from '../systems/Store';

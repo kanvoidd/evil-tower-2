@@ -1,5 +1,6 @@
 import type { ClassId, EquipmentSave, LineageId, LineageSave, ResourceKind } from '../types';
-import { CLASSES, LINEAGES } from '../data/classes';
+import { CLASSES } from '../data/classes';
+import { LINEAGES } from '../data/heroes';
 import { ITEM_BY_ID } from '../data/items';
 import { hasButton, PERK_BY_ID, type AbilityId, type PerkDef } from '../data/perks';
 import { GAMEPLAY } from '../config';

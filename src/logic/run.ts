@@ -3,7 +3,7 @@ import { ENEMIES, isHolyTarget, type EnemyDef } from '../data/enemies';
 import { ELITE, rollRoom, type RoomDef, type RoomModifier, type RoomPlan } from '../data/levels';
 import { ITEM_BY_ID } from '../data/items';
 import { FULL_BAR, PERK_BY_ID, type AbilityId, type PerkDef, type VfxStyle } from '../data/perks';
-import { LINEAGES } from '../data/classes';
+import { LINEAGES } from '../data/heroes';
 import { GAMEPLAY } from '../config';
 import type { PlayerStats } from './stats';
 import type { Rng } from './rng';

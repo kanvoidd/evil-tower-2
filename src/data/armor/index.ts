@@ -1,0 +1,1 @@
+export { ARMORS } from './armorRegistry';

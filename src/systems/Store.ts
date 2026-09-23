@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import type {
   AutoSkillSave, AutoUseSave, ClassId, ConsumableId, EquipmentSave, HeroSave, Lang, LineageId, LineageSave, SaveData,
 } from '../types';
-import { CLASSES, LINEAGE_ORDER } from '../data/classes';
-import { CONSUMABLES, ITEM_BY_ID, REPAIR_RATIO, type ItemDef } from '../data/items';
+import { CLASSES } from '../data/classes';
+import { LINEAGE_ORDER } from '../data/heroes';
+import { ITEM_BY_ID, REPAIR_RATIO, type ItemDef } from '../data/items';
+import { CONSUMABLES } from '../data/consumables';
 import { ROOM_BY_ID } from '../data/levels';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { DAILY_REWARDS, GIFT_REWARD } from '../data/economy';

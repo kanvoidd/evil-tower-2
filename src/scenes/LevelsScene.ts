@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLOR, GAME_H, GAME_W, HEX } from '../config';
-import { FLOORS, ROOMS, ROOMS_PER_FLOOR } from '../data/levels';
+import { ROOMS, ROOMS_PER_FLOOR } from '../data/levels';
+import { FLOORS } from '../data/floors';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
 import { t } from '../i18n';

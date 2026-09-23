@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAMEPLAY, HEX } from '../config';
-import { CONSUMABLE_SLOTS, CONSUMABLES, ITEMS, ITEM_BY_ID, type ItemDef } from '../data/items';
+import { ITEMS, ITEM_BY_ID, type ItemDef } from '../data/items';
+import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables';
 import type { ConsumableId } from '../types';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
