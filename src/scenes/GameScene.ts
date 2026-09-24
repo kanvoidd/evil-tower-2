@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
-import type { AutoUseSave, CardKind, ConsumableId } from '../types';
+import type { AutoUseSave, ConsumableId } from '../types';
 import { ITEM_BY_ID } from '../data/items';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables';
-import { ENEMIES } from '../data/enemies';
 import { ROOM_BY_ID, ROOMS } from '../data/levels';
 import { FULL_BAR, PERK_BY_ID, type PerkDef } from '../data/perks';
 import { GAME_W, GAMEPLAY, HEX, TIMING } from '../config';
@@ -10,17 +9,21 @@ import { YSDK } from '../sdk/YandexSDK';
 import { AUDIO } from '../systems/Audio';
 import { Store } from '../systems/Store';
 import { maybeInterstitial, watchRewarded } from '../systems/Ads';
-import { fmt, perkDesc, perkName, t, tr } from '../i18n';
+import { fmt, perkDesc, perkName, t } from '../i18n';
 import type { TKey } from '../i18n';
 import { makeRng, randomSeed } from '../logic/rng';
-import { Run, type Card, type FxStyle, type GameEvent, type Loot, type RunCarryStats } from '../logic/run';
-import { STATUS_TINT } from '../ui/Textures';
+import { FLOOR_FACTORIES } from '../data/floors';
+import { Grid } from '../engine/grid/Grid';
+import { HERO_FACTORIES } from '../data/heroes';
+import type { FxStyle, GameEvent, Loot } from '../game-data/events';
+import { RunFactory, type IRunSession, type RunCarryStats } from '../logic/run';
+import { CardViewFactory, type CardView } from '../ui/card-view';
 import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../logic/autoUse';
 import { CARD_H, CARD_W } from '../ui/Textures';
 import { Vfx } from '../ui/Vfx';
 import {
   background, bindToasts, CurrencyBar, Dialog, dollyIn, fadeToScene, icon, outlineTexture, PlateButton, plateTexture, shadowTexture, soundButton,
-  statChip, statPill, tapHint, tipOnHover, toast, txt, type DialogBtn, type Pill,
+  statChip, tapHint, tipOnHover, toast, txt, type DialogBtn,
 } from '../ui/Kit';
 
 const BOARD = { x0: 46, y0: 226, gap: 14 };
@@ -51,26 +54,6 @@ const AUTO_TIP: Record<ConsumableId, TKey> = {
   potion_heal: 'auto.use.heal.tip', potion_regen: 'auto.use.regen.tip', artifact: 'auto.use.artifact.tip',
 };
 
-/** Центр «окна» с артом внутри карточки и линии подписей. */
-const ART_Y = -33;
-const LABEL_Y = 48;
-const PILL_Y = 86;
-
-interface View {
-  c: Phaser.GameObjects.Container;
-  uid: number;
-  kind: CardKind | 'player';
-  cell: number;
-  frame: Phaser.GameObjects.Image;
-  sprite: Phaser.GameObjects.Image;
-  flash: Phaser.GameObjects.Image;
-  hp?: Pill;
-  atk?: Pill;
-  shield?: Pill;
-  statusRow?: Phaser.GameObjects.Container;
-  defId: string;
-}
-
 /** Кнопка способности класса в нижней панели. */
 interface PerkBtn {
   perk: PerkDef;
@@ -80,13 +63,6 @@ interface PerkBtn {
   name: Phaser.GameObjects.Text;
   frame: Phaser.GameObjects.Image;
 }
-
-/** Значки статусов на карточке врага: цвет и короткая подпись. */
-const STATUS_TAG: Record<string, string> = {
-  stun: '\u2736', burn: '\u2668', poison: '\u2620', mark: '\u25C6', link: '\u26AF', vuln: '!', weak: '\u2193',
-  // метка «взрыв трупа», заражение призрачными слугами и оставшиеся ходы призрака
-  corpse: '\u2739', haunt: '\u2601', ghost: '\u23F3',
-};
 
 interface Slot {
   id: ConsumableId;
@@ -122,9 +98,12 @@ const freshCarry = (): RunCarry => ({ index: 0, rooms: 0, gold: 0, souls: 0, bes
 
 export class GameScene extends Phaser.Scene {
   private roomId = '1-1';
-  private run!: Run;
-  private views = new Map<number, View>();
-  private playerView!: View;
+  /** Бой глазами игрока: что видно и что можно сделать. Как ходы разыгрываются, решают правила и движок. */
+  private run!: IRunSession;
+  /** Карточки поля рисует фабрика видов, сцена их только двигает. */
+  private cardViews!: CardViewFactory;
+  private views = new Map<number, CardView>();
+  private playerView!: CardView;
   private busy = false;
   private alive = true;
   private finished = false;
@@ -192,7 +171,8 @@ export class GameScene extends Phaser.Scene {
     });
 
     const room = ROOM_BY_ID[this.roomId];
-    this.run = new Run({
+    // бой собирает фабрика: героя берёт у фабрик героев, врагов — у фабрик этажей
+    this.run = new RunFactory(HERO_FACTORIES, FLOOR_FACTORIES).create({
       room,
       stats: Store.playerStats(),
       weapon: Store.equipped('weapon'),
@@ -201,9 +181,11 @@ export class GameScene extends Phaser.Scene {
       rng: makeRng(randomSeed()),
       carry: this.carry.hero,
     });
+    this.cardViews = new CardViewFactory(this);
     this.buildHud();
     this.buildBoardBackdrop();
-    this.playerView = this.buildPlayer();
+    const pc = this.run.playerCell;
+    this.playerView = this.cardViews.createHero(this.run.stats, this.run.hp, pc, cellPos(pc));
     this.setupInput();
 
     YSDK.gameplayStart();
@@ -539,117 +521,11 @@ export class GameScene extends Phaser.Scene {
 
   // ------------------------------------------------------------------------------ карты
 
-  private buildCard(card: Card, cell: number): View {
-    const p = cellPos(cell);
-    const c = this.add.container(p.x, p.y).setDepth(1);
-    let frameKey = 'card_item';
-    let spriteKey = '';
-    let spriteSize = 112;
-    let label = '';
-    let labelColor: string = HEX.text;
-    switch (card.kind) {
-      case 'enemy': {
-        const def = ENEMIES[card.defId];
-        frameKey = 'card_enemy';
-        spriteKey = def.icon;
-        spriteSize = def.boss ? 124 : 108;
-        label = tr(def.name);
-        if (def.boss) labelColor = HEX.gold;
-        break;
-      }
-      case 'exit': frameKey = 'card_exit'; spriteKey = 'spr_exit'; spriteSize = 120; label = t('game.exit'); labelColor = HEX.gold; break;
-      case 'ghost': frameKey = 'card_ghost'; spriteKey = 'enemy_ghost'; spriteSize = 108; label = t('game.ghost'); labelColor = '#a9e8ff'; break;
-      case 'gold': frameKey = 'card_gold'; spriteKey = 'spr_gold'; label = `+${card.value}`; labelColor = HEX.gold; break;
-      case 'chest': frameKey = 'card_chest'; spriteKey = 'spr_chest'; label = t('game.chest'); break;
-      case 'potion_heal': spriteKey = 'item_potion_heal'; label = t('shop.potion_heal'); break;
-      case 'potion_regen': spriteKey = 'item_potion_regen'; label = t('shop.potion_regen'); break;
-      case 'artifact': spriteKey = 'item_artifact'; label = t('shop.artifact'); break;
-    }
-    const frame = this.add.image(0, 0, frameKey);
-    const shadow = this.add.ellipse(0, ART_Y + spriteSize / 2 - 6, spriteSize * 0.62, 12, 0x000000, 0.35);
-    const sprite = this.add.image(0, ART_Y, spriteKey).setDisplaySize(spriteSize, spriteSize);
-    const flash = this.add.image(0, 0, frameKey).setTintFill(0xff2a2a).setAlpha(0.5).setVisible(false);
-    c.add([frame, shadow, sprite, flash]);
-    const view: View = { c, uid: card.uid, kind: card.kind, cell, frame, sprite, flash, defId: card.defId };
-    if (card.kind === 'enemy') {
-      view.statusRow = this.add.container(0, -92);
-      c.add(view.statusRow);
-      c.add(txt(this, 0, LABEL_Y, label, 21, { color: labelColor, maxWidth: CARD_W - 32, strokeThickness: 3 }));
-      view.atk = statPill(this, -47, PILL_Y, { w: 84, stat: 'damage', text: String(card.atk) });
-      view.hp = statPill(this, 47, PILL_Y, { w: 84, stat: 'health', text: String(card.hp) });
-      c.add([view.atk.c, view.hp.c]);
-      this.updateStatuses(view, card);
-    } else if (card.kind === 'gold') {
-      const amount = txt(this, 0, 74, label, 34, { color: labelColor, weight: 900 });
-      c.add(amount);
-    } else if (card.kind === 'ghost') {
-      // призрак — союзник: вместо атаки и здоровья показываем, сколько ходов ему осталось
-      sprite.setAlpha(0.8);
-      view.statusRow = this.add.container(0, -92);
-      c.add(view.statusRow);
-      c.add(txt(this, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
-      this.updateStatuses(view, card);
-    } else {
-      c.add(txt(this, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
-    }
-    return view;
-  }
-
-  private buildPlayer(): View {
-    const cell = this.run.playerCell;
-    const p = cellPos(cell);
-    const s = this.run.stats;
-    const c = this.add.container(p.x, p.y).setDepth(5);
-    const frame = this.add.image(0, 0, 'card_hero');
-    const shadow = this.add.ellipse(0, ART_Y + 50, 70, 12, 0x000000, 0.35);
-    const sprite = this.add.image(0, ART_Y, `hero_${s.classId}`).setDisplaySize(112, 112);
-    const flash = this.add.image(0, 0, 'card_hero').setTintFill(0xff2a2a).setAlpha(0.5).setVisible(false);
-    c.add([frame, shadow, sprite, flash]);
-    c.add(txt(this, 0, LABEL_Y, t(`class.${s.classId}.name` as TKey), 21, { color: HEX.gold, maxWidth: CARD_W - 32 }));
-    const view: View = { c, uid: -1, kind: 'player', cell, frame, sprite, flash, defId: 'player' };
-    view.atk = statPill(this, -52, PILL_Y, { w: 70, stat: 'damage', text: String(s.damage) });
-    view.hp = statPill(this, 45, PILL_Y, { w: 98, stat: 'health', text: `${this.run.hp}/${s.maxHp}`, fontSize: 18 });
-    view.shield = statPill(this, -56, -88, { w: 66, h: 28, stat: 'defense', text: '0', fontSize: 16 });
-    view.shield.c.setVisible(false);
-    c.add([view.atk.c, view.hp.c, view.shield.c]);
-    return view;
-  }
-
-  /** Значки состояний над карточкой врага: оглушение, горение, яд, клеймо, связь, приговор. */
-  private updateStatuses(view: View, card: Card): void {
-    const row = view.statusRow;
-    if (!row) return;
-    row.removeAll(true);
-    const list: Array<[string, number]> = [];
-    if (card.stun > 0) list.push(['stun', card.stun]);
-    if (card.burn > 0) list.push(['burn', card.burn]);
-    if (card.poison > 0) list.push(['poison', card.poison]);
-    if (card.mark > 0) list.push(['mark', card.mark]);
-    if (card.link) list.push(['link', 0]);
-    if (card.vuln > 0) list.push(['vuln', 0]);
-    if (card.corpse) list.push(['corpse', 0]);
-    if (card.haunt) list.push(['haunt', 0]);
-    if (card.kind === 'ghost') list.push(['ghost', Math.max(2, card.ttl ?? 0)]);
-    if (!list.length) return;
-    const w = 38;
-    const gap = 6;
-    const total = list.length * w + (list.length - 1) * gap;
-    list.forEach(([kind, turns], i) => {
-      const x = -total / 2 + w / 2 + i * (w + gap);
-      const chip = this.add.container(x, 0);
-      chip.add(this.add.image(0, 0, plateTexture(this, w, 30, 1, 'dark', 15)));
-      chip.add(this.add.rectangle(0, 13, w - 10, 3, STATUS_TINT[kind] ?? 0xffffff));
-      const label = turns > 1 ? `${STATUS_TAG[kind]}${turns}` : STATUS_TAG[kind];
-      chip.add(txt(this, 0, -2, label, 17, { weight: 900, strokeThickness: 3, color: `#${(STATUS_TINT[kind] ?? 0xffffff).toString(16).padStart(6, '0')}` }));
-      row.add(chip);
-    });
-  }
-
   private refreshStatuses(): void {
     for (const v of this.views.values()) {
       if (v.kind !== 'enemy' && v.kind !== 'ghost') continue;
       const card = this.run.cards[v.cell];
-      if (card) this.updateStatuses(v, card);
+      if (card) this.cardViews.showStatuses(v, card);
     }
   }
 
@@ -660,7 +536,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 9; i++) {
       const card = this.run.cards[i];
       if (!card) continue;
-      const v = this.buildCard(card, i);
+      const v = this.cardViews.createCard(card, i, cellPos(i));
       this.views.set(card.uid, v);
     }
     const p = cellPos(this.run.playerCell);
@@ -668,7 +544,7 @@ export class GameScene extends Phaser.Scene {
     this.playerView.cell = this.run.playerCell;
   }
 
-  private viewAt(cell: number): View | undefined {
+  private viewAt(cell: number): CardView | undefined {
     for (const v of this.views.values()) if (v.cell === cell) return v;
     return undefined;
   }
@@ -832,7 +708,7 @@ export class GameScene extends Phaser.Scene {
       case 'spawn': {
         // на клетке не должно остаться чужого вида — иначе карты наезжают друг на друга
         this.dropViewAt(ev.cell);
-        const v = this.buildCard(ev.card, ev.cell);
+        const v = this.cardViews.createCard(ev.card, ev.cell, cellPos(ev.cell));
         this.views.set(ev.card.uid, v);
         v.c.setScale(0);
         void this.tw({ targets: v.c, scale: 1, duration: TIMING.cardSpawn, ease: 'Back.easeOut' });
@@ -1032,7 +908,7 @@ export class GameScene extends Phaser.Scene {
       case 'status': {
         const v = this.views.get(ev.uid);
         const card = this.run.cards[ev.cell];
-        if (v && card) this.updateStatuses(v, card);
+        if (v && card) this.cardViews.showStatuses(v, card);
         break;
       }
       case 'fx': {
@@ -1111,7 +987,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Бросок карточки в позицию цели и обратно за 0.35 с; возвращается в момент касания. */
-  private async lunge(view: View, toCell: number): Promise<void> {
+  private async lunge(view: CardView, toCell: number): Promise<void> {
     await this.lungeDone;
     const from = { x: view.c.x, y: view.c.y };
     const to = cellPos(toCell);
@@ -1192,7 +1068,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Damage blink: 0.75 с, интервал 0.25 с. */
-  private blink(v: View): void {
+  private blink(v: CardView): void {
     v.flash.setVisible(true);
     v.sprite.setTintFill(0xff5a4a);
     const steps = Math.round(TIMING.blinkTotal / TIMING.blinkInterval);
@@ -1292,7 +1168,7 @@ export class GameScene extends Phaser.Scene {
   private updateTutorial(): void {
     if (Store.data.tutorial.fight || this.finished) return;
     const pc = this.run.playerCell;
-    const adj = [pc - 3, pc + 3, pc % 3 > 0 ? pc - 1 : -1, pc % 3 < 2 ? pc + 1 : -1].filter((c) => c >= 0 && c < 9 && this.run.cards[c]);
+    const adj = Grid.neighbors(pc).filter((c) => this.run.cards[c]);
     if (this.hintStage === 0) {
       const pick = adj.find((c) => this.run.cards[c]!.kind === 'enemy' && this.run.wouldKill(c)) ?? adj.find((c) => this.run.cards[c]!.kind === 'enemy') ?? adj[0];
       this.showHint(t('tut.attack'), pick);

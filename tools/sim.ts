@@ -12,7 +12,7 @@ import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/types
 import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/logic/skillTree';
 import { buildPlayerStats } from '../src/logic/stats';
 import { makeRng } from '../src/logic/rng';
-import { Run, type RunCarryStats } from '../src/logic/run';
+import { RunFactory, type Run, type RunCarryStats } from '../src/logic/run';
 import { needsRegen } from '../src/logic/autoUse';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
@@ -259,7 +259,7 @@ const runTower = (): { rooms: number; turns: number; gold: number; souls: number
   for (let i = 0; i < ROOMS.length; i++) {
     const room = ROOMS[i];
     const stats = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-    const run = new Run({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed++), carry });
+    const run = RunFactory.standard().create({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed++), carry });
     run.start();
     bot(run);
     turns += run.totals.turns;
