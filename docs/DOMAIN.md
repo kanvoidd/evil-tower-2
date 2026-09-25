@@ -124,7 +124,7 @@
 | герой | `Hero` | прогресс |
 | класс, за который играет герой | `HeroClassState` | прогресс |
 | метаморфоза и её отмена | `Hero.metamorphose()`, `Hero.cancelMetamorphosis()` | прогресс |
-| дерево талантов, узел дерева | `Tree`, `TreeNode`, `TREES`; купленное — `LineageSave` | прогресс |
+| дерево талантов, узел дерева | `Tree`, `TreeNode` (уровень `row`), `TREES`, `SkillTreeBuilder`; купленное — `LineageSave`; экранная раскладка — `SkillTreeLayout` в presentation | прогресс |
 | сборка характеристик, потолки | `buildPlayerStats`, `Loadout`, `CAPS` | прогресс |
 | цена прокачки в душах | `talentRankCost`, `perkCost`, `classCost` | прогресс |
 | автопрокачка | `planAutoSkill`, `AutoSkillSave` | прогресс |

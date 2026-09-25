@@ -21,6 +21,7 @@ import type { SkillTreeViewDeps } from './interfaces/SkillTreeViewDeps';
 import { NodeView } from './NodeView';
 import { SkillInfoPanel } from './SkillInfoPanel';
 import { SkillTreeHeader } from './SkillTreeHeader';
+import { SkillTreeLayout } from './SkillTreeLayout';
 
 /**
  * Дерево навыков на экране: узлы и связи на «холсте», который панорамируется пальцем, шапка
@@ -33,6 +34,7 @@ export class SkillTreeView implements ISkillTreeView {
   private static readonly OFFSET_Y = 260;
 
   private readonly tree: Tree;
+  private readonly layout: SkillTreeLayout;
   private readonly nodes = new Map<string, NodeView>();
   private readonly edges: EdgeView[] = [];
   private readonly states = new Map<string, NodeState>();
@@ -51,10 +53,11 @@ export class SkillTreeView implements ISkillTreeView {
   ) {
     const K = SkillTreeView.K;
     this.tree = d.query.tree;
+    this.layout = new SkillTreeLayout(this.tree);
     background(scene);
 
     this.buildWorld();
-    const b = this.tree.bounds;
+    const b = this.layout.bounds;
     const bounds = {
       minX: b.minX * K - 220,
       maxX: b.maxX * K + 220,
@@ -171,11 +174,11 @@ export class SkillTreeView implements ISkillTreeView {
   // ------------------------------------------------------------------------------ мир
 
   private wx(n: TreeNode): number {
-    return n.x * SkillTreeView.K;
+    return this.layout.at(n).x * SkillTreeView.K;
   }
 
   private wy(n: TreeNode): number {
-    return n.y * SkillTreeView.K + SkillTreeView.OFFSET_Y;
+    return this.layout.at(n).y * SkillTreeView.K + SkillTreeView.OFFSET_Y;
   }
 
   private buildWorld(): void {

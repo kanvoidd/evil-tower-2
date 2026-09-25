@@ -1,6 +1,5 @@
 import type { TalentPath } from '../../catalog';
 import { Souls } from '../../shared';
-import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
   canInvest,
@@ -8,7 +7,8 @@ import {
   isPurchasable,
   type Tree,
   type TreeNode,
-} from '../skill-tree/skillTree';
+} from '../skill-tree';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import type { AutoSkillSave } from './interfaces/AutoSkillSave';
 
 export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, path: 'attack' };
@@ -63,9 +63,9 @@ export const planAutoSkill = (
       return { buys, spent: Souls.of(spent), stop: meta ? 'meta' : 'done' };
     }
     // самый верхний узел; на одном уровне — самый дешёвый
-    const top = Math.min(...cands.map((n) => n.y));
+    const top = Math.min(...cands.map((n) => n.row));
     const pick = cands
-      .filter((n) => n.y === top)
+      .filter((n) => n.row === top)
       .sort((a, b) => costOf(sim, a) - costOf(sim, b))[0];
     const cost = costOf(sim, pick);
     if (cost > left) return { buys, spent: Souls.of(spent), stop: 'souls' };

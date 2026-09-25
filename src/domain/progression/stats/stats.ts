@@ -9,8 +9,8 @@ import {
 } from '../../catalog';
 import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat';
 import { Percent, Ratio } from '../../shared';
+import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
-import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree/skillTree';
 
 export interface Loadout {
   classId: ClassId;

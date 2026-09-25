@@ -23,7 +23,7 @@ import {
   isPurchasable,
   newLineageSave,
   TREES,
-} from '../src/domain/progression/skill-tree/skillTree';
+} from '../src/domain/progression/skill-tree';
 import { buildPlayerStats } from '../src/domain/progression/stats/stats';
 import { makeRng } from '../src/domain/shared/rng/rng';
 

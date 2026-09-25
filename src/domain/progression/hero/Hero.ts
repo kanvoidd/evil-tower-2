@@ -1,7 +1,6 @@
 import type { ClassId, EquipmentSave, LineageId } from '../../catalog';
 import type { PlayerStats } from '../../combat';
 import { Souls } from '../../shared';
-import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
   applyCancelMetamorphosis,
@@ -13,7 +12,8 @@ import {
   type Tree,
   type TreeNode,
   TREES,
-} from '../skill-tree/skillTree';
+} from '../skill-tree';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import { buildPlayerStats } from '../stats/stats';
 import { HeroClassState } from './hero-class-state/HeroClassState';
 

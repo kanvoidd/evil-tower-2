@@ -98,7 +98,7 @@ import {
   talentBonuses,
   type TreeNode,
   TREES,
-} from '../src/domain/progression/skill-tree/skillTree';
+} from '../src/domain/progression/skill-tree';
 import { perkCost, talentRankCost } from '../src/domain/progression/soul-prices/soulPrices';
 import { buildPlayerStats, CAPS } from '../src/domain/progression/stats/stats';
 import { classTraits, type TraitId } from '../src/domain/progression/traits/traits';
@@ -110,6 +110,7 @@ import { makeRng } from '../src/domain/shared/rng/rng';
 import { en } from '../src/i18n/en';
 import { perkValues } from '../src/i18n/perkValues';
 import { ru } from '../src/i18n/ru';
+import { SkillTreeLayout } from '../src/presentation/views/skill-tree/SkillTreeLayout';
 
 let failed = 0;
 const ok = (cond: boolean, msg: string): void => {
@@ -1660,6 +1661,25 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     pickAutoUse(pick, { heal: false, regen: false, artifact: false }) === null,
     'выбор: всё выключено — ничего не применяется',
   );
+}
+
+// ---------------------------------------------------------------- раскладка дерева на экране
+// у правил дерева только уровни узлов, пиксели считает вид; они обязаны сходиться
+for (const lin of LINEAGE_ORDER) {
+  const tree = TREES[lin];
+  const layout = new SkillTreeLayout(tree);
+  ok(
+    tree.nodes.every((n) => !!layout.at(n)),
+    `${lin}: раскладка даёт координаты каждому узлу`,
+  );
+  const sameBlock = (a: TreeNode, b: TreeNode): boolean => a.owner === b.owner;
+  const ordered = tree.nodes.every((a) =>
+    tree.nodes.every(
+      (b) =>
+        !sameBlock(a, b) || Math.sign(a.row - b.row) === Math.sign(layout.at(a).y - layout.at(b).y),
+    ),
+  );
+  ok(ordered, `${lin}: выше по уровню — выше на экране`);
 }
 
 // ---------------------------------------------------------------- автопрокачка

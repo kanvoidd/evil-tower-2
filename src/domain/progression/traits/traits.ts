@@ -1,6 +1,6 @@
 import { CLASSES, type ClassId, type LineageId, LINEAGES, perkOf } from '../../catalog';
 import type { PlayerStats } from '../../combat';
-import { newLineageSave, TREES } from '../skill-tree/skillTree';
+import { newLineageSave, TREES } from '../skill-tree';
 import { buildPlayerStats } from '../stats/stats';
 
 /**

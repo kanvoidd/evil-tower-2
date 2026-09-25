@@ -1,230 +1,29 @@
+/**
+ * Правила дерева прокачки над купленным (`LineageSave`): состояние узлов, цены, покупка,
+ * отказ от финального класса, сумма эффектов талантов и доступные способности.
+ */
 import {
   CLASSES,
   classesOfLineage,
   type ClassId,
-  LINEAGE_ORDER,
-  type LineageId,
-  maxRank,
-  PATH_ORDER,
   PERK_BY_ID,
   perkId,
-  type PerkSlot,
-  perksOfClass,
-  secondOf,
   SLOT_ORDER,
   TALENT_BY_ID,
-  talentChain,
   type TalentDef,
-  type TalentFx,
-  type TalentPath,
   talentsOfClass,
   talentValue,
   talentValue2,
-  terminalsOf,
 } from '../../catalog';
 import { Souls } from '../../shared';
 import { ProgressionBalance } from '../balance';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';
+import type { BuyResult } from './interfaces/BuyResult';
 import type { LineageSave } from './interfaces/LineageSave';
-
-export type NodeKind = 'class' | 'perk' | 'talent' | 'evo';
-
-export interface TreeNode {
-  id: string;
-  kind: NodeKind;
-  x: number;
-  y: number;
-  /** Класс, которому принадлежит узел (у узла-класса — он сам). */
-  owner: ClassId;
-  parents: string[];
-  // talent
-  talentId?: string;
-  path?: TalentPath;
-  tier?: 1 | 2 | 3;
-  /** Место в цепочке яруса. */
-  step?: number;
-  ranks?: number;
-  // perk
-  slot?: PerkSlot;
-  // class
-  classId?: ClassId;
-}
-
-export interface Tree {
-  id: LineageId;
-  base: ClassId;
-  second: ClassId;
-  terminals: ClassId[];
-  nodes: TreeNode[];
-  edges: Array<[string, string]>;
-  bounds: { minX: number; maxX: number; minY: number; maxY: number };
-  byId: Map<string, TreeNode>;
-  classNode: Record<ClassId, TreeNode>;
-  evoNode: TreeNode;
-}
-
-// ------------------------------------------------------------------ построение дерева
-
-/**
- * Геометрия блока класса. Цепочки яруса разной длины, поэтому высота яруса считается
- * по самой длинной цепочке — короткие ветки просто заканчиваются выше и ведут стрелкой вниз,
- * к общей способности.
- */
-const LAYOUT = {
-  /** От карточки класса до стартовой способности. */
-  startPerk: 160,
-  /** От способности до первого таланта цепочки и от последнего таланта до следующей способности. */
-  gate: 158,
-  /** Шаг между талантами внутри цепочки (плитка 108 + зазор под значок ранга). */
-  step: 142,
-  /** Разнос путей по горизонтали. */
-  pathDx: 200,
-  /** Зазор между блоками классов и вокруг ворот эволюции. */
-  blockGap: 225,
-  terminalDx: 620,
-};
-
-const PATH_SLOT: Record<TalentPath, number> = { attack: -1, vitality: 0, guard: 1 };
-
-const classBlock = (
-  classId: ClassId,
-  x0: number,
-  y0: number,
-  parents: string[],
-  out: TreeNode[],
-  edges: Array<[string, string]>,
-): { gates: string[]; bottom: number } => {
-  const cls = CLASSES[classId];
-  const classNodeId = `cls/${classId}`;
-  out.push({ id: classNodeId, kind: 'class', x: x0, y: y0, owner: classId, classId, parents });
-  for (const p of parents) edges.push([p, classNodeId]);
-
-  const perks = perksOfClass(classId);
-  const perkNodeId = (slot: PerkSlot): string => `perk/${classId}/${slot}`;
-
-  // стартовая способность бесплатна и открывается вместе с классом
-  out.push({
-    id: perkNodeId('start'),
-    kind: 'perk',
-    x: x0,
-    y: y0 + LAYOUT.startPerk,
-    owner: classId,
-    slot: 'start',
-    parents: [classNodeId],
-  });
-  edges.push([classNodeId, perkNodeId('start')]);
-
-  let above = perkNodeId('start');
-  let y = y0 + LAYOUT.startPerk;
-  let gates: string[] = [];
-
-  for (let tier = 1 as 1 | 2 | 3; tier <= 3; tier = (tier + 1) as 1 | 2 | 3) {
-    const top = y + LAYOUT.gate;
-    let maxLen = 1;
-    gates = [];
-    for (const path of PATH_ORDER) {
-      const chain = talentChain(classId, tier, path);
-      maxLen = Math.max(maxLen, chain.length);
-      let prev = above;
-      chain.forEach((t, step) => {
-        const id = `tal/${t.id}`;
-        out.push({
-          id,
-          kind: 'talent',
-          x: x0 + PATH_SLOT[path] * LAYOUT.pathDx,
-          y: top + step * LAYOUT.step,
-          owner: classId,
-          talentId: t.id,
-          path,
-          tier,
-          step,
-          ranks: maxRank(t),
-          parents: [prev],
-        });
-        edges.push([prev, id]);
-        prev = id;
-      });
-      if (chain.length) gates.push(prev);
-    }
-    y = top + (maxLen - 1) * LAYOUT.step;
-    if (tier < 3) {
-      const slot: PerkSlot = tier === 1 ? 'p2' : 'p3';
-      if (!perks.some((p) => p.slot === slot)) break;
-      const pid = perkNodeId(slot);
-      y += LAYOUT.gate;
-      out.push({ id: pid, kind: 'perk', x: x0, y, owner: classId, slot, parents: gates });
-      for (const g of gates) edges.push([g, pid]);
-      above = pid;
-    }
-  }
-
-  let bottom = y;
-  if (cls.stage === 2 && perks.some((p) => p.slot === 'legend')) {
-    const lid = perkNodeId('legend');
-    bottom = y + LAYOUT.gate;
-    out.push({
-      id: lid,
-      kind: 'perk',
-      x: x0,
-      y: bottom,
-      owner: classId,
-      slot: 'legend',
-      parents: gates,
-    });
-    for (const g of gates) edges.push([g, lid]);
-  }
-  return { gates, bottom };
-};
-
-const buildTree = (lineage: LineageId): Tree => {
-  const nodes: TreeNode[] = [];
-  const edges: Array<[string, string]> = [];
-  const base = lineage;
-  const second = secondOf(lineage);
-  const terminals = terminalsOf(lineage);
-
-  const b1 = classBlock(base, 0, 0, [], nodes, edges);
-  const y2 = b1.bottom + LAYOUT.blockGap;
-  const b2 = classBlock(second, 0, y2, b1.gates, nodes, edges);
-
-  const evoId = `evo/${lineage}`;
-  const evoY = b2.bottom + LAYOUT.blockGap;
-  nodes.push({ id: evoId, kind: 'evo', x: 0, y: evoY, owner: second, parents: b2.gates });
-  for (const p of b2.gates) edges.push([p, evoId]);
-
-  const yT = evoY + LAYOUT.blockGap;
-  terminals.forEach((t, i) => {
-    classBlock(t, (i === 0 ? -1 : 1) * LAYOUT.terminalDx, yT, [evoId], nodes, edges);
-  });
-
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const classNode = {} as Record<ClassId, TreeNode>;
-  for (const n of nodes) if (n.kind === 'class') classNode[n.classId!] = n;
-  const xs = nodes.map((n) => n.x);
-  const ys = nodes.map((n) => n.y);
-  return {
-    id: lineage,
-    base,
-    second,
-    terminals,
-    nodes,
-    edges,
-    bounds: {
-      minX: Math.min(...xs),
-      maxX: Math.max(...xs),
-      minY: Math.min(...ys),
-      maxY: Math.max(...ys),
-    },
-    byId,
-    classNode,
-    evoNode: byId.get(evoId)!,
-  };
-};
-
-export const TREES = Object.fromEntries(LINEAGE_ORDER.map((l) => [l, buildTree(l)])) as Record<
-  LineageId,
-  Tree
->;
+import type { NodeState } from './interfaces/NodeState';
+import type { TalentBonus } from './interfaces/TalentBonus';
+import type { Tree } from './interfaces/Tree';
+import type { TreeNode } from './interfaces/TreeNode';
 
 // ------------------------------------------------------------------ состояние узлов
 
@@ -275,28 +74,29 @@ const satisfied = (tree: Tree, s: LineageSave, id: string): boolean => {
   return rankOf(s, n.id) > 0;
 };
 
-export type NodeState = 'owned' | 'partial' | 'available' | 'locked' | 'blocked';
+/** Таланта: изучен до конца, частично, доступен (ворота открыты) или закрыт. */
+const talentState = (s: LineageSave, n: TreeNode, gateOpen: boolean): NodeState => {
+  const rank = rankOf(s, n.id);
+  if (rank >= maxRankOf(n)) return 'owned';
+  if (rank > 0) return 'partial';
+  return gateOpen ? 'available' : 'locked';
+};
+
+/** Финальный класс закрыт, если герой уже выбрал соседний финал своей линейки. */
+const siblingTaken = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
+  if (CLASSES[n.classId!].stage !== 2) return false;
+  const sibling = tree.terminals.find((c) => c !== n.classId);
+  return !!sibling && isClassOwned(tree, s, sibling);
+};
 
 export const nodeState = (tree: Tree, s: LineageSave, n: TreeNode): NodeState => {
   if (n.kind === 'evo') return satisfied(tree, s, n.id) ? 'owned' : 'locked';
   if (n.kind === 'perk' && n.slot === 'start')
     return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';
-  const rank = rankOf(s, n.id);
   const gateOpen = n.parents.length === 0 || n.parents.some((p) => satisfied(tree, s, p));
-
-  if (n.kind === 'talent') {
-    if (rank >= maxRankOf(n)) return 'owned';
-    if (rank > 0) return 'partial';
-    return gateOpen ? 'available' : 'locked';
-  }
-  if (rank > 0) return 'owned';
-  if (n.kind === 'class') {
-    const cls = CLASSES[n.classId!];
-    if (cls.stage === 2) {
-      const sibling = tree.terminals.find((c) => c !== n.classId);
-      if (sibling && isClassOwned(tree, s, sibling)) return 'blocked';
-    }
-  }
+  if (n.kind === 'talent') return talentState(s, n, gateOpen);
+  if (rankOf(s, n.id) > 0) return 'owned';
+  if (n.kind === 'class' && siblingTaken(tree, s, n)) return 'blocked';
   return gateOpen ? 'available' : 'locked';
 };
 
@@ -320,8 +120,6 @@ export const costOf = (s: LineageSave, n: TreeNode): Souls => {
   if (n.kind === 'class') return classCost(n.classId!);
   return Souls.of(0);
 };
-
-export type BuyResult = { ok: true; cost: Souls } | { ok: false; reason: 'state' | 'souls' };
 
 export const canBuy = (tree: Tree, s: LineageSave, n: TreeNode, souls: Souls): BuyResult => {
   if (!isPurchasable(n) || !canInvest(tree, s, n)) return { ok: false, reason: 'state' };
@@ -364,8 +162,6 @@ export const applyCancelMetamorphosis = (
 };
 
 // ------------------------------------------------------------------ бонусы и способности
-
-export type TalentBonus = Partial<Record<TalentFx, number>>;
 
 /** Сумма эффектов всех изученных талантов линейки — они тоже сохраняются при метаморфозе. */
 export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
