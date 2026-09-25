@@ -1,0 +1,5 @@
+# Коммиты без изменений логики — git blame их пропускает.
+# Локально: git config blame.ignoreRevsFile .git-blame-ignore-revs (GitHub учитывает файл сам).
+
+# style: отформатировать код Prettier и упорядочить импорты
+cdb8cc874b9abad8de17d6906aa371824565517f
