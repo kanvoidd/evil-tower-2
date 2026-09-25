@@ -151,7 +151,16 @@ import { classTraits, type TraitId } from '../src/domain/progression/traits/trai
 import { ACHIEVEMENTS } from '../src/domain/rewards';
 import { DAILY_REWARDS } from '../src/domain/rewards/daily';
 import { GIFT_REWARD } from '../src/domain/rewards/tower-gift';
-import { CellIndex, Gold, type Lang, Percent, Ratio, type Rng, Souls } from '../src/domain/shared';
+import {
+  CellIndex,
+  DayKey,
+  Gold,
+  type Lang,
+  Percent,
+  Ratio,
+  type Rng,
+  Souls,
+} from '../src/domain/shared';
 import { makeRng } from '../src/domain/shared/rng/rng';
 import { en } from '../src/i18n/en';
 import { perkValues } from '../src/i18n/perkValues';
@@ -1824,6 +1833,54 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   ok(after.autoRevive() === null, '«Возвращение» не срабатывает второй раз в том же забеге');
 }
 
+// ---------------------------------------------------------------- календарь награды дня
+{
+  ok(DayKey.of(2026, 3, 7) === '2026-03-07', 'день записывается как ГГГГ-ММ-ДД');
+  ok(
+    DayKey.daysBetween('2026-09-25', '2026-09-26') === 1 &&
+      DayKey.daysBetween('2026-12-31', '2027-01-01') === 1 &&
+      DayKey.daysBetween('2024-02-28', '2024-03-01') === 2 &&
+      DayKey.daysBetween('2026-03-28', '2026-03-30') === 2 &&
+      DayKey.daysBetween('2026-10-24', '2026-10-26') === 2,
+    'разница дней — по календарю: через месяц, год, 29 февраля и переход на летнее время',
+  );
+  ok(
+    Number.isNaN(DayKey.daysBetween('', '2026-09-25')),
+    'испорченная дата не считается соседним днём',
+  );
+  let today = DayKey.of(2026, 9, 25);
+  const p = new Profile(Profile.freshData('ru', 0), () => 0, { today: () => today });
+  ok(
+    p.dailyStatus().available && p.dailyStatus().dayIndex === 0,
+    'награда дня: первая доступна сразу',
+  );
+  p.claimDaily();
+  ok(
+    !p.dailyStatus().available && p.data.daily.lastClaim === '2026-09-25',
+    'награда дня: в тот же день второй нет',
+  );
+  today = DayKey.of(2026, 9, 26);
+  ok(
+    p.dailyStatus().available && p.dailyStatus().dayIndex === 1,
+    'награда дня: на следующий день серия продолжается',
+  );
+  p.claimDaily();
+  today = DayKey.of(2026, 9, 28);
+  ok(
+    p.dailyStatus().available && p.dailyStatus().dayIndex === 0 && p.dailyStatus().streak === 0,
+    'награда дня: пропущенный день обнуляет серию',
+  );
+  for (let d = 0; d < DAILY_REWARDS.length; d++) {
+    today = DayKey.of(2026, 10, 1 + d);
+    p.claimDaily();
+  }
+  today = DayKey.of(2026, 10, 1 + DAILY_REWARDS.length);
+  ok(
+    p.dailyStatus().dayIndex === 0 && p.dailyStatus().streak === DAILY_REWARDS.length,
+    'награда дня: после недели наград круг начинается заново, серия растёт',
+  );
+}
+
 // ---------------------------------------------------------------- экономика: лавка, починка, кошелёк
 {
   const swords = ShopRules.stock('weapon', 'warrior');
@@ -2334,7 +2391,9 @@ for (const cls of classesOfLineage('warrior'))
   }
 
   // жизненный цикл: маг → магистр → пиромант, тот же экземпляр героя; отмена — назад к магистру
-  const profile = new Profile(Profile.freshData('ru', 0), () => 0);
+  const profile = new Profile(Profile.freshData('ru', 0), () => 0, {
+    today: () => DayKey.of(2026, 9, 25),
+  });
   profile.unlockLineage('mage');
   profile.setActiveClass('mage');
   const hero = profile.activeHero;
@@ -2511,7 +2570,9 @@ for (const lin of LINEAGE_ORDER) {
   /** Дать отработать обещаниям потока (окна, реклама). */
   const settle = (): Promise<void> => new Promise((done) => setTimeout(done, 0));
   const heroProfile = (lin: LineageId): Profile => {
-    const p = new Profile(Profile.freshData('ru', 0), () => 0);
+    const p = new Profile(Profile.freshData('ru', 0), () => 0, {
+      today: () => DayKey.of(2026, 9, 25),
+    });
     p.unlockLineage(lin);
     p.setActiveClass(lin);
     return p;
@@ -2764,7 +2825,9 @@ for (const lin of LINEAGE_ORDER) {
 
   // выбор героя: первый запуск, открытие за золото, смена героя, кошелёк у каждого свой
   {
-    const p = new Profile(Profile.freshData('ru', 0), () => 0);
+    const p = new Profile(Profile.freshData('ru', 0), () => 0, {
+      today: () => DayKey.of(2026, 9, 25),
+    });
     const log: string[] = [];
     let games = 0;
     let backs = 0;

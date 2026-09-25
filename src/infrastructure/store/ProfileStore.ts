@@ -3,6 +3,7 @@ import { type HeroSave, Profile, type SaveData } from '../../domain/account';
 import { CLASSES, type EquipmentSave, LINEAGE_ORDER, type LineageId } from '../../domain/catalog';
 import { type AutoUseSave, DEFAULT_AUTO_USE } from '../../domain/combat';
 import { Gold, Souls } from '../../domain/shared';
+import { LocalCalendar } from '../time/LocalCalendar';
 import type { CloudSaves } from './interfaces/CloudSaves';
 
 /**
@@ -16,7 +17,11 @@ export class ProfileStore implements IProfileStorage {
   private static readonly VERSION = 2;
 
   /** Правила профиля над загруженным документом. */
-  readonly profile = new Profile(Profile.freshData('ru', Date.now()), () => Date.now());
+  readonly profile = new Profile(
+    Profile.freshData('ru', Date.now()),
+    () => Date.now(),
+    new LocalCalendar(),
+  );
   private saveTimer: number | null = null;
   private cloudTimer: number | null = null;
   private dirtyCloud = false;

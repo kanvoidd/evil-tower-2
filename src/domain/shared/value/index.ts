@@ -4,6 +4,7 @@
  * где рождается (`Gold.of(price)`), дальше тип несёт единицу измерения.
  */
 export { CellIndex } from './CellIndex';
+export { DayKey } from './DayKey';
 export { Gold } from './Gold';
 export { Percent } from './Percent';
 export { Ratio } from './Ratio';

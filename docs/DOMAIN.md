@@ -13,7 +13,7 @@
 
 | Область | Папка | Что внутри | Язык области |
 |---|---|---|---|
-| Общее ядро | `shared/` | генератор случайных чисел (`rng/`), доменный сигнал (`signal/`), язык текстов (`lang/`), типы значений (`value/`: проценты, доли, золото, души, ходы, клетки) | — |
+| Общее ядро | `shared/` | генератор случайных чисел (`rng/`), доменный сигнал (`signal/`), язык текстов (`lang/`), типы значений (`value/`: проценты, доли, золото, души, ходы, клетки, календарный день) | — |
 | Каталог | `catalog/` | содержимое игры без текстов (названия и описания — в словарях `src/i18n/` по id сущности), которое выпускают фабрики: линейки, классы, способности и таланты (`heroes/`, `HeroFactory`), этажи, враги и комнаты (`floors/`, `enemies/`, `levels/`, `FloorFactory`) и рост силы и наград от этажа к этажу (`floors/scaling/`: `IFloorScaling`), вещи (`items/`, `weapons/`, `armor/`), расходники (`consumables/`) | линейка, класс, способность, талант, этаж, враг, комната, вещь, расходник |
 | Бой | `combat/` | бой в одной комнате (`room-battle/`: фасад `RoomBattle`, состояние комнаты `room-state/`, части боя `parts/`): поле 3×3 и колода (`engine/`), карты (`card/`), события боя (`events/`), стиль атаки линейки (`attack/`), расчёт урона и защиты (`damage/`), крит (`crit/`), способности (`abilities/`), герой глазами боя (`player/`), автоприменение расходников (`auto-use/`), числа общих правил (`balance/`) | комната, ход, удар, статус, способность, добыча |
 | Прогресс героя | `progression/` | герой и его класс (`hero/`), дерево талантов (`skill-tree/`), сборка характеристик (`stats/`), цены в душах (`soul-prices/`: `ISoulPricing` и реализация по таблице ступеней), автопрокачка (`auto-skill/`), сводка класса (`traits/`) | герой, класс, метаморфоза, талант, ярус, путь |
@@ -87,13 +87,13 @@
 
 | Область | Что даёт |
 |---|---|
-| `shared` | `Rng`, `makeRng` (зерно приходит снаружи — порт `ISeedSource` приложения), `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex` |
+| `shared` | `Rng`, `makeRng` (зерно приходит снаружи — порт `ISeedSource` приложения), `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex`, календарный день `DayKey` |
 | `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), масштабирование этажей (`IFloorScaling`, `FLOOR_SCALING`, `FloorCurveScaling`), id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath`, `CardKind` …), надетая вещь `EquipmentSave`, типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
 | `combat` | числа правил боя (`CombatBalance`, `ConsumableBalance`, `LootBalance`), бой в комнате (`RoomBattle` — фасад над частями, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
 | `progression` | `ProgressionBalance`, `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах (`ISoulPricing`, `SOUL_PRICING`, `StageTablePricing`), автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
 | `economy` | кошелёк `Wallet` (над `Purse`), правила лавки `ShopRules` и `ItemAction`, цена починки (`IRepairPricing`, `REPAIR_PRICING`, `PriceShareRepair`), `EconomyBalance` |
 | `expedition` | подъём по башне `TowerClimb` (начало забега, комната, переход, вершина), оплата комнаты `RoomPayout` и её итог `RoomPay`, рекорд `RecordPolicy`, состояние забега `RunCarry` |
-| `rewards` | награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
+| `rewards` | календарь игрока (порт `ICalendar`: какой сегодня день), награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
 | `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`) |
 
 ## Глоссарий: слово игры → имя в коде
@@ -152,5 +152,5 @@
 
 | Где сейчас | Что | Куда и когда |
 |---|---|---|
-| `account/profile/Profile` | награда дня, «Дар башни», достижения; день по `new Date` | `rewards/` и календарь, этапы G1–G2 |
+| `account/profile/Profile` | награда дня, «Дар башни», достижения | части профиля и `rewards/`, этап G1 |
 | `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |

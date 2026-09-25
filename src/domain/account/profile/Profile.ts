@@ -33,8 +33,9 @@ import {
   type DailyReward,
   GIFT_COOLDOWN_MS,
   GIFT_REWARD,
+  type ICalendar,
 } from '../../rewards';
-import { Gold, type Lang, Signal, Souls } from '../../shared';
+import { DayKey, Gold, type Lang, Signal, Souls } from '../../shared';
 import type { HeroSave } from '../save/interfaces/HeroSave';
 import type { SaveData } from '../save/interfaces/SaveData';
 import type { ConsumablePurchase } from './interfaces/ConsumablePurchase';
@@ -51,9 +52,6 @@ import type { ItemPurchase } from './interfaces/ItemPurchase';
  * проверяются без часов браузера.
  */
 export class Profile {
-  /** Сутки в миллисекундах — шаг календаря наград. */
-  private static readonly DAY_MS = 86_400_000;
-
   /** Изменилось что угодно — документ пора сохранить. */
   readonly changed = new Signal();
   /** Изменился кошелёк активного героя (или сменился сам герой). */
@@ -64,9 +62,14 @@ export class Profile {
   /** Герои открытых линеек — по экземпляру на линейку. */
   private readonly heroes = new Map<LineageId, Hero>();
 
+  /**
+   * `now` — время для таймера «Дара башни» и рекламы, `calendar` — день игрока для награды дня;
+   * оба приходят снаружи, поэтому правила наград проверяются без часов и часового пояса.
+   */
   constructor(
     private doc: SaveData,
     private readonly now: () => number,
+    private readonly calendar: ICalendar,
   ) {}
 
   /** Документ сохранения нового игрока. */
@@ -503,11 +506,11 @@ export class Profile {
   // ------------------------------------------------------------------ ежедневная награда и подарок
 
   dailyStatus(): DailyStatus {
-    const today = Profile.dayKey(new Date(this.now()));
+    const today = this.calendar.today();
     const { lastClaim, streak } = this.doc.daily;
     const week = DAILY_REWARDS.length;
     if (lastClaim === today) return { available: false, dayIndex: streak % week, streak };
-    const cont = !!lastClaim && Profile.dayDiff(lastClaim, today) === 1;
+    const cont = !!lastClaim && DayKey.daysBetween(lastClaim, today) === 1;
     const eff = cont ? streak : 0;
     return { available: true, dayIndex: eff % week, streak: eff };
   }
@@ -520,7 +523,7 @@ export class Profile {
     if (r.souls) this.addSouls(Souls.of(r.souls * multiplier));
     if (r.heal) this.heroSave.consumables.potion_heal += r.heal * multiplier;
     if (r.regen) this.heroSave.consumables.potion_regen += r.regen * multiplier;
-    this.doc.daily = { lastClaim: Profile.dayKey(new Date(this.now())), streak: st.streak + 1 };
+    this.doc.daily = { lastClaim: this.calendar.today(), streak: st.streak + 1 };
     this.touch();
     return r;
   }
@@ -543,16 +546,5 @@ export class Profile {
     this.doc.gift.readyAt = this.now() + GIFT_COOLDOWN_MS;
     this.touch();
     return gift;
-  }
-
-  /** Календарный день по местному времени: награда дня меняется в полночь игрока. */
-  private static dayKey(d: Date): string {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  private static dayDiff(a: string, b: string): number {
-    const pa = new Date(a + 'T00:00:00').getTime();
-    const pb = new Date(b + 'T00:00:00').getTime();
-    return Math.round((pb - pa) / Profile.DAY_MS);
   }
 }
