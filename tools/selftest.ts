@@ -4,6 +4,13 @@ import { AdService } from '../src/application/ads/AdService';
 import { ClassSelectController } from '../src/application/class-select/ClassSelectController';
 import { ClassSelection } from '../src/application/class-select/ClassSelection';
 import type { ClassSelectMode } from '../src/application/class-select/interfaces/ClassSelectMode';
+import { AutoUseToggles } from '../src/application/game/AutoUseToggles';
+import { GameController } from '../src/application/game/GameController';
+import type { IGameDialogs } from '../src/application/game/interfaces/IGameDialogs';
+import type { IGameRenderer } from '../src/application/game/interfaces/IGameRenderer';
+import type { PlayerCommand } from '../src/application/game/interfaces/PlayerCommand';
+import type { RunSummary } from '../src/application/game/interfaces/RunSummary';
+import { TowerRun } from '../src/application/game/TowerRun';
 import { EnterHub } from '../src/application/hub/EnterHub';
 import { GetHubState } from '../src/application/hub/GetHubState';
 import { HubController } from '../src/application/hub/HubController';
@@ -2887,6 +2894,136 @@ for (const lin of LINEAGE_ORDER) {
     ok(
       (await ads.rewarded()) && calls.includes('stop'),
       'реклама: видео с наградой ставит игру на паузу',
+    );
+  }
+
+  // бой: гибель → воскрешение за видео → гибель → итог забега; видео не досмотрено; побег
+  {
+    const gameFor = (rewarded: boolean, died: Array<'revive' | 'end'>) => {
+      const p = heroProfile('warrior');
+      p.markTutorial('fight');
+      const { platform, calls } = fakePlatform(rewarded);
+      const tower = new TowerRun(
+        { profile: p, platform, storage: { flush: () => undefined }, seeds: { next: () => 7 } },
+        TowerRun.start(p),
+      );
+      const battle = tower.enterRoom() as RoomBattle;
+      const asked: Array<{ canRevive: boolean; lootLost: boolean }> = [];
+      const summaries: RunSummary[] = [];
+      const nav: string[] = [];
+      const shown: string[] = [];
+      let send: (cmd: PlayerCommand) => void = () => undefined;
+      let killNext = false;
+      const dialogs: IGameDialogs = {
+        confirmEscape: async () => (shown.push('confirmEscape'), true),
+        roomCleared: async () => 'cashout',
+        died: async (d) => (asked.push(d), died.shift() ?? 'end'),
+        runOver: async (sum) => (summaries.push(sum), 'hub'),
+      };
+      const view = new Proxy(
+        {},
+        { get: (_, k) => () => void shown.push(String(k)) },
+      ) as IGameRenderer;
+      const controller = new GameController({
+        battle,
+        tower,
+        profile: p,
+        autoUse: new AutoUseToggles(p),
+        ads: new AdService(platform, p, () => 0),
+        platform,
+        view,
+        player: {
+          play: async () => {
+            // ход, после которого герой погибает: исход решает бой, поток только читает `over`
+            if (killNext) battle.over = 'lose';
+            killNext = false;
+          },
+        },
+        dialogs,
+        navigator: {
+          nextRoom: () => void nav.push('next'),
+          newRun: () => void nav.push('new'),
+          toHub: () => void nav.push('hub'),
+        },
+        clock,
+        input: { onCommand: (h) => void (send = h) },
+      });
+      /** Ход зельем исцеления; `fatal` — после него герой погибает. */
+      const drink = (fatal: boolean): void => {
+        battle.hp = 1;
+        battle.consumables = { potion_heal: 5, potion_regen: 0, artifact: 0 };
+        killNext = fatal;
+        send({ type: 'use-item', itemId: 'potion_heal' });
+      };
+      const settleAll = async (): Promise<void> => {
+        for (let i = 0; i < 5; i++) await settle();
+      };
+      return { p, battle, calls, asked, summaries, nav, shown, controller, drink, send, settleAll };
+    };
+
+    const g = gameFor(true, ['revive', 'end']);
+    g.controller.start();
+    await g.settleAll();
+    g.drink(true);
+    await g.settleAll();
+    ok(
+      g.asked.length === 1 && g.asked[0].canRevive && g.battle.over === null && g.battle.revived,
+      'бой: после гибели — окно, воскрешение за досмотренное видео',
+    );
+    g.drink(true);
+    await g.settleAll();
+    ok(
+      g.asked.length === 2 && !g.asked[1].canRevive,
+      'бой: второе воскрешение за видео в забеге не предлагается',
+    );
+    ok(
+      g.summaries.length === 1 &&
+        g.summaries[0].reason === 'dead' &&
+        g.nav.join() === 'hub' &&
+        g.p.stats.deaths === 1 &&
+        g.calls.filter((c) => c === 'rewarded').length === 1,
+      'бой: вторая гибель — итог забега один раз, уход в хаб',
+    );
+    g.send({ type: 'escape' });
+    await g.settleAll();
+    ok(
+      g.summaries.length === 1 && g.nav.length === 1,
+      'бой: после итога забега команды не действуют',
+    );
+
+    const noVideo = gameFor(false, ['revive', 'end']);
+    noVideo.controller.start();
+    await noVideo.settleAll();
+    noVideo.drink(true);
+    await noVideo.settleAll();
+    ok(
+      noVideo.asked.length === 2 &&
+        noVideo.asked.every((a) => a.canRevive) &&
+        !noVideo.battle.revived &&
+        noVideo.summaries[0]?.reason === 'dead',
+      'бой: видео не досмотрено — окно гибели возвращается, герой не встаёт',
+    );
+
+    const run = gameFor(true, []);
+    run.controller.start();
+    await run.settleAll();
+    run.drink(false);
+    await run.settleAll();
+    ok(
+      run.battle.over === null && run.asked.length === 0,
+      'бой: обычный ход не заканчивает комнату',
+    );
+    run.battle.totals.gold = Gold.of(5);
+    run.send({ type: 'escape' });
+    await run.settleAll();
+    ok(
+      run.shown.includes('confirmEscape') &&
+        run.summaries.length === 1 &&
+        run.summaries[0].reason === 'escape' &&
+        run.summaries[0].lootLost &&
+        run.nav.join() === 'hub' &&
+        run.p.stats.deaths === 0,
+      'бой: побег — с подтверждением, добыча комнаты пропадает, уход в хаб',
     );
   }
 }
