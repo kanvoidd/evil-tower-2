@@ -20,6 +20,7 @@ import { CellIndex, Gold, Percent, Ratio, type Rng, Souls } from '../../shared';
 import { CombatBalance, ConsumableBalance, LootBalance } from '../balance';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
+import { CritPolicy } from '../crit';
 import type { HeroView } from '../damage';
 import { Grid } from '../engine/grid/Grid';
 import type { IEngine } from '../engine/interfaces/IEngine';
@@ -91,13 +92,11 @@ export class RoomBattle implements IBattleSession {
   private cheatLeft = 0;
   private reviveLeft = 0;
   private roomGuardLeft = 0;
-  private roomCritLeft = 0;
   private freePerkLeft = 0;
   /** Урон сейчас наносит способность — работают таланты-синергии. */
   private inAbility = false;
   /** Цена применяемой способности (для возврата ресурса за убийство). */
   private abilityCost = 0;
-  private hitCounter = 0; // для «Суда» (каждый третий удар)
   private playerPoison = 0;
   private playerPoisonDmg = 0;
   private warCry = 0; // накопленное ослабление атаки врагов
@@ -106,6 +105,8 @@ export class RoomBattle implements IBattleSession {
   private readonly rng: Rng;
   /** Герой глазами правил урона и защиты — живые значения этого боя. */
   private readonly hero: HeroView;
+  /** Кто решает крит: правила героя на этот бой (у некоторых — своё состояние). */
+  private readonly crit: CritPolicy;
   private readonly engine: IEngine;
   private readonly factory: CardFactory;
   private readonly enemies: Readonly<Record<string, EnemyDef>>;
@@ -134,7 +135,7 @@ export class RoomBattle implements IBattleSession {
     this.cheatLeft = this.stats.cheatDeath;
     this.reviveLeft = this.stats.reviveHp > 0 && !this.selfRevived ? 1 : 0;
     this.roomGuardLeft = this.stats.roomGuard > 0 ? 1 : 0;
-    this.roomCritLeft = this.stats.roomCrit ? 1 : 0;
+    this.crit = CritPolicy.forHero(this.stats);
     this.freePerkLeft = this.stats.freePerk ? 1 : 0;
     const deck = this.factory.createDeck();
     this.engine.deck.push(...deck.cards);
@@ -538,19 +539,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   private rollCrit(enemy: Card | null, ranged: boolean): boolean {
-    const s = this.stats;
-    if (this.roomCritLeft > 0) {
-      this.roomCritLeft--;
-      return true;
-    }
-    if (s.passives.has('hunters_mark') && ranged && enemy && enemy.hits === 0) return true;
-    if (this.inAbility && s.abilityCrit > 0 && this.rng.chance(Percent.toRatio(s.abilityCrit)))
-      return true;
-    if (s.everyThird) {
-      this.hitCounter++;
-      if (this.hitCounter % 3 === 0) return true;
-    }
-    return this.rng.chance(Percent.toRatio(s.crit));
+    return this.crit.decide({ enemy, ranged, inAbility: this.inAbility, rng: this.rng });
   }
 
   // ------------------------------------------------------------------ удары героя

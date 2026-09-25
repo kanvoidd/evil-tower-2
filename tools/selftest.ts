@@ -67,6 +67,15 @@ import {
 } from '../src/domain/combat/auto-use/autoUse';
 import { Card } from '../src/domain/combat/card';
 import {
+  AbilityCrit,
+  ChanceCrit,
+  CritPolicy,
+  type CritRoll,
+  EveryNthCrit,
+  HuntersMarkCrit,
+  RoomOpeningCrit,
+} from '../src/domain/combat/crit';
+import {
   ArmorToDamage,
   BigHitReduction,
   BossBonus,
@@ -129,7 +138,7 @@ import { classTraits, type TraitId } from '../src/domain/progression/traits/trai
 import { ACHIEVEMENTS } from '../src/domain/rewards';
 import { DAILY_REWARDS } from '../src/domain/rewards/daily';
 import { GIFT_REWARD } from '../src/domain/rewards/tower-gift';
-import { CellIndex, Gold, type Lang, Percent, Ratio, Souls } from '../src/domain/shared';
+import { CellIndex, Gold, type Lang, Percent, Ratio, type Rng, Souls } from '../src/domain/shared';
 import { makeRng } from '../src/domain/shared/rng/rng';
 import { en } from '../src/i18n/en';
 import { perkValues } from '../src/i18n/perkValues';
@@ -681,6 +690,69 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     'BigHitReduction: удар больше 40% здоровья',
   );
   ok(new BigHitReduction(r(0.5)).apply(40, hit()) === 40, 'BigHitReduction: 40% — полный');
+}
+
+// ---------------------------------------------------------------- правила крита
+// первое сработавшее правило решает; бросок генератора — только когда до правила дошла очередь
+{
+  const chances: number[] = [];
+  const fakeRng = (answers: boolean[]): Rng => ({
+    next: () => 0,
+    int: (min) => min,
+    chance: (p) => {
+      chances.push(p);
+      return answers.shift() ?? false;
+    },
+    pick: (arr) => arr[0],
+    shuffle: (arr) => arr,
+  });
+  const foe = (hits: number): Card => ({ hits }) as Card;
+  const roll = (o: Partial<CritRoll> = {}): CritRoll => ({
+    enemy: null,
+    ranged: false,
+    inAbility: false,
+    rng: fakeRng([]),
+    ...o,
+  });
+  const opening = new RoomOpeningCrit();
+  ok(
+    opening.decide(roll()) === true && opening.decide(roll()) === undefined,
+    'RoomOpeningCrit: крит только у первого удара комнаты',
+  );
+  const mark = new HuntersMarkCrit();
+  ok(
+    mark.decide(roll({ ranged: true, enemy: foe(0) })) === true &&
+      mark.decide(roll({ ranged: true, enemy: foe(1) })) === undefined &&
+      mark.decide(roll({ ranged: false, enemy: foe(0) })) === undefined,
+    'HuntersMarkCrit: только выстрел по нетронутому врагу',
+  );
+  const third = new EveryNthCrit(EveryNthCrit.THIRD);
+  const seq = [1, 2, 3, 4, 5, 6].map(() => third.decide(roll()) === true);
+  ok(seq.join() === 'false,false,true,false,false,true', 'EveryNthCrit: каждый третий удар');
+  chances.length = 0;
+  const ability = new AbilityCrit(Percent.of(25));
+  ok(
+    ability.decide(roll()) === undefined && chances.length === 0,
+    'AbilityCrit: вне способности молчит и не тратит бросок',
+  );
+  ok(
+    ability.decide(roll({ inAbility: true, rng: fakeRng([true]) })) === true && chances[0] === 0.25,
+    'AbilityCrit: способность критует с шансом 25%',
+  );
+  chances.length = 0;
+  ok(
+    new ChanceCrit(Percent.of(10)).decide(roll({ rng: fakeRng([false]) })) === false &&
+      chances[0] === 0.1,
+    'ChanceCrit: решает броском с шансом героя',
+  );
+  chances.length = 0;
+  const policy = new CritPolicy([new RoomOpeningCrit(), new ChanceCrit(Percent.of(50))]);
+  const rng = fakeRng([true]);
+  ok(
+    policy.decide(roll({ rng })) === true && chances.length === 0 && policy.decide(roll({ rng })),
+    'CritPolicy: первое правило решило — до шанса дело не дошло',
+  );
+  ok(chances.length === 1, 'CritPolicy: второй удар решил шанс — один бросок');
 }
 
 // ---------------------------------------------------------------- способности в бою
