@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 
 import { AdService } from '../application/ads/AdService';
 import { WebAudioPlayer } from '../infrastructure/audio/WebAudioPlayer';
+import { MathRandomSeeds } from '../infrastructure/random/MathRandomSeeds';
 import { YandexPlatform } from '../infrastructure/sdk/YandexPlatform';
 import { ProfileStore } from '../infrastructure/store/ProfileStore';
 import { UiSound } from '../presentation/components';
@@ -45,6 +46,7 @@ export class GameCompositionRoot {
       audio: this.audio,
       locale: this.locale,
       ads: new AdService(this.platform, profile, () => Date.now()),
+      seeds: new MathRandomSeeds(),
     };
     const game = new Phaser.Game({
       type: Phaser.AUTO,

@@ -8,10 +8,12 @@ import {
   type RunCarry,
   TowerClimb,
 } from '../../domain/expedition';
-import { makeRng, randomSeed, type Rng } from '../../domain/shared';
+import { makeRng, type Rng } from '../../domain/shared';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
+import type { ISeedSource } from '../ports/ISeedSource';
 import type { RunEndReason } from './interfaces/RunEndReason';
+import type { TowerRunDeps } from './interfaces/TowerRunDeps';
 
 /**
  * Забег по башне глазами текущей комнаты — координатор: правила забега (оплата комнаты, рекорд,
@@ -24,12 +26,20 @@ export class TowerRun {
   private committed = false;
   private battle!: IBattleSession;
 
+  private readonly profile: Profile;
+  private readonly platform: IPlatform;
+  private readonly storage: IProfileStorage;
+  private readonly seeds: ISeedSource;
+
   constructor(
-    private readonly profile: Profile,
-    private readonly platform: IPlatform,
-    private readonly storage: IProfileStorage,
+    deps: TowerRunDeps,
     private carry: RunCarry,
-  ) {}
+  ) {
+    this.profile = deps.profile;
+    this.platform = deps.platform;
+    this.storage = deps.storage;
+    this.seeds = deps.seeds;
+  }
 
   /** Новый забег: всегда с 1-1, рекорд героя запоминается, чтобы в конце сказать «новый рекорд». */
   static start(profile: Profile): RunCarry {
@@ -63,8 +73,11 @@ export class TowerRun {
     return RoomPayout.atStake(this.battle.totals);
   }
 
-  /** Бой в комнате собирает фабрика: героя берёт у фабрик героев, врагов — у фабрик этажей. */
-  enterRoom(rng: Rng = makeRng(randomSeed())): IBattleSession {
+  /**
+   * Бой в комнате собирает фабрика: героя берёт у фабрик героев, врагов — у фабрик этажей.
+   * Случайности комнаты идут от нового зерна источника зёрен.
+   */
+  enterRoom(rng: Rng = makeRng(this.seeds.next())): IBattleSession {
     const p = this.profile;
     this.battle = RoomBattleFactory.standard().create({
       room: this.room,

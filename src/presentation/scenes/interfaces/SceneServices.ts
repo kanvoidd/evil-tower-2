@@ -4,6 +4,7 @@ import type {
   ILocale,
   IPlatform,
   IProfileStorage,
+  ISeedSource,
   ISoundPlayer,
 } from '../../../application/ports';
 import type { Profile } from '../../../domain/account';
@@ -25,4 +26,6 @@ export interface SceneServices {
   /** Язык интерфейса. */
   locale: ILocale;
   ads: AdService;
+  /** Зёрна случайностей для новых комнат. */
+  seeds: ISeedSource;
 }

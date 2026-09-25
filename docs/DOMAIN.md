@@ -87,7 +87,7 @@
 
 | Область | Что даёт |
 |---|---|
-| `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex` |
+| `shared` | `Rng`, `makeRng` (зерно приходит снаружи — порт `ISeedSource` приложения), `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex` |
 | `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), масштабирование этажей (`IFloorScaling`, `FLOOR_SCALING`, `FloorCurveScaling`), id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath`, `CardKind` …), надетая вещь `EquipmentSave`, типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
 | `combat` | числа правил боя (`CombatBalance`, `ConsumableBalance`, `LootBalance`), бой в комнате (`RoomBattle` — фасад над частями, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
 | `progression` | `ProgressionBalance`, `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах (`ISoulPricing`, `SOUL_PRICING`, `StageTablePricing`), автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
@@ -154,4 +154,3 @@
 |---|---|---|
 | `account/profile/Profile` | награда дня, «Дар башни», достижения; день по `new Date` | `rewards/` и календарь, этапы G1–G2 |
 | `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |
-| `shared/rng` | `randomSeed()` через `Math.random` | порт источника зерна, этап E5 |

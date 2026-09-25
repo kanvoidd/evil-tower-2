@@ -35,5 +35,3 @@ export const makeRng = (seed: number): Rng => {
     },
   };
 };
-
-export const randomSeed = (): number => (Math.random() * UINT32) >>> 0;

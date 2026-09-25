@@ -3,8 +3,8 @@
  *
  * 1. Правила зависимостей между слоями (PROJECT-DECISIONS.md, «Правила зависимостей между слоями»):
  *    слой файла — первая папка после `src/`, импорт разрешён только в перечисленные слои и пакеты.
- * 2. Домен и приложение не трогают браузер (window, document, localStorage…) — время и платформа
- *    приходят через порты.
+ * 2. Домен и приложение не трогают браузер (window, document, localStorage…) и не берут время
+ *    и случайность мимо портов (`Date.now`, `Math.random`) — они приходят через порты.
  * 3. Доменные области (docs/DOMAIN.md): область зависит только от областей из своей строки карты
  *    `CONTEXTS`; чужую область видно только через её `index.ts` (и из других слоёв тоже), а свой
  *    `index.ts` область не импортирует; файлов вне областей в домене нет. Инструменты (`tools`)
@@ -71,7 +71,7 @@ const CONTEXTS: Record<string, readonly string[]> = {
  * к глобальному имени: `this.d.navigator.close()` — это порт, а не `window.navigator`.
  */
 const BROWSER =
-  /(?<![.\w$])(window|document|localStorage|sessionStorage|navigator)\s*\.|(?<![.\w$])(setTimeout|setInterval|requestAnimationFrame)\s*\(/;
+  /(?<![.\w$])(window|document|localStorage|sessionStorage|navigator)\s*\.|(?<![.\w$])(setTimeout|setInterval|requestAnimationFrame|Math\.random|Date\.now|performance\.now)\s*\(/;
 
 const walk = (dir: string, ext: RegExp): string[] =>
   readdirSync(dir).flatMap((name) => {

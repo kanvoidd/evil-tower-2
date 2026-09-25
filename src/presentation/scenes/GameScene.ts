@@ -41,10 +41,13 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     dollyIn(this, 380);
     background(this);
-    const { profile, platform, storage, sound, ads } = this.services;
+    const { profile, platform, storage, sound, ads, seeds } = this.services;
     bindAchievementToasts(this, profile.achievementUnlocked);
 
-    const tower = new TowerRun(profile, platform, storage, this.carry ?? TowerRun.start(profile));
+    const tower = new TowerRun(
+      { profile, platform, storage, seeds },
+      this.carry ?? TowerRun.start(profile),
+    );
     const battle = tower.enterRoom();
     const autoUse = new AutoUseToggles(profile);
     const animations = new Animations(this, sound);
