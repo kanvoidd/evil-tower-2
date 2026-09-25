@@ -1,11 +1,19 @@
 import { ELITE, type EnemyDef } from '../../../../catalog';
 import { type CellIndex, Gold, Souls } from '../../../../shared';
+import { LootBalance } from '../../../balance';
 import type { Card } from '../../../card/Card';
 import { Grid } from '../../../engine/grid/Grid';
 import { RoomPart } from '../room-part/RoomPart';
 
 /** Гибель врага: добыча, таланты «за убийство», взрывы, призраки, переход клейма. */
 export class EnemyDeath extends RoomPart {
+  /** Талант «здоровье за убийства» срабатывает на каждое такое по счёту убийство… */
+  static readonly KILL_HP_EVERY = 10;
+  /** …и прибавляет не больше этой доли максимума здоровья. */
+  static readonly KILL_HP_CAP = 0.3;
+  /** Горящий враг, погибая, поджигает соседей на столько ходов. */
+  static readonly BURN_SPREAD_TURNS = 2;
+
   killEnemy(cell: CellIndex): void {
     const enemy = this.state.cards[cell];
     if (!enemy || enemy.kind !== 'enemy') return;
@@ -32,7 +40,10 @@ export class EnemyDeath extends RoomPart {
     const s = this.state.stats;
     const eliteMul = enemy.elite ? ELITE.value : 1;
     const gold = Math.round(
-      def.gold * eliteMul * (this.state.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05),
+      def.gold *
+        eliteMul *
+        (this.state.mod.goldMul ?? 1) *
+        (1 + s.goldBonus + s.luck * LootBalance.goldPerLuck),
     );
     const souls = Math.round(
       def.souls * eliteMul * (this.state.mod.soulMul ?? 1) * (1 + s.soulBonus),
@@ -50,8 +61,8 @@ export class EnemyDeath extends RoomPart {
   /** Таланты, растящие здоровье за убийства: каждое десятое и каждый босс. */
   private killGrowth(def: EnemyDef): void {
     const s = this.state.stats;
-    if (s.killHp > 0 && this.state.totals.kills % 10 === 0)
-      this.growMaxHp(Math.round(s.maxHp * Math.min(0.3, s.killHp)));
+    if (s.killHp > 0 && this.state.totals.kills % EnemyDeath.KILL_HP_EVERY === 0)
+      this.growMaxHp(Math.round(s.maxHp * Math.min(EnemyDeath.KILL_HP_CAP, s.killHp)));
     if (s.bossHp > 0 && def.boss) this.growMaxHp(Math.round(s.maxHp * s.bossHp));
   }
 
@@ -85,7 +96,8 @@ export class EnemyDeath extends RoomPart {
     }
     if (enemy.burn > 0) {
       for (const n of Grid.neighbors(cell)) {
-        if (this.state.cards[n]?.kind === 'enemy') this.parts.status.applyBurn(n, enemy.burnDmg, 2);
+        if (this.state.cards[n]?.kind === 'enemy')
+          this.parts.status.applyBurn(n, enemy.burnDmg, EnemyDeath.BURN_SPREAD_TURNS);
       }
     }
   }

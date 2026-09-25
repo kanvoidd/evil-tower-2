@@ -5,30 +5,34 @@ import { CellIndex } from '../../../shared';
  * Чистые функции без состояния — ими пользуются и движок, и правила, и сцена.
  */
 export class Grid {
-  static readonly SIZE = 9;
+  /** Сторона поля в клетках. */
+  static readonly SIDE = 3;
+  static readonly SIZE = Grid.SIDE * Grid.SIDE;
+  /** Центр поля — с него герой начинает комнату. */
+  static readonly CENTER: CellIndex = CellIndex.of((Grid.SIZE - 1) / 2);
 
   /** «Нет клетки»: за целью край поля, способность без цели, удар не от врага. */
   static readonly NO_CELL: CellIndex = CellIndex.of(-1);
 
   /** Все клетки поля по порядку: 0 … 8. */
-  static readonly CELLS: readonly CellIndex[] = Array.from({ length: 9 }, (_, i) =>
+  static readonly CELLS: readonly CellIndex[] = Array.from({ length: Grid.SIZE }, (_, i) =>
     CellIndex.of(i),
   );
 
-  private static readonly NEIGHBORS: CellIndex[][] = Array.from({ length: 9 }, (_, i) => {
-    const r = Math.floor(i / 3);
-    const c = i % 3;
+  private static readonly NEIGHBORS: CellIndex[][] = Grid.CELLS.map((i) => {
+    const r = Grid.row(i);
+    const c = Grid.col(i);
     const out: CellIndex[] = [];
-    if (r > 0) out.push(CellIndex.of(i - 3));
-    if (r < 2) out.push(CellIndex.of(i + 3));
+    if (r > 0) out.push(CellIndex.of(i - Grid.SIDE));
+    if (r < Grid.SIDE - 1) out.push(CellIndex.of(i + Grid.SIDE));
     if (c > 0) out.push(CellIndex.of(i - 1));
-    if (c < 2) out.push(CellIndex.of(i + 1));
+    if (c < Grid.SIDE - 1) out.push(CellIndex.of(i + 1));
     return out;
   });
 
-  private static readonly DIAGONALS: CellIndex[][] = Array.from({ length: 9 }, (_, i) => {
-    const r = Math.floor(i / 3);
-    const c = i % 3;
+  private static readonly DIAGONALS: CellIndex[][] = Grid.CELLS.map((i) => {
+    const r = Grid.row(i);
+    const c = Grid.col(i);
     const out: CellIndex[] = [];
     for (const [dr, dc] of [
       [-1, -1],
@@ -38,7 +42,7 @@ export class Grid {
     ]) {
       const nr = r + dr;
       const nc = c + dc;
-      if (nr >= 0 && nr < 3 && nc >= 0 && nc < 3) out.push(CellIndex.of(nr * 3 + nc));
+      if (Grid.inside(nr, nc)) out.push(Grid.at(nr, nc));
     }
     return out;
   });
@@ -53,11 +57,21 @@ export class Grid {
   }
 
   static row(cell: CellIndex): number {
-    return Math.floor(cell / 3);
+    return Math.floor(cell / Grid.SIDE);
   }
 
   static col(cell: CellIndex): number {
-    return cell % 3;
+    return cell % Grid.SIDE;
+  }
+
+  /** Клетка на пересечении строки и столбца. */
+  static at(row: number, col: number): CellIndex {
+    return CellIndex.of(row * Grid.SIDE + col);
+  }
+
+  /** Строка и столбец внутри поля. */
+  static inside(row: number, col: number): boolean {
+    return row >= 0 && row < Grid.SIDE && col >= 0 && col < Grid.SIDE;
   }
 
   /** Сколько шагов крестом между клетками. */
@@ -73,7 +87,6 @@ export class Grid {
   static behind(from: CellIndex, to: CellIndex): CellIndex {
     const r = Grid.row(to) + Math.sign(Grid.row(to) - Grid.row(from));
     const c = Grid.col(to) + Math.sign(Grid.col(to) - Grid.col(from));
-    if (r < 0 || r > 2 || c < 0 || c > 2) return Grid.NO_CELL;
-    return CellIndex.of(r * 3 + c);
+    return Grid.inside(r, c) ? Grid.at(r, c) : Grid.NO_CELL;
   }
 }

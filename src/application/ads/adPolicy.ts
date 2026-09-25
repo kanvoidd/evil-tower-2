@@ -6,5 +6,5 @@ export const AD_POLICY = {
   /** Минимум комнат до первой полноэкранной рекламы (защита новичков). */
   firstAdAfterRooms: 3,
   /** Минимальный интервал между собственными показами полноэкранной рекламы. */
-  interstitialCooldownMs: 3 * 60 * 1000,
+  interstitialCooldownMs: 180_000, // 3 минуты
 } as const;

@@ -1,4 +1,4 @@
-import { CellIndex } from '../../shared';
+import { type CellIndex } from '../../shared';
 import type { Card } from '../card/Card';
 import type { GameEvent } from '../events';
 import { Grid } from './grid/Grid';
@@ -10,7 +10,7 @@ import type { IEngine } from './interfaces/IEngine';
 export class Engine implements IEngine {
   readonly board: Array<Card | null> = Array(Grid.SIZE).fill(null);
   readonly deck: Card[] = [];
-  playerCell = CellIndex.of(4);
+  playerCell = Grid.CENTER;
   /** Клетки, освободившиеся за ход. */
   private vacated: CellIndex[] = [];
   private log: GameEvent[] = [];

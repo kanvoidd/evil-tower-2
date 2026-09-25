@@ -6,6 +6,11 @@ import type { RoomPlan } from './interfaces/RoomPlan';
 import type { RoomModifier } from './room-modifiers/interfaces/RoomModifier';
 import { MODIFIERS } from './room-modifiers/modifierRegistry';
 
+/** Враги с прошлых этажей попадаются реже: вес их роли умножается на это. */
+const PAST_FLOOR_WEIGHT = 0.7;
+/** Предохранитель раздачи элитных надбавок: попыток найти не-босса. */
+const ELITE_TRIES = 40;
+
 const pickWeighted = (list: RoomModifier[], rng: Rng): RoomModifier => {
   const total = list.reduce((a, m) => a + m.weight, 0);
   let r = rng.next() * total;
@@ -27,7 +32,9 @@ export const rollRoom = (def: RoomDef, rng: Rng): RoomPlan => {
   const mod = pickWeighted(allowed, rng);
 
   const pool = def.pool.map((id) => ENEMIES[id]).filter(Boolean) as EnemyDef[];
-  const weights = pool.map((e) => ROLE_WEIGHT[e.role] * (e.floor === def.floor ? 1 : 0.7));
+  const weights = pool.map(
+    (e) => ROLE_WEIGHT[e.role] * (e.floor === def.floor ? 1 : PAST_FLOOR_WEIGHT),
+  );
   const totalW = weights.reduce((a, b) => a + b, 0);
   const draw = (): EnemyDef => {
     let r = rng.next() * totalW;
@@ -45,7 +52,7 @@ export const rollRoom = (def: RoomDef, rng: Rng): RoomPlan => {
 
   // элитные надбавки достаются не-боссам
   let elites = mod.elites ?? 0;
-  for (let guard = 0; guard < 40 && elites > 0; guard++) {
+  for (let guard = 0; guard < ELITE_TRIES && elites > 0; guard++) {
     const i = rng.int(0, enemies.length - 1);
     const e = ENEMIES[enemies[i].id];
     if (e.boss || enemies[i].elite) continue;

@@ -1,6 +1,6 @@
 import { type PerkDef } from '../../../../catalog';
 import { type CellIndex } from '../../../../shared';
-import { CombatBalance, ConsumableBalance } from '../../../balance';
+import { CombatBalance, ConsumableBalance, DeckBalance } from '../../../balance';
 import { Grid } from '../../../engine/grid/Grid';
 import type { GameEvent } from '../../../events';
 import type { TurnResult } from '../../interfaces/TurnResult';
@@ -18,7 +18,7 @@ export class RoomFlow extends RoomPart {
     this.state.exitQueued = true;
     const deck = this.state.engine.deck;
     deck.splice(
-      this.state.rng.int(0, Math.min(3, deck.length)),
+      this.state.rng.int(0, Math.min(DeckBalance.exitWithin, deck.length)),
       0,
       this.state.factory.createExit(),
     );

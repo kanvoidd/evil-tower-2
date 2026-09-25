@@ -8,6 +8,7 @@ import type { PerkSlot } from '../../perks/interfaces/PerkSlot';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import type { TalentFx } from '../../talents/interfaces/TalentFx';
 import type { TalentPath } from '../../talents/interfaces/TalentPath';
+import type { TalentTierNumber } from '../../talents/interfaces/TalentTierNumber';
 import type { LineageDef } from '../interfaces/LineageDef';
 import type { LineageId } from '../interfaces/LineageId';
 import type { Stats } from '../interfaces/Stats';
@@ -127,7 +128,7 @@ export abstract class HeroFactory {
             id: `${classId}/${p}${ti + 1}-${step + 1}`,
             classId,
             path: HeroFactory.PATH_KEY[p],
-            tier: (ti + 1) as 1 | 2 | 3,
+            tier: (ti + 1) as TalentTierNumber,
             step,
             fx: seed.fx,
             v: seed.v,

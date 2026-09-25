@@ -2,10 +2,16 @@ import type { EnemyDef } from '../../../../catalog';
 import { type CellIndex, Percent } from '../../../../shared';
 import type { Card } from '../../../card/Card';
 import { Grid } from '../../../engine/grid/Grid';
+import { UNTIL_DEATH } from '../../../events';
 import { RoomPart } from '../room-part/RoomPart';
 
 /** Удары по врагам: уворот, броня, синергии способностей, урон и его последствия. */
 export class EnemyHits extends RoomPart {
+  /** «Живое пламя»: поджог от способности жжёт этой долей её удара… */
+  static readonly ABILITY_BURN_SHARE = 0.3;
+  /** …столько ходов. Столько же держатся яд от способностей и поджог от талантов удара. */
+  static readonly DOT_TURNS = 3;
+
   /** Один удар по врагу. Возвращает true, если враг погиб. */
   strike(cell: CellIndex, raw: number, crit: boolean): boolean {
     const enemy = this.state.cards[cell];
@@ -29,7 +35,11 @@ export class EnemyHits extends RoomPart {
   private abilityRiders(cell: CellIndex, enemy: Card, dmg: number): void {
     const s = this.state.stats;
     if (s.abilityIgnite > 0 && this.state.rng.chance(Percent.toRatio(s.abilityIgnite))) {
-      this.parts.status.applyBurn(cell, Math.max(1, Math.round(dmg * 0.3)), 3);
+      this.parts.status.applyBurn(
+        cell,
+        Math.max(1, Math.round(dmg * EnemyHits.ABILITY_BURN_SHARE)),
+        EnemyHits.DOT_TURNS,
+      );
     }
     if (s.abilityStun > 0 && this.state.rng.chance(Percent.toRatio(s.abilityStun)))
       this.parts.status.applyStun(cell);
@@ -37,12 +47,12 @@ export class EnemyHits extends RoomPart {
       this.parts.status.applyPoison(
         cell,
         Math.max(1, Math.round(enemy.maxHp * s.abilityPoison)),
-        3,
+        EnemyHits.DOT_TURNS,
       );
     }
     if (s.abilityVuln > 0 && enemy.vuln < s.abilityVuln) {
       enemy.vuln = s.abilityVuln;
-      this.state.emit({ type: 'status', cell, uid: enemy.uid, kind: 'vuln', turns: 99 });
+      this.state.emit({ type: 'status', cell, uid: enemy.uid, kind: 'vuln', turns: UNTIL_DEATH });
     }
     if (s.abilityLifesteal > 0)
       this.parts.upkeep.heal(Math.max(1, Math.round(dmg * s.abilityLifesteal)), 'lifesteal');
@@ -100,7 +110,12 @@ export class EnemyHits extends RoomPart {
     const s = this.state.stats;
     if (s.lifesteal > 0 && dealt > 0)
       this.parts.upkeep.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal');
-    if (s.ignite > 0) this.parts.status.applyBurn(cell, this.parts.damage.spellDamage(s.ignite), 3);
+    if (s.ignite > 0)
+      this.parts.status.applyBurn(
+        cell,
+        this.parts.damage.spellDamage(s.ignite),
+        EnemyHits.DOT_TURNS,
+      );
     if (def?.enrage && enemy.hp > 0) {
       enemy.atk = Math.round(enemy.atk + enemy.baseAtk * def.enrage);
     }

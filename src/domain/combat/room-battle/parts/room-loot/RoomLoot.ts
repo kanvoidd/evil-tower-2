@@ -58,7 +58,11 @@ export class RoomLoot extends RoomPart {
   artifactDamage(): number {
     return Math.max(
       1,
-      Math.round(this.state.stats.damage * 2.5 * (1 + this.state.stats.artifactMul)),
+      Math.round(
+        this.state.stats.damage *
+          ConsumableBalance.artifactDamageMul *
+          (1 + this.state.stats.artifactMul),
+      ),
     );
   }
 
@@ -88,9 +92,10 @@ export class RoomLoot extends RoomPart {
 
   private rollConsumable(): ConsumableId {
     const r = this.state.rng.next();
-    if (this.state.lineageDef.artifacts)
-      return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
-    return r < 0.55 ? 'potion_heal' : 'potion_regen';
+    const { withArtifact, plain } = LootBalance.chestConsumables;
+    if (!this.state.lineageDef.artifacts) return r < plain.heal ? 'potion_heal' : 'potion_regen';
+    if (r < withArtifact.heal) return 'potion_heal';
+    return r < withArtifact.regen ? 'potion_regen' : 'artifact';
   }
 
   private openChest(cell: CellIndex, empty = false): void {
@@ -101,11 +106,11 @@ export class RoomLoot extends RoomPart {
       this.state.emit({ type: 'chest', cell, loot, empty: true });
       return;
     }
-    const gold = this.state.factory.rollGold(10, 24);
+    const gold = this.state.factory.rollGold(LootBalance.chestGold.min, LootBalance.chestGold.max);
     loot.push({ kind: 'gold', amount: gold });
     this.state.totals.gold = Gold.of(this.state.totals.gold + gold);
     this.state.emit({ type: 'gold', cell, amount: gold });
-    let chance = LootBalance.chestItemChance + s.luck * 0.02;
+    let chance = LootBalance.chestItemChance + s.luck * LootBalance.itemChancePerLuck;
     for (let i = 0; i < 2 && rng.chance(chance); i++) {
       const item = this.rollConsumable();
       this.state.consumables[item]++;

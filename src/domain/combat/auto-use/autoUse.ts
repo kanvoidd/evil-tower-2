@@ -5,6 +5,11 @@ import type { IBattleState } from '../room-battle';
 import type { AutoUseSave } from './interfaces/AutoUseSave';
 
 /** По умолчанию всё выключено: игрок включает автоприменение сам, рядом с нужным расходником. */
+/** Зелье восстановления пьётся, когда до полной шкалы не хватает этой доли. */
+const REGEN_WHEN_MISSING = 0.6;
+/** Артефакт тратится, если убьёт столько врагов (в опасности — хватит и двух). */
+const ARTIFACT_KILLS = 3;
+
 export const DEFAULT_AUTO_USE: AutoUseSave = { heal: false, regen: false, artifact: false };
 
 /**
@@ -53,7 +58,7 @@ export const needsRegen = (battle: IBattleState): boolean => {
   if (battle.over || battle.consumables.potion_regen <= 0) return false;
   const need = coreCost(battle.stats);
   if (need <= 0 || battle.res >= need || battle.enemiesLeft <= 0) return false;
-  return battle.stats.resMax - battle.res >= Math.ceil(battle.stats.resMax * 0.6);
+  return battle.stats.resMax - battle.res >= Math.ceil(battle.stats.resMax * REGEN_WHEN_MISSING);
 };
 
 /** Артефакт (маг): одним ударом уничтожает 3+ врагов, а при опасности — хотя бы двух. */
@@ -62,7 +67,7 @@ export const worthArtifact = (battle: IBattleState): boolean => {
   const dmg = battle.artifactDamage();
   let kills = 0;
   for (const c of battle.cards) if (c?.kind === 'enemy' && c.hp <= dmg) kills++;
-  return kills >= 3 || (kills >= 2 && inDanger(battle));
+  return kills >= ARTIFACT_KILLS || (kills >= 2 && inDanger(battle));
 };
 
 /** Что применить прямо сейчас (не больше одного предмета за ход) — или null. Порядок: жизнь, ресурс, артефакт. */

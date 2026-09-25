@@ -1,4 +1,5 @@
 import type { Card } from '../../../card/Card';
+import { UNTIL_DEATH } from '../../../events';
 import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
@@ -12,7 +13,7 @@ export class CorpseBlast implements IAbility<'corpse_blast'> {
     const e = target!;
     e.corpse = true;
     ctx.emit({ type: 'fx', cells: [cell], style: 'corpse' });
-    ctx.emit({ type: 'status', cell, uid: e.uid, kind: 'corpse', turns: 99 });
+    ctx.emit({ type: 'status', cell, uid: e.uid, kind: 'corpse', turns: UNTIL_DEATH });
   }
 
   targetable(card: Card): boolean {

@@ -18,6 +18,14 @@ import type { RunEndReason } from './interfaces/RunEndReason';
  * а всё, что забег оставляет в профиле, пишет `TowerRun`.
  */
 export class GameController {
+  /** Пауза перед автоприменением: игрок успевает заметить, что предмет сработал сам. */
+  private static readonly AUTO_USE_PAUSE_MS = 320;
+  /** Пауза после гибели и после победы в комнате — перед окном и переходом. */
+  private static readonly LOSE_PAUSE_MS = 500;
+  private static readonly WIN_PAUSE_MS = 700;
+  /** Подсказка обучения про способность — после стольких ходов. */
+  private static readonly PERK_HINT_AFTER_TURNS = 3;
+
   /** Бой в комнате — открыт для чтения (отладка, проверки). */
   readonly battle: IBattleSession;
   private readonly commands: GameCommandHandler;
@@ -136,7 +144,7 @@ export class GameController {
     const id = pickAutoUse(this.battle, this.d.autoUse.config);
     if (!id) return false;
     this.busy = true;
-    void this.d.clock.delay(320).then(() => {
+    void this.d.clock.delay(GameController.AUTO_USE_PAUSE_MS).then(() => {
       this.busy = false;
       if (!this.alive || this.finished || this.battle.over) return;
       this.execute({ type: 'use-item', itemId: id, auto: true });
@@ -204,7 +212,7 @@ export class GameController {
         this.d.view.tutorial('finish');
         this.hintStage = 3;
       }
-    } else if (this.hintStage === 2 && battle.totals.turns > 3) {
+    } else if (this.hintStage === 2 && battle.totals.turns > GameController.PERK_HINT_AFTER_TURNS) {
       this.d.view.tutorial(battle.stats.abilities.length && !tut.perk ? 'perk' : 'finish');
       this.hintStage = 3;
     }
@@ -238,14 +246,14 @@ export class GameController {
     this.d.view.clearTutorial();
     if (result === 'lose') {
       this.d.view.outcome('lose');
-      await this.d.clock.delay(500);
+      await this.d.clock.delay(GameController.LOSE_PAUSE_MS);
       if (this.alive) void this.onDeath();
       return;
     }
     const tower = this.d.tower;
     const paid = tower.clearRoom();
     this.d.view.outcome('win');
-    await this.d.clock.delay(700);
+    await this.d.clock.delay(GameController.WIN_PAUSE_MS);
     if (!this.alive) return;
     if (tower.complete) {
       void this.endRun('complete');

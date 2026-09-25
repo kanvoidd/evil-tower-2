@@ -1,13 +1,14 @@
 import type { ClassId } from '../../classes/interfaces/ClassId';
 import type { TalentFx } from './TalentFx';
 import type { TalentPath } from './TalentPath';
+import type { TalentTierNumber } from './TalentTierNumber';
 
 export interface TalentDef {
   /** `warrior/a1-2` — класс, путь (a/v/g), ярус и место в цепочке. */
   id: string;
   classId: ClassId;
   path: TalentPath;
-  tier: 1 | 2 | 3;
+  tier: TalentTierNumber;
   /** Место в цепочке яруса, начиная с нуля. */
   step: number;
   fx: TalentFx;

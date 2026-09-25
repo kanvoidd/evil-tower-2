@@ -11,6 +11,9 @@ import {
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import type { AutoSkillSave } from './interfaces/AutoSkillSave';
 
+/** Предохранитель цикла покупок: столько узлов нет ни в одном дереве. */
+const MAX_PURCHASES = 900;
+
 export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, path: 'attack' };
 
 /**
@@ -54,7 +57,7 @@ export const planAutoSkill = (
   const buys: TreeNode[] = [];
   let left: number = souls;
   let spent = 0;
-  for (let guard = 0; guard < 900; guard++) {
+  for (let guard = 0; guard < MAX_PURCHASES; guard++) {
     const cands = tree.nodes.filter(
       (n) => isPurchasable(n) && onBranch(n, cfg.path) && canInvest(tree, sim, n),
     );

@@ -45,6 +45,40 @@ const legacyComplexity = {
   'tools/selftest.ts': 'I',
 };
 
+/**
+ * Числа в правилах игры и в потоках приложения — только с именем: полем баланса, константой
+ * класса или модуля. Разрешены 0, 1, −1, 2 и 100 (проценты), индексы, значения по умолчанию,
+ * литеральные типы и неизменяемые поля класса — там имя у числа уже есть.
+ */
+const namedNumbers = [
+  'warn',
+  {
+    ignore: [0, 1, -1, 2, 100],
+    ignoreArrayIndexes: true,
+    ignoreDefaultValues: true,
+    ignoreClassFieldInitialValues: true,
+    ignoreReadonlyClassProperties: true,
+    ignoreNumericLiteralTypes: true,
+    ignoreEnums: true,
+    ignoreTypeIndexes: true,
+    detectObjects: false,
+  },
+];
+
+/**
+ * Таблицы чисел: файлы, где число — само определение (содержимое каталога, баланс областей,
+ * таблицы наград и цен). Имя числу даёт поле или запись, в которой оно стоит.
+ */
+const numberTables = [
+  'src/domain/catalog/heroes/*-factory/**',
+  'src/domain/catalog/floors/**',
+  'src/domain/catalog/**/*Registry.ts',
+  'src/domain/*/balance/**',
+  'src/domain/rewards/daily/dailyRewards.ts',
+  'src/domain/rewards/tower-gift/giftReward.ts',
+  'src/domain/rewards/achievements/achievementRegistry.ts',
+];
+
 export default tseslint.config(
   { ignores: ['dist/**', 'node_modules/**', 'android/**', 'public/**', 'store/**'] },
   {
@@ -64,6 +98,11 @@ export default tseslint.config(
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
     },
+  },
+  {
+    files: ['src/domain/**/*.ts', 'src/application/**/*.ts'],
+    ignores: numberTables,
+    rules: { '@typescript-eslint/no-magic-numbers': namedNumbers },
   },
   {
     files: ['**/*.mjs'],

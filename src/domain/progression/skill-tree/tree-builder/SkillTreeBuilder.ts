@@ -1,6 +1,7 @@
 import {
   CLASSES,
   type ClassId,
+  LAST_TIER,
   type LineageId,
   maxRank,
   PATH_ORDER,
@@ -8,6 +9,7 @@ import {
   perksOfClass,
   secondOf,
   talentChain,
+  type TalentTierNumber,
   terminalsOf,
 } from '../../../catalog';
 import type { Tree } from '../interfaces/Tree';
@@ -84,12 +86,12 @@ export class SkillTreeBuilder {
 
     let above = perkNodeId('start');
     let gates: string[] = [];
-    for (let tier = 1 as 1 | 2 | 3; tier <= 3; tier = (tier + 1) as 1 | 2 | 3) {
+    for (let tier: TalentTierNumber = 1; tier <= LAST_TIER; tier = (tier + 1) as TalentTierNumber) {
       const tierTop = row + 1;
       const chains = this.tierChains(classId, tier, tierTop, above);
       gates = chains.gates;
       row = tierTop + chains.maxLen - 1;
-      if (tier === 3) break;
+      if (tier === LAST_TIER) break;
       const slot: PerkSlot = tier === 1 ? 'p2' : 'p3';
       if (!perks.some((p) => p.slot === slot)) break;
       row += 1;
@@ -106,7 +108,7 @@ export class SkillTreeBuilder {
   /** Цепочки талантов яруса по путям; каждая начинается под способностью `above`. */
   private tierChains(
     classId: ClassId,
-    tier: 1 | 2 | 3,
+    tier: TalentTierNumber,
     top: number,
     above: string,
   ): { gates: string[]; maxLen: number } {

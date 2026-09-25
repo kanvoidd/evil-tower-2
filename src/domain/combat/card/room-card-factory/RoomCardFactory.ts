@@ -1,4 +1,5 @@
 import { ELITE, type EnemyDef } from '../../../catalog';
+import { DeckBalance, LootBalance } from '../../balance';
 import type { Card } from '../Card';
 import { CardFactory } from '../card-factory/CardFactory';
 import type { DeckPlan } from '../card-factory/interfaces/DeckPlan';
@@ -20,12 +21,18 @@ export class RoomCardFactory extends CardFactory {
   }
 
   createGold(): Card {
-    return this.make({ kind: 'gold', value: this.rollGold(4, 9) });
+    return this.make({
+      kind: 'gold',
+      value: this.rollGold(LootBalance.goldPile.min, LootBalance.goldPile.max),
+    });
   }
 
   rollGold(lo: number, hi: number): number {
     const { room, plan, stats: s, rng } = this.init;
-    const mul = room.goldScale * (plan.mod.goldMul ?? 1) * (1 + s.luck * 0.05 + s.goldBonus);
+    const mul =
+      room.goldScale *
+      (plan.mod.goldMul ?? 1) *
+      (1 + s.luck * LootBalance.goldPerLuck + s.goldBonus);
     return Math.max(1, Math.round(rng.int(lo, hi) * mul));
   }
 
@@ -45,10 +52,11 @@ export class RoomCardFactory extends CardFactory {
     for (let i = 0; i < plan.chests + 1; i++) list.push(this.createEmptyChest());
     for (let i = 0; i < plan.heal; i++) list.push(this.createPotion('potion_heal'));
     for (let i = 0; i < plan.regen; i++) list.push(this.createPotion('potion_regen'));
-    if (lineage.artifacts && rng.chance(0.7)) list.push(this.createArtifact());
+    if (lineage.artifacts && rng.chance(DeckBalance.artifactChance))
+      list.push(this.createArtifact());
     rng.shuffle(list);
     for (const b of bosses) {
-      const from = Math.floor(list.length * 0.7);
+      const from = Math.floor(list.length * DeckBalance.bossFrom);
       list.splice(rng.int(from, list.length), 0, b);
     }
     return { cards: list, quota: plan.enemies.length, boss: bosses.length > 0 };
@@ -59,18 +67,19 @@ export class RoomCardFactory extends CardFactory {
    * Состав тот же, что и в начальной колоде — враги этажа и добыча в тех же долях.
    */
   topUp(deck: Card[]): void {
-    if (deck.length >= 9) return;
+    if (deck.length >= DeckBalance.refillBelow) return;
     const { rng, room, enemies } = this.init;
     const add: Card[] = [];
-    for (let i = deck.length; i < 14; i++) {
+    for (let i = deck.length; i < DeckBalance.refillTo; i++) {
       const r = rng.next();
-      if (r < 0.62) {
+      const mix = DeckBalance.refillMix;
+      if (r < mix.enemy) {
         const def = enemies[rng.pick(room.pool)];
         if (def) add.push(this.createEnemy(def, false));
-      } else if (r < 0.78) add.push(this.createGold());
-      else if (r < 0.84) add.push(this.createChest());
-      else if (r < 0.94) add.push(this.createEmptyChest());
-      else if (r < 0.98) add.push(this.createPotion('potion_heal'));
+      } else if (r < mix.gold) add.push(this.createGold());
+      else if (r < mix.chest) add.push(this.createChest());
+      else if (r < mix.emptyChest) add.push(this.createEmptyChest());
+      else if (r < mix.heal) add.push(this.createPotion('potion_heal'));
       else add.push(this.createPotion('potion_regen'));
     }
     rng.shuffle(add);

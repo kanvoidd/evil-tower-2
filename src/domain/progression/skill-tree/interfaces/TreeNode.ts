@@ -1,4 +1,4 @@
-import type { ClassId, PerkSlot, TalentPath } from '../../../catalog';
+import type { ClassId, PerkSlot, TalentPath, TalentTierNumber } from '../../../catalog';
 import type { NodeKind } from './NodeKind';
 
 /**
@@ -16,7 +16,7 @@ export interface TreeNode {
   // talent
   talentId?: string;
   path?: TalentPath;
-  tier?: 1 | 2 | 3;
+  tier?: TalentTierNumber;
   /** Место в цепочке яруса. */
   step?: number;
   ranks?: number;

@@ -8,4 +8,6 @@ export const ConsumableBalance = {
   regenBoostTurns: Turns.of(5),
   /** …во столько раз. */
   regenBoostMul: 2,
+  /** Артефакт бьёт каждого врага на поле уроном героя, умноженным на это. */
+  artifactDamageMul: 2.5,
 } as const;

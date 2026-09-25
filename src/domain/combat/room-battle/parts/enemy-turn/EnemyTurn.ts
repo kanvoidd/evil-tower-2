@@ -1,9 +1,13 @@
 import { type CellIndex, Gold, Percent } from '../../../../shared';
+import { CombatBalance } from '../../../balance';
 import { Grid } from '../../../engine/grid/Grid';
 import { RoomPart } from '../room-part/RoomPart';
 
 /** Ответ врагов: кто бьёт, удар по герою, спасение от смерти, «Растерзание». */
 export class EnemyTurn extends RoomPart {
+  /** Круги «Растерзания» — предохранитель: к последнему герой давно мёртв. */
+  static readonly MAX_SWEEPS = 8;
+
   /**
    * Ответ врагов. Бьёт не всё, что стоит рядом, а только:
    * — те, с кем герой вступил в бой за этот ход (ударил, накрыл способностью) и кто ещё рядом;
@@ -56,26 +60,17 @@ export class EnemyTurn extends RoomPart {
     enemy.swings++;
     if (this.state.rng.chance(Percent.toRatio(s.dodge))) {
       this.state.emit({ type: 'miss', cell: this.state.playerCell, kind: 'dodge' });
-      // «Подмена»: уворот превращается в удар из-за спины
-      if (s.passives.has('substitution')) {
-        let dmg = Math.round(this.parts.damage.currentDamage());
-        dmg = Math.max(dmg + 1, Math.round(dmg * this.parts.damage.rollCritMul()));
-        this.state.emit({
-          type: 'attack',
-          from: this.state.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'backstab',
-        });
-        this.parts.hits.strike(cell, dmg, true);
-      }
+      if (s.passives.has('substitution')) this.substitute(cell);
       return;
     }
     if (this.state.rng.chance(Percent.toRatio(s.parry))) {
       this.state.emit({ type: 'miss', cell: this.state.playerCell, kind: 'parry' });
       if (s.counterBuff > 0) this.state.counterReady = true;
-      this.parts.hits.strike(cell, Math.round(this.parts.damage.currentDamage() * 0.5), false);
+      this.parts.hits.strike(
+        cell,
+        Math.round(this.parts.damage.currentDamage() * CombatBalance.parryCounter),
+        false,
+      );
       return;
     }
     if (s.block > 0 && this.state.rng.chance(Percent.toRatio(s.block))) {
@@ -89,6 +84,21 @@ export class EnemyTurn extends RoomPart {
       this.state.playerPoisonDmg = Math.max(this.state.playerPoisonDmg, dot);
       this.state.playerPoison = Math.max(this.state.playerPoison, 2);
     }
+  }
+
+  /** «Подмена»: уворот превращается в удар из-за спины — всегда критический. */
+  private substitute(cell: CellIndex): void {
+    let dmg = Math.round(this.parts.damage.currentDamage());
+    dmg = Math.max(dmg + 1, Math.round(dmg * this.parts.damage.rollCritMul()));
+    this.state.emit({
+      type: 'attack',
+      from: this.state.playerCell,
+      to: cell,
+      ranged: true,
+      by: 'player',
+      style: 'backstab',
+    });
+    this.parts.hits.strike(cell, dmg, true);
   }
 
   /** Урон по герою: щит, «первый удар комнаты», мана-щит, обман смерти, шипы. */
@@ -208,7 +218,7 @@ export class EnemyTurn extends RoomPart {
     const cells = order();
     if (!cells.length) return;
     this.state.emit({ type: 'swarm', cells });
-    for (let sweep = 0; sweep < 8 && this.state.hp > 0; sweep++) {
+    for (let sweep = 0; sweep < EnemyTurn.MAX_SWEEPS && this.state.hp > 0; sweep++) {
       for (const c of order()) {
         if (this.state.hp <= 0) break;
         const card = this.state.cards[c];

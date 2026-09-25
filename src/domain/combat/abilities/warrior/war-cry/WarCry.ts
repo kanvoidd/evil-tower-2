@@ -1,3 +1,4 @@
+import { UNTIL_DEATH } from '../../../events';
 import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
@@ -12,7 +13,7 @@ export class WarCry implements IAbility<'war_cry'> {
     ctx.emit({ type: 'fx', cells: enemies, style: 'banner' });
     for (const c of enemies) {
       const e = ctx.cards[c]!;
-      ctx.emit({ type: 'status', cell: c, uid: e.uid, kind: 'weak', turns: 99 });
+      ctx.emit({ type: 'status', cell: c, uid: e.uid, kind: 'weak', turns: UNTIL_DEATH });
     }
   }
 }

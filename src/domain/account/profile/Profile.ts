@@ -52,6 +52,9 @@ import type { ItemPurchase } from './interfaces/ItemPurchase';
  * проверяются без часов браузера.
  */
 export class Profile {
+  /** Сутки в миллисекундах — шаг календаря наград. */
+  private static readonly DAY_MS = 86_400_000;
+
   /** Изменилось что угодно — документ пора сохранить. */
   readonly changed = new Signal();
   /** Изменился кошелёк активного героя (или сменился сам герой). */
@@ -501,11 +504,11 @@ export class Profile {
   dailyStatus(): DailyStatus {
     const today = Profile.dayKey(new Date(this.now()));
     const { lastClaim, streak } = this.doc.daily;
-    if (lastClaim === today) return { available: false, dayIndex: streak % 7, streak };
-    const gap = lastClaim ? Profile.dayDiff(lastClaim, today) : 99;
-    const cont = gap === 1;
+    const week = DAILY_REWARDS.length;
+    if (lastClaim === today) return { available: false, dayIndex: streak % week, streak };
+    const cont = !!lastClaim && Profile.dayDiff(lastClaim, today) === 1;
     const eff = cont ? streak : 0;
-    return { available: true, dayIndex: eff % 7, streak: eff };
+    return { available: true, dayIndex: eff % week, streak: eff };
   }
 
   claimDaily(multiplier = 1): DailyReward | null {
@@ -549,6 +552,6 @@ export class Profile {
   private static dayDiff(a: string, b: string): number {
     const pa = new Date(a + 'T00:00:00').getTime();
     const pb = new Date(b + 'T00:00:00').getTime();
-    return Math.round((pb - pa) / 86400000);
+    return Math.round((pb - pa) / Profile.DAY_MS);
   }
 }
