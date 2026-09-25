@@ -6,6 +6,7 @@ import { t, type TKey } from '../../../i18n';
 import {
   closeButton,
   CurrencyBar,
+  fitText,
   icon,
   type IWalletSource,
   PlateButton,
@@ -19,9 +20,14 @@ import { GAME_W, HEX } from '../../theme';
  * валюта и крестик. Держится на экране, пока дерево панорамируется под ней.
  */
 export class SkillTreeHeader {
+  /** Размер и ширина названия класса: длинное название уменьшается, пока не поместится. */
+  private static readonly NAME_SIZE = 32;
+  private static readonly NAME_WIDTH = 210;
+
   /** Всё, что проявляется при входе (по порядку). */
   readonly items: Phaser.GameObjects.GameObject[];
   private readonly classBtn: PlateButton;
+  private readonly name: Phaser.GameObjects.Text;
   private readonly spent: Phaser.GameObjects.Text;
   private readonly autoBtn: PlateButton;
   private readonly autoCap: Phaser.GameObjects.Text;
@@ -60,11 +66,11 @@ export class SkillTreeHeader {
       scene.add.circle(0, 0, 15, 0x0b0d12).setStrokeStyle(2, 0xf0c75e),
       icon(scene, 0, 0, 'svgw_swap', 18),
     ]);
-    const name = txt(scene, 128, 52, t(`class.${q.activeClass}.name` as TKey), 32, {
+    this.name = txt(scene, 128, 52, SkillTreeHeader.className(q), SkillTreeHeader.NAME_SIZE, {
       font: 'title',
       origin: [0, 0.5],
       color: HEX.gold,
-      maxWidth: 210,
+      maxWidth: SkillTreeHeader.NAME_WIDTH,
       strokeThickness: 5,
     })
       .setScrollFactor(0)
@@ -82,7 +88,7 @@ export class SkillTreeHeader {
       .setScrollFactor(0)
       .setDepth(710);
     const close = closeButton(scene, onClose).setScrollFactor(0).setDepth(710);
-    this.items = [this.classBtn, swap, name, this.spent, cur, close];
+    this.items = [this.classBtn, swap, this.name, this.spent, cur, close];
 
     this.autoBtn = new PlateButton(scene, 384, 66, {
       w: 68,
@@ -106,10 +112,16 @@ export class SkillTreeHeader {
     this.items.push(this.autoBtn);
   }
 
-  /** После покупки или отмены: герб класса и вложенные очки. */
+  /** После покупки, метаморфозы или её отмены: герб и название класса, вложенные очки. */
   refresh(): void {
     this.classBtn.setIcon(`cls_${this.query.activeClass}`);
+    this.name.setFontSize(SkillTreeHeader.NAME_SIZE).setText(SkillTreeHeader.className(this.query));
+    fitText(this.name, SkillTreeHeader.NAME_WIDTH);
     this.spent.setText(t('skill.points', { n: this.query.spentPoints }));
+  }
+
+  private static className(q: SkillTreeQuery): string {
+    return t(`class.${q.activeClass}.name` as TKey);
   }
 
   /** Кнопка автопрокачки появляется после первого улучшения. */

@@ -723,6 +723,9 @@ await step('дерево: отказ от финального класса и �
   await sleep(800);
   if ((await evaluate(`${P}.activeClass`)) !== 'magister')
     throw new Error('герой не вернулся в магистры');
+  const headerName = () => evaluate(`${TREE}.view.header.name.text`);
+  if ((await headerName()) !== 'Магистр')
+    throw new Error(`в шапке «${await headerName()}» после отказа от класса (BUG-003)`);
   if ((await evaluate(`${P}.souls`)) <= souls0) throw new Error('души за отказ не вернулись');
   // проходим ярус магистра командами дерева, пока метаморфоза в пироманта не откроется
   const opened =
@@ -747,6 +750,8 @@ await step('дерево: отказ от финального класса и �
   await sleep(900);
   if ((await evaluate(`${P}.activeClass`)) !== 'pyromancer')
     throw new Error('метаморфоза в пироманта не прошла');
+  if ((await headerName()) !== 'Пиромант')
+    throw new Error(`в шапке «${await headerName()}» после метаморфозы (BUG-003)`);
   if ((await evaluate(`${P}.data.stats.metamorphoses`)) < 1)
     throw new Error('метаморфоза не посчитана');
   await shot('skilltree-meta-done');
