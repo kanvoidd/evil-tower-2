@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import type { ResourceKind } from '../../domain/catalog';
-import { GAMEPLAY } from '../../domain/gameplay';
+import { ConsumableBalance } from '../../domain/combat';
 import { t, type TKey } from '../../i18n';
 import { plateTexture, shadowTexture, txt } from '../components';
 import { GAME_W, HEX } from '../theme';
@@ -51,7 +51,7 @@ export class ResourceBar {
       },
     });
     this.text.setText(`${t(`res.${kind}` as TKey)}  ${Math.floor(res)}/${max}`);
-    this.boost.setText(boosted ? `x${GAMEPLAY.regenBoostMul}` : '');
+    this.boost.setText(boosted ? `x${ConsumableBalance.regenBoostMul}` : '');
   }
 
   /** Не хватает ресурса: подпись шкалы мигает. */

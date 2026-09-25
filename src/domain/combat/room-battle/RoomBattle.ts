@@ -13,8 +13,8 @@ import {
   type RoomModifier,
   type RoomPlan,
 } from '../../catalog';
-import { GAMEPLAY } from '../../gameplay';
 import { CellIndex, Gold, Percent, Ratio, type Rng, Souls } from '../../shared';
+import { CombatBalance, ConsumableBalance, LootBalance } from '../balance';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
 import { Grid } from '../engine/grid/Grid';
@@ -933,7 +933,7 @@ export class RoomBattle implements IBattleSession {
     if (s.lowHpDr > 0 && this.hp <= this.stats.maxHp * 0.4) dmg *= 1 - s.lowHpDr;
     if (s.bigHitCut > 0 && dmg > this.stats.maxHp * 0.4) dmg *= 1 - s.bigHitCut;
     const armor = this.defenseNow();
-    const floor = Math.ceil(dmg * (1 - GAMEPLAY.maxDefenseReduction));
+    const floor = Math.ceil(dmg * (1 - CombatBalance.maxDefenseReduction));
     return Math.max(1, Math.round(Math.max(floor, dmg - armor)));
   }
 
@@ -1670,7 +1670,7 @@ export class RoomBattle implements IBattleSession {
         return { ok: false, events: this.engine.flush() };
       this.consumables[id]--;
       this.res = this.stats.resMax;
-      this.boost = GAMEPLAY.regenBoostTurns;
+      this.boost = ConsumableBalance.regenBoostTurns;
       this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
       this.emit({ type: 'boost', turns: this.boost });
     } else {
@@ -1691,7 +1691,7 @@ export class RoomBattle implements IBattleSession {
   healPotionAmount(): number {
     return Math.max(
       1,
-      Math.round(this.stats.maxHp * GAMEPLAY.healPotionPct * (1 + this.stats.potionPct)),
+      Math.round(this.stats.maxHp * ConsumableBalance.healPotionPct * (1 + this.stats.potionPct)),
     );
   }
 
@@ -1707,7 +1707,7 @@ export class RoomBattle implements IBattleSession {
   revive(): GameEvent[] {
     this.over = null;
     this.revived = true;
-    this.hp = Math.max(1, Math.ceil(this.stats.maxHp * GAMEPLAY.reviveHpRatio));
+    this.hp = Math.max(1, Math.ceil(this.stats.maxHp * CombatBalance.reviveHpRatio));
     this.emit({ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' });
     this.breakFree();
     return this.engine.flush();
@@ -1792,13 +1792,13 @@ export class RoomBattle implements IBattleSession {
     loot.push({ kind: 'gold', amount: gold });
     this.totals.gold = Gold.of(this.totals.gold + gold);
     this.emit({ type: 'gold', cell, amount: gold });
-    let chance = GAMEPLAY.chestItemChance + s.luck * 0.02;
+    let chance = LootBalance.chestItemChance + s.luck * 0.02;
     for (let i = 0; i < 2 && rng.chance(chance); i++) {
       const item = this.rollConsumable();
       this.consumables[item]++;
       loot.push({ kind: item, amount: 1 });
       this.emit({ type: 'pickup', cell, item, count: this.consumables[item] });
-      chance = GAMEPLAY.chestBonusItemChance;
+      chance = LootBalance.chestBonusItemChance;
     }
     this.emit({ type: 'chest', cell, loot });
   }
@@ -1981,7 +1981,7 @@ export class RoomBattle implements IBattleSession {
     for (const id of Object.keys(this.cooldowns)) {
       if (--this.cooldowns[id] <= 0) delete this.cooldowns[id];
     }
-    const mul = this.boost > 0 ? GAMEPLAY.regenBoostMul : 1;
+    const mul = this.boost > 0 ? ConsumableBalance.regenBoostMul : 1;
     if (this.boost > 0) this.boost--;
     if (this.res < this.stats.resMax) this.gain(this.stats.regen * mul);
     // Шкала уже восполнилась — только теперь решаем, что ходить нечем.

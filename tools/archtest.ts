@@ -7,8 +7,8 @@
  *    приходят через порты.
  * 3. Доменные области (docs/DOMAIN.md): область зависит только от областей из своей строки карты
  *    `CONTEXTS`; чужую область видно только через её `index.ts` (и из других слоёв тоже), а свой
- *    `index.ts` область не импортирует. Переходный `domain/gameplay.ts` доступен всем и сам ничего
- *    не импортирует. Инструменты (`tools`) могут смотреть внутрь областей.
+ *    `index.ts` область не импортирует; файлов вне областей в домене нет. Инструменты (`tools`)
+ *    могут смотреть внутрь областей.
  * 4. Внутри боя поле и колода (`domain/combat/engine`) не знают правил боя (`room-battle`, `attack`,
  *    `auto-use`) и прогресса героя.
  * 5. Все относительные импорты в `src` и `tools` ведут в существующие файлы (tools не проверяет tsc).
@@ -66,9 +66,6 @@ const CONTEXTS: Record<string, readonly string[]> = {
   account: ['progression', 'combat', 'economy', 'rewards', 'catalog', 'shared'],
 };
 
-/** Переходные файлы в корне домена: общие для всех областей до этапа C3 второго круга. */
-const KERNEL = ['src/domain/gameplay.ts'];
-
 /**
  * Браузерные API, которых не должно быть в домене и приложении. Считается только обращение
  * к глобальному имени: `this.d.navigator.close()` — это порт, а не `window.navigator`.
@@ -91,20 +88,18 @@ const layerOf = (file: string): Layer => {
   return r[0] as Layer;
 };
 
-/** Область файла домена — папка после `src/domain/`; `kernel` — файл в корне домена; null — не домен. */
+/** Область файла домена — папка после `src/domain/`; `root` — файл в корне домена; null — не домен. */
 const contextOf = (file: string): string | null => {
   const r = rel(file);
   if (!r.startsWith('src/domain/')) return null;
   const parts = r.split('/');
-  return parts.length === 3 ? 'kernel' : parts[2];
+  return parts.length === 3 ? 'root' : parts[2];
 };
 
-/** Файл домена лежит в описанной области или среди переходных файлов корня. */
+/** Файл домена лежит в описанной области. */
 const placementProblem = (file: string): string | null => {
   const ctx = contextOf(file);
-  if (ctx === 'kernel') {
-    return KERNEL.includes(rel(file)) ? null : 'файл в корне домена вне доменной области';
-  }
+  if (ctx === 'root') return 'файл в корне домена вне доменной области';
   if (ctx && !CONTEXTS[ctx]) return `папка домена «${ctx}» не описана в карте областей`;
   return null;
 };
@@ -113,9 +108,7 @@ const placementProblem = (file: string): string | null => {
 const contextProblems = (file: string, target: string): string[] => {
   const from = contextOf(file);
   const to = contextOf(target);
-  if (from === 'kernel')
-    return to ? ['переходный файл домена ничего не импортирует из домена'] : [];
-  if (!to || to === 'kernel' || !CONTEXTS[to]) return [];
+  if (!to || !CONTEXTS[to]) return [];
   const index = `src/domain/${to}/index.ts`;
   if (from === to) {
     return rel(target) === index
@@ -314,8 +307,8 @@ if (process.argv.includes('--graph')) {
       ].join(''),
     );
   }
-  // из области (строка) в область (столбец); kernel — переходные файлы корня домена
-  const contexts = ['kernel', ...Object.keys(CONTEXTS)];
+  // из области (строка) в область (столбец)
+  const contexts = Object.keys(CONTEXTS);
   console.log();
   console.log(['из \\ в'.padEnd(w), ...contexts.map((c) => c.padStart(12))].join(''));
   for (const from of contexts) {

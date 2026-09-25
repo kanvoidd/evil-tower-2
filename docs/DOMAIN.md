@@ -25,9 +25,11 @@
 Типы живут у владельцев: id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath` …)
 — в каталоге рядом с определениями, формат сохранения (`SaveData`, `HeroSave`) — в `account/save/`,
 купленное в дереве (`LineageSave`) — в прогрессе, настройки автоприменения — в бою, язык — в
-`shared/`. Один файл в корне домена — переходный и общий для всех областей, пока его не разберут:
-`gameplay.ts` — числа правил `GAMEPLAY`; этап C3 заменит его балансом областей. Сам он ничего
-не импортирует.
+`shared/`. Число сущности живёт в её определении (цена вещи — в реестре оружия и брони, кривые
+врагов — в фабрике этажа), а число общего правила — в балансе своей области: `combat/balance`
+(`CombatBalance` — крит, броня, воскрешение; `ConsumableBalance` — зелья; `LootBalance` — сундуки)
+и `progression/balance` (`ProgressionBalance` — цена нового героя, возврат при отказе от
+финального класса). Файлов вне областей в домене нет.
 
 ## Карта зависимостей
 
@@ -45,7 +47,6 @@
 | `expedition` | `progression`, `combat`, `economy`, `catalog`, `shared` |
 | `account` | `progression`, `combat`, `economy`, `rewards`, `catalog`, `shared` |
 
-Каждая область может брать переходный `gameplay.ts`.
 
 Почему стрелки идут так:
 
@@ -84,8 +85,8 @@
 |---|---|
 | `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex` |
 | `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath`, `CardKind` …), надетая вещь `EquipmentSave`, типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
-| `combat` | бой в комнате (`RoomBattle`, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
-| `progression` | `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах, автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
+| `combat` | числа правил боя (`CombatBalance`, `ConsumableBalance`, `LootBalance`), бой в комнате (`RoomBattle`, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
+| `progression` | `ProgressionBalance`, `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах, автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
 | `economy` | цена починки (`REPAIR_RATIO`) |
 | `rewards` | награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
 | `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`) |
@@ -149,4 +150,3 @@
 | `account/profile/Profile` | награда дня, «Дар башни», достижения; день по `new Date` | `rewards/` и календарь, этапы G1–G2 |
 | `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |
 | `shared/rng` | `randomSeed()` через `Math.random` | порт источника зерна, этап E5 |
-| `gameplay.ts` | числа правил `GAMEPLAY` | балансу областей, этап C3 |

@@ -5,7 +5,7 @@ import type { IShopView } from '../../../application/shop/interfaces/IShopView';
 import type { ItemOffer } from '../../../application/shop/interfaces/ItemOffer';
 import type { ShopTab } from '../../../application/shop/interfaces/ShopTab';
 import type { ConsumableDef, ItemDef } from '../../../domain/catalog';
-import { GAMEPLAY } from '../../../domain/gameplay';
+import { ConsumableBalance } from '../../../domain/combat';
 import { fmt, t, type TKey, tr } from '../../../i18n';
 import {
   background,
@@ -365,9 +365,9 @@ export class ShopView implements IShopView {
     );
     const desc =
       id === 'potion_heal'
-        ? t('shop.potion_heal.desc', { n: Math.round(GAMEPLAY.healPotionPct * 100) })
+        ? t('shop.potion_heal.desc', { n: Math.round(ConsumableBalance.healPotionPct * 100) })
         : id === 'potion_regen'
-          ? t('shop.potion_regen.desc', { n: GAMEPLAY.regenBoostTurns })
+          ? t('shop.potion_regen.desc', { n: ConsumableBalance.regenBoostTurns })
           : t('shop.artifact.desc');
     const info = txt(s, -114, -47, desc, 17, {
       origin: [0, 0],

@@ -11,7 +11,6 @@ import {
 } from '../../catalog';
 import { type AutoUseSave, DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
 import { REPAIR_RATIO } from '../../economy';
-import { GAMEPLAY } from '../../gameplay';
 import {
   applyBuy,
   type AutoSkillPlan,
@@ -24,6 +23,7 @@ import {
   type LineageSave,
   newLineageSave,
   planAutoSkill,
+  ProgressionBalance,
   type TreeNode,
   TREES,
 } from '../../progression';
@@ -352,7 +352,7 @@ export class Profile {
 
   buyLineage(l: LineageId): boolean {
     if (this.isLineageUnlocked(l)) return true;
-    if (!this.spendGold(Gold.of(GAMEPLAY.classUnlockCost))) return false;
+    if (!this.spendGold(ProgressionBalance.heroUnlockCost)) return false;
     this.unlockLineage(l);
     return true;
   }

@@ -1,7 +1,6 @@
 import type { Profile } from '../../domain/account';
 import { CLASSES, type ClassId, LINEAGE_ORDER, type LineageId, ROOMS } from '../../domain/catalog';
-import { GAMEPLAY } from '../../domain/gameplay';
-import { classStartStats, classTraits } from '../../domain/progression';
+import { classStartStats, classTraits, ProgressionBalance } from '../../domain/progression';
 import type { ClassSelectMode } from './interfaces/ClassSelectMode';
 import type { HeroChoice } from './interfaces/HeroChoice';
 
@@ -18,7 +17,7 @@ export class ClassSelection {
 
   /** Цена нового героя в золоте. */
   get unlockCost(): number {
-    return GAMEPLAY.classUnlockCost;
+    return ProgressionBalance.heroUnlockCost;
   }
 
   /** Все герои по порядку линеек. */

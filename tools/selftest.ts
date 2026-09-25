@@ -55,6 +55,7 @@ import {
   talentsOfClass,
   talentsOfTier,
 } from '../src/domain/catalog/talents';
+import { CombatBalance } from '../src/domain/combat';
 import { ATTACK_STRATEGIES, SpellAttack } from '../src/domain/combat/attack';
 import {
   needsHeal,
@@ -69,8 +70,8 @@ import {
   type RoomBattle,
   RoomBattleFactory,
 } from '../src/domain/combat/room-battle';
-import { GAMEPLAY } from '../src/domain/gameplay';
 import type { AutoSkillSave } from '../src/domain/progression';
+import { ProgressionBalance } from '../src/domain/progression';
 import {
   branchOf,
   inferBranch,
@@ -1552,8 +1553,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       sum += hit.amount;
     }
   }
-  const lo = Math.round(10 * GAMEPLAY.critMulMin);
-  const hi = Math.round(10 * GAMEPLAY.critMulMax);
+  const lo = Math.round(10 * CombatBalance.critMulMin);
+  const hi = Math.round(10 * CombatBalance.critMulMax);
   ok(
     [...seen].every((v) => v >= lo && v <= hi),
     `крит-урон в пределах ${lo}..${hi}: ${[...seen].sort((a, b) => a - b).join(',')}`,
@@ -2264,7 +2265,7 @@ for (const lin of LINEAGE_ORDER) {
       log.at(-1) === 'gold' && !p.isLineageUnlocked('mage'),
       'выбор героя: без золота героя не открыть',
     );
-    p.addGold(Gold.of(GAMEPLAY.classUnlockCost + 100), false);
+    p.addGold(Gold.of(ProgressionBalance.heroUnlockCost + 100), false);
     sw.ctl.execute({ type: 'choose', classId: 'mage' });
     await settle();
     ok(

@@ -22,8 +22,8 @@ import {
   talentValue2,
   terminalsOf,
 } from '../../catalog';
-import { GAMEPLAY } from '../../gameplay';
 import { Souls } from '../../shared';
+import { ProgressionBalance } from '../balance';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';
 import type { LineageSave } from './interfaces/LineageSave';
 
@@ -360,7 +360,7 @@ export const applyCancelMetamorphosis = (
   }
   delete s.ranks[tree.classNode[classId].id];
   s.last = tree.classNode[CLASSES[classId].parent!].id;
-  return { refund: Souls.of(Math.floor(spent * GAMEPLAY.cancelMetamorphosisRefund)) };
+  return { refund: Souls.of(Math.floor(spent * ProgressionBalance.cancelMetamorphosisRefund)) };
 };
 
 // ------------------------------------------------------------------ бонусы и способности

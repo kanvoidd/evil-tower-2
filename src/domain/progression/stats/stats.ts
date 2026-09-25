@@ -7,8 +7,7 @@ import {
   LINEAGES,
   PERK_BY_ID,
 } from '../../catalog';
-import { ATTACK_STRATEGIES, type PlayerStats } from '../../combat';
-import { GAMEPLAY } from '../../gameplay';
+import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat';
 import { Percent, Ratio } from '../../shared';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree/skillTree';
@@ -69,8 +68,8 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     regen: lin.resRegen,
     attack: ATTACK_STRATEGIES[lin.attack],
     rangedCost: basicPerk?.cost ?? 0,
-    critMin: GAMEPLAY.critMulMin,
-    critMax: GAMEPLAY.critMulMax + asRatio(g('critMul')),
+    critMin: CombatBalance.critMulMin,
+    critMax: CombatBalance.critMulMax + asRatio(g('critMul')),
     goldBonus: Ratio.of(lin.goldBonus),
     soulBonus: Ratio.of(0),
     artifactMul: asRatio(g('artifactMul')),
