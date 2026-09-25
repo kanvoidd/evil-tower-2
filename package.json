@@ -6,14 +6,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json --noEmit",
     "lint": "eslint && npm run format:check",
     "format": "prettier --write \"src/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"*.{ts,mjs}\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"*.{ts,mjs}\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "sim": "tsx tools/sim.ts",
-    "selftest": "tsx tools/selftest.ts",
+    "selftest": "tsx tools/selftest/index.ts",
     "archtest": "tsx tools/archtest.ts",
     "store": "tsx tools/store-assets.ts && python store/render.py",
     "zip": "node tools/zip-dist.mjs",
@@ -26,6 +26,7 @@
     "phaser": "^3.90.0"
   },
   "devDependencies": {
+    "@types/node": "^24.13.6",
     "eslint": "^10.11.0",
     "eslint-plugin-simple-import-sort": "^14.0.0",
     "prettier": "^3.9.9",

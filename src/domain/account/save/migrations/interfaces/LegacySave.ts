@@ -1,5 +1,6 @@
 import type { EquipmentSave, LineageId } from '../../../../catalog';
 import type { AutoUseSave } from '../../../../combat';
+import type { AutoSkillSave } from '../../../../progression';
 import type { HeroSave } from '../../interfaces/HeroSave';
 import type { SaveData } from '../../interfaces/SaveData';
 
@@ -9,7 +10,10 @@ import type { SaveData } from '../../interfaces/SaveData';
  */
 export type LegacySave = Partial<Omit<SaveData, 'auto'>> & {
   /** Автоматизация: раньше у автоприменения был общий переключатель `on`. */
-  auto?: { use?: Partial<AutoUseSave> & { on?: boolean }; skill?: SaveData['auto']['skill'] };
+  auto?: {
+    use?: Partial<AutoUseSave> & { on?: boolean };
+    skill?: Partial<Record<LineageId, Partial<AutoSkillSave>>>;
+  };
   /** Кошелёк, расходники и доспех были общими на профиль. */
   gold?: number;
   souls?: number;

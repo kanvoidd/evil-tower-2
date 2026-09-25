@@ -33,7 +33,6 @@ const warnings = {
 const legacyComplexity = {
   'src/composition/DevParams.ts': 'I',
   'tools/sim.ts': 'I',
-  'tools/selftest.ts': 'I',
 };
 
 /**
@@ -46,6 +45,12 @@ const replaceableBlock = [
   'src/presentation/animations/effects/vfx/**',
   'src/infrastructure/audio/**',
 ];
+
+/**
+ * Самопроверка — длинные списки проверок по темам: размер файла для неё не мерило. Сложность и
+ * длина функций проверяются как везде (разделы — код верхнего уровня, функции в них — помощники).
+ */
+const selftestFiles = ['tools/selftest/**'];
 
 /**
  * Числа в правилах игры и в потоках приложения — только с именем: полем баланса, константой
@@ -121,6 +126,10 @@ export default tseslint.config(
       'max-lines-per-function': 'off',
       'max-params': 'off',
     },
+  },
+  {
+    files: selftestFiles,
+    rules: { 'max-lines': 'off' },
   },
   {
     files: Object.keys(legacyComplexity),
