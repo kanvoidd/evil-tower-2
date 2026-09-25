@@ -1,6 +1,6 @@
 import { CLASS_DEFINITIONS, type ClassDefinition } from '../../../catalog/classes';
 import type { PerkDef } from '../../../catalog/perks';
-import type { IAttackStrategy } from '../../../combat/attack/interfaces/IAttackStrategy';
+import { ATTACK_STRATEGIES, type IAttackStrategy } from '../../../combat';
 import type { ClassId, LineageId, Stats } from '../../../types';
 
 /**
@@ -10,8 +10,8 @@ import type { ClassId, LineageId, Stats } from '../../../types';
  * Классы различаются числами и списками, а не поведением, поэтому состояние — один класс на все
  * классы игры, собранный из определения (`ClassDefinition`), а не подкласс на каждый класс.
  * Поведение, которое у линеек действительно разное (как герой атакует), — стратегия линейки
- * (`IAttackStrategy`): состояние её содержит, а не наследует. Состояния неизменяемы и общие
- * на всю игру — по одному на класс (приспособленец).
+ * (`IAttackStrategy`): состояние выдаёт её по стилю линейки, а не наследует. Состояния неизменяемы
+ * и общие на всю игру — по одному на класс (приспособленец).
  */
 export class HeroClassState {
   private static readonly states = new Map<ClassId, HeroClassState>();
@@ -44,9 +44,9 @@ export class HeroClassState {
     return this.definition.parent;
   }
 
-  /** Как герой атакует — стратегия линейки. */
+  /** Как герой атакует — стратегия стиля его линейки. */
   get attack(): IAttackStrategy {
-    return this.definition.lineage.attack;
+    return ATTACK_STRATEGIES[this.definition.lineage.attack];
   }
 
   /** Классы, в которые ведёт метаморфоза (у финальных — никуда). */

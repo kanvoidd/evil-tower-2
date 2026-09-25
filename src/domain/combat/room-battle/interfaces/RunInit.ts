@@ -1,7 +1,7 @@
 import type { RoomDef, RoomPlan } from '../../../catalog/levels';
-import type { PlayerStats } from '../../../progression/stats/stats';
 import type { Rng } from '../../../shared/rng/rng';
 import type { ConsumableId, EquipmentSave } from '../../../types';
+import type { PlayerStats } from '../../player';
 import type { RunCarryStats } from './RunCarryStats';
 
 /** С чем герой входит в комнату. */

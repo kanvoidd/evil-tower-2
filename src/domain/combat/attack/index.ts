@@ -1,3 +1,4 @@
+export { ATTACK_STRATEGIES } from './attackRegistry';
 export { BackstabAttack } from './backstab-attack/BackstabAttack';
 export { HandAttack } from './hand-attack/HandAttack';
 export type { BasicMode } from './interfaces/BasicMode';

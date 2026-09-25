@@ -1,3 +1,4 @@
+import type { PlayerStats } from '../../combat';
 import type { ClassId, EquipmentSave, LineageId, LineageSave } from '../../types';
 import {
   applyBuy,
@@ -11,7 +12,7 @@ import {
   type TreeNode,
   TREES,
 } from '../skill-tree/skillTree';
-import { buildPlayerStats, type PlayerStats } from '../stats/stats';
+import { buildPlayerStats } from '../stats/stats';
 import { HeroClassState } from './hero-class-state/HeroClassState';
 
 /**

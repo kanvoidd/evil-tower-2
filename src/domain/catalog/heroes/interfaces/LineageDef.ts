@@ -1,5 +1,4 @@
-import type { IAttackStrategy } from '../../../combat/attack/interfaces/IAttackStrategy';
-import type { LineageId, ResourceKind, Stats } from '../../../types';
+import type { AttackStyleId, LineageId, ResourceKind, Stats } from '../../../types';
 import type { CheatDeathPrice } from './CheatDeathPrice';
 
 export interface LineageDef {
@@ -17,9 +16,10 @@ export interface LineageDef {
   artifacts: boolean;
   /**
    * Стиль боя: бьёт ли герой рукой и чем достаёт дальнего врага. У линейки мага рукой не бьёт
-   * никто — только заклинаниями по кнопке.
+   * никто — только заклинаниями по кнопке. Каталог называет стиль по id, а как он работает,
+   * решает бой (`ATTACK_STRATEGIES` в `combat/attack`).
    */
-  attack: IAttackStrategy;
+  attack: AttackStyleId;
   /** Чем платит линейка, когда талант спасает героя от смерти. */
   cheatDeathPrice: CheatDeathPrice;
 }

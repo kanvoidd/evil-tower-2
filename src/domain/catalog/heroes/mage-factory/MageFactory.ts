@@ -1,4 +1,3 @@
-import { SpellAttack } from '../../../combat/attack/spell-attack/SpellAttack';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -21,7 +20,7 @@ export class MageFactory extends HeroFactory {
       resRegen: 1,
       goldBonus: 0,
       artifacts: true,
-      attack: new SpellAttack(),
+      attack: 'spell',
       // «Аварийный барьер» сжигает всю ману
       cheatDeathPrice: { drainsResource: true, goldShare: 0 },
     });

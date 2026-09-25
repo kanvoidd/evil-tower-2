@@ -1,4 +1,3 @@
-import { BackstabAttack } from '../../../combat/attack/backstab-attack/BackstabAttack';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -18,7 +17,7 @@ export class MercenaryFactory extends HeroFactory {
       resRegen: 2,
       goldBonus: 0.2,
       artifacts: false,
-      attack: new BackstabAttack(),
+      attack: 'backstab',
       // «Откупиться»: жизнь стоит пятой части кошеля комнаты
       cheatDeathPrice: { drainsResource: false, goldShare: 0.2 },
     });

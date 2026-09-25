@@ -22,6 +22,12 @@ export type ClassId =
 
 export type ResourceKind = 'stamina' | 'mana' | 'concentration' | 'vigilance';
 
+/**
+ * Стиль атаки линейки: рукой (воин), только заклинаниями (маг), выстрелом через карту (лучник),
+ * ударом в спину (наёмник). Линейка называет стиль по id, стратегию по нему выдаёт бой.
+ */
+export type AttackStyleId = 'hand' | 'spell' | 'shot' | 'backstab';
+
 /** Характеристики, которые прокачиваются в дереве талантов и меняются перками/предметами. */
 export type StatKey = 'damage' | 'crit' | 'health' | 'dodge' | 'defense' | 'parry' | 'luck';
 

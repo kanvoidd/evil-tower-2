@@ -1,4 +1,3 @@
-import { ShotAttack } from '../../../combat/attack/shot-attack/ShotAttack';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -18,7 +17,7 @@ export class ArcherFactory extends HeroFactory {
       resRegen: 2,
       goldBonus: 0,
       artifacts: false,
-      attack: new ShotAttack(),
+      attack: 'shot',
       cheatDeathPrice: { drainsResource: false, goldShare: 0 },
     });
   }

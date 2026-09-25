@@ -4,4 +4,5 @@ export * from './auto-use/autoUse';
 export * from './card';
 export * from './engine';
 export * from './events';
+export * from './player';
 export * from './room-battle';

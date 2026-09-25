@@ -1,10 +1,10 @@
 import { CLASSES } from '../../catalog/classes';
 import { LINEAGES } from '../../catalog/heroes';
 import { ITEM_BY_ID } from '../../catalog/items';
-import { type AbilityId, hasButton, PERK_BY_ID, type PerkDef } from '../../catalog/perks';
-import type { IAttackStrategy } from '../../combat/attack/interfaces/IAttackStrategy';
+import { hasButton, PERK_BY_ID } from '../../catalog/perks';
+import { ATTACK_STRATEGIES, type PlayerStats } from '../../combat';
 import { GAMEPLAY } from '../../gameplay';
-import type { ClassId, EquipmentSave, LineageId, LineageSave, ResourceKind } from '../../types';
+import type { ClassId, EquipmentSave, LineageSave } from '../../types';
 import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree/skillTree';
 
 export interface Loadout {
@@ -12,109 +12,6 @@ export interface Loadout {
   lineage: LineageSave;
   weapon: EquipmentSave | null;
   armor: EquipmentSave | null;
-}
-
-export interface PlayerStats {
-  classId: ClassId;
-  lineage: LineageId;
-  resource: ResourceKind;
-  maxHp: number;
-  damage: number;
-  crit: number;
-  dodge: number;
-  parry: number;
-  defense: number;
-  luck: number;
-  resMax: number;
-  regen: number;
-  /** Стиль боя линейки: бьёт ли герой рукой и чем достаёт дальнего врага. */
-  attack: IAttackStrategy;
-  /** Цена базового действия линейки в ресурсе. */
-  rangedCost: number;
-  /** Границы случайного множителя крита. */
-  critMin: number;
-  critMax: number;
-  goldBonus: number;
-  soulBonus: number;
-  artifactMul: number;
-  /** Множитель силы способностей: 1 — базовая, 2 — вдвое сильнее. */
-  perkPower: number;
-
-  // ---- таланты пути урона
-  execute: number;
-  pierce: number;
-  doubleStrike: number;
-  lowHpDmg: number;
-  fullHpDmg: number;
-  bossDmg: number;
-  ignite: number;
-  killDmg: number;
-  rageDmg: number;
-  goldDmg: number;
-  defDmg: number;
-  everyThird: boolean;
-  roomCrit: boolean;
-  lifesteal: number;
-
-  // ---- синергии: меняют уже полученные способности
-  abilityIgnite: number;
-  abilityStun: number;
-  abilitySplash: number;
-  abilityPoison: number;
-  abilityVuln: number;
-  abilityCrit: number;
-  abilityLifesteal: number;
-  abilityRefund: number;
-  abilityShield: number;
-  killBlast: number;
-  /** «Раздвоение молнии»: шанс задеть второго врага и доля урона по нему. */
-  splitChance: number;
-  splitDmg: number;
-  perkCostDown: number;
-  /** «Раздвоение молнии»: шанс второго разряда по той же цели и его доля урона. */
-  echoChance: number;
-  echoDmg: number;
-  /** Усиление отдельных заклинаний мага. */
-  lightningPower: number;
-  shotPower: number;
-  chainPower: number;
-
-  // ---- таланты пути здоровья
-  lowHpDr: number;
-  bigHitCut: number;
-  startShieldPct: number;
-  potionPct: number;
-  cheatDeath: number;
-  reviveHp: number;
-  killHp: number;
-  bossHp: number;
-  freePerk: boolean;
-  healShield: number;
-  stepHeal: number;
-
-  // ---- таланты пути защиты
-  block: number;
-  thorns: number;
-  weaken: number;
-  firstHitDown: number;
-  dotDr: number;
-  bossDr: number;
-  magicDr: number;
-  killDefTurn: number;
-  killDefStack: number;
-  roomGuard: number;
-  counterBuff: number;
-  highHpDef: number;
-  resDef: number;
-  perkDef: number;
-  scarDef: number;
-  manaShield: number;
-
-  perks: string[];
-  /** Способности с кнопкой на поле боя (в порядке слотов). */
-  abilities: PerkDef[];
-  /** Пассивные способности класса. */
-  passives: Set<AbilityId>;
 }
 
 const usable = (e: EquipmentSave | null): EquipmentSave | null =>
@@ -161,7 +58,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     luck: lin.base.luck + (cls.mods.luck ?? 0),
     resMax: Math.max(1, Math.round(lin.resMax * (1 + g('resMaxPct') / 100))),
     regen: lin.resRegen,
-    attack: lin.attack,
+    attack: ATTACK_STRATEGIES[lin.attack],
     rangedCost: basicPerk?.cost ?? 0,
     critMin: GAMEPLAY.critMulMin,
     critMax: GAMEPLAY.critMulMax + g('critMul') / 100,

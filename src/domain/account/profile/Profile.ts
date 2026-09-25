@@ -2,6 +2,7 @@ import { CLASSES } from '../../catalog/classes';
 import { CONSUMABLES } from '../../catalog/consumables';
 import { LINEAGE_ORDER } from '../../catalog/heroes';
 import { ITEM_BY_ID, type ItemDef } from '../../catalog/items';
+import type { PlayerStats } from '../../combat';
 import { DEFAULT_AUTO_USE } from '../../combat/auto-use/autoUse';
 import { REPAIR_RATIO } from '../../economy/repair/repairRatio';
 import { GAMEPLAY } from '../../gameplay';
@@ -20,7 +21,6 @@ import {
   type TreeNode,
   TREES,
 } from '../../progression/skill-tree/skillTree';
-import type { PlayerStats } from '../../progression/stats/stats';
 import { type AchievementDef, ACHIEVEMENTS } from '../../rewards/achievements';
 import { DAILY_REWARDS, type DailyReward } from '../../rewards/daily';
 import { GIFT_COOLDOWN_MS, GIFT_REWARD } from '../../rewards/tower-gift';

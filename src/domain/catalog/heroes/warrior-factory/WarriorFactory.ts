@@ -1,4 +1,3 @@
-import { HandAttack } from '../../../combat/attack/hand-attack/HandAttack';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -18,7 +17,7 @@ export class WarriorFactory extends HeroFactory {
       resRegen: 1,
       goldBonus: 0,
       artifacts: false,
-      attack: new HandAttack(),
+      attack: 'hand',
       cheatDeathPrice: { drainsResource: false, goldShare: 0 },
     });
   }

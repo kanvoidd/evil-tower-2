@@ -1,8 +1,8 @@
 import type { EnemyDef } from '../../../../catalog/enemies';
 import type { LineageDef } from '../../../../catalog/heroes';
 import type { RoomDef, RoomPlan } from '../../../../catalog/levels';
-import type { PlayerStats } from '../../../../progression/stats/stats';
 import type { Rng } from '../../../../shared/rng/rng';
+import type { PlayerStats } from '../../../player';
 
 /** Что нужно фабрике, чтобы собрать карты одного захода в комнату. */
 export interface RoomCardFactoryInit {

@@ -1,9 +1,9 @@
 import type { LineageDef } from '../../../catalog/heroes';
 import type { RoomDef, RoomModifier } from '../../../catalog/levels';
 import type { PerkDef } from '../../../catalog/perks';
-import type { PlayerStats } from '../../../progression/stats/stats';
 import type { ConsumableId, EquipmentSave, LineageId } from '../../../types';
 import type { Card } from '../../card/Card';
+import type { PlayerStats } from '../../player';
 import type { Action } from './Action';
 import type { PerkReadiness } from './PerkReadiness';
 import type { RunCarryStats } from './RunCarryStats';

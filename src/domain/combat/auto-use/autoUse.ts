@@ -1,7 +1,7 @@
 import { FULL_BAR } from '../../catalog/perks';
-import type { PlayerStats } from '../../progression/stats/stats';
 import type { AutoUseSave, ConsumableId } from '../../types';
 import { Grid } from '../engine/grid/Grid';
+import type { PlayerStats } from '../player';
 import type { IRunState } from '../room-battle';
 
 /** По умолчанию всё выключено: игрок включает автоприменение сам, рядом с нужным расходником. */

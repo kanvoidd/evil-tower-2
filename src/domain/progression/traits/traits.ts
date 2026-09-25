@@ -1,9 +1,10 @@
 import { CLASSES } from '../../catalog/classes';
 import { LINEAGES } from '../../catalog/heroes';
 import { perkOf } from '../../catalog/perks';
+import type { PlayerStats } from '../../combat';
 import type { ClassId, LineageId } from '../../types';
 import { newLineageSave, TREES } from '../skill-tree/skillTree';
-import { buildPlayerStats, type PlayerStats } from '../stats/stats';
+import { buildPlayerStats } from '../stats/stats';
 
 /**
  * Краткая сводка «что даёт класс». Строится из реальных данных (характеристики, пассивка линейки,

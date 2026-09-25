@@ -54,7 +54,7 @@ import {
   talentsOfClass,
   talentsOfTier,
 } from '../src/domain/catalog/talents';
-import { SpellAttack } from '../src/domain/combat/attack';
+import { ATTACK_STRATEGIES, SpellAttack } from '../src/domain/combat/attack';
 import {
   needsHeal,
   needsRegen,
@@ -441,15 +441,13 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     'гарантированный крит только у удара в спину',
   );
   ok(
-    LINEAGE_ORDER.every(
-      (lin) => start(lin).attack.constructor === LINEAGES[lin].attack.constructor,
-    ),
+    LINEAGE_ORDER.every((lin) => start(lin).attack === ATTACK_STRATEGIES[LINEAGES[lin].attack]),
     'стиль боя героя — стратегия его линейки',
   );
 
   // досягаемость базового действия (поле 0 1 2 / 3 4 5 / 6 7 8)
   const reach = (lin: LineageId, from: number, to: number, passives: AbilityId[] = []): boolean =>
-    LINEAGES[lin].attack.reaches(from, to, new Set(passives));
+    ATTACK_STRATEGIES[LINEAGES[lin].attack].reaches(from, to, new Set(passives));
   ok(
     reach('archer', 0, 2) &&
       reach('archer', 1, 7) &&
