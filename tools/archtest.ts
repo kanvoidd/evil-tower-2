@@ -5,10 +5,14 @@
  *    слой файла — первая папка после `src/`, импорт разрешён только в перечисленные слои и пакеты.
  * 2. Домен и приложение не трогают браузер (window, document, localStorage…) — время и платформа
  *    приходят через порты.
- * 3. Внутри боя поле и колода (`domain/combat/engine`) не знают правил боя (`room-battle`, `attack`,
+ * 3. Доменные области (docs/DOMAIN.md): область зависит только от областей из своей строки карты
+ *    `CONTEXTS`; чужую область видно только через её `index.ts` (и из других слоёв тоже), а свой
+ *    `index.ts` область не импортирует. Переходные `domain/types.ts` и `domain/gameplay.ts` доступны
+ *    всем и сами ничего не импортируют. Инструменты (`tools`) могут смотреть внутрь областей.
+ * 4. Внутри боя поле и колода (`domain/combat/engine`) не знают правил боя (`room-battle`, `attack`,
  *    `auto-use`) и прогресса героя.
- * 4. Все относительные импорты в `src` и `tools` ведут в существующие файлы (tools не проверяет tsc).
- * 5. Нет циклов среди импортов, которые остаются после сборки (`import type` не считается).
+ * 5. Все относительные импорты в `src` и `tools` ведут в существующие файлы (tools не проверяет tsc).
+ * 6. Нет циклов среди импортов, которые остаются после сборки (`import type` не считается).
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
@@ -48,6 +52,24 @@ const ALLOWED: Record<Exclude<Layer, 'tools'>, { layers: Layer[]; packages: RegE
 };
 
 /**
+ * Карта доменных областей (docs/DOMAIN.md): от каких областей может зависеть область. Каждая
+ * строка ссылается только на области выше себя, поэтому циклов между областями нет.
+ */
+const CONTEXTS: Record<string, readonly string[]> = {
+  shared: [],
+  catalog: ['shared'],
+  combat: ['catalog', 'shared'],
+  progression: ['combat', 'catalog', 'shared'],
+  economy: ['catalog', 'shared'],
+  rewards: ['economy', 'catalog', 'shared'],
+  expedition: ['progression', 'combat', 'economy', 'catalog', 'shared'],
+  account: ['progression', 'combat', 'economy', 'rewards', 'catalog', 'shared'],
+};
+
+/** Переходные файлы в корне домена: общие для всех областей до этапов C1 и C3 второго круга. */
+const KERNEL = ['src/domain/types.ts', 'src/domain/gameplay.ts'];
+
+/**
  * Браузерные API, которых не должно быть в домене и приложении. Считается только обращение
  * к глобальному имени: `this.d.navigator.close()` — это порт, а не `window.navigator`.
  */
@@ -67,6 +89,47 @@ const layerOf = (file: string): Layer => {
   if (r[0] === '..') return 'tools';
   if (r.length === 1) return 'entry';
   return r[0] as Layer;
+};
+
+/** Область файла домена — папка после `src/domain/`; `kernel` — файл в корне домена; null — не домен. */
+const contextOf = (file: string): string | null => {
+  const r = rel(file);
+  if (!r.startsWith('src/domain/')) return null;
+  const parts = r.split('/');
+  return parts.length === 3 ? 'kernel' : parts[2];
+};
+
+/** Файл домена лежит в описанной области или среди переходных файлов корня. */
+const placementProblem = (file: string): string | null => {
+  const ctx = contextOf(file);
+  if (ctx === 'kernel') {
+    return KERNEL.includes(rel(file)) ? null : 'файл в корне домена вне доменной области';
+  }
+  if (ctx && !CONTEXTS[ctx]) return `папка домена «${ctx}» не описана в карте областей`;
+  return null;
+};
+
+/** Нарушения границ доменных областей для импорта `file` → `target`. */
+const contextProblems = (file: string, target: string): string[] => {
+  const from = contextOf(file);
+  const to = contextOf(target);
+  if (from === 'kernel')
+    return to ? ['переходный файл домена ничего не импортирует из домена'] : [];
+  if (!to || to === 'kernel' || !CONTEXTS[to]) return [];
+  const index = `src/domain/${to}/index.ts`;
+  if (from === to) {
+    return rel(target) === index
+      ? [`область «${to}» импортирует свой index.ts (внутри области — напрямую)`]
+      : [];
+  }
+  const out: string[] = [];
+  if (from && CONTEXTS[from] && !CONTEXTS[from].includes(to)) {
+    out.push(`область «${from}» не может зависеть от «${to}» (${rel(target)})`);
+  }
+  if (rel(target) !== index) {
+    out.push(`импорт в глубину области «${to}» — только через её index.ts (${rel(target)})`);
+  }
+  return out;
 };
 
 /** Импорты файла: статические, реэкспорты, импорты ради побочного эффекта и динамические. */
@@ -114,8 +177,9 @@ const resolveImport = (from: string, spec: string): string | null => {
 
 const problems: string[] = [];
 const graph = new Map<string, Set<string>>();
-/** Сколько импортов идёт из слоя в слой (для `--graph`). */
+/** Сколько импортов идёт из слоя в слой и из области в область (для `--graph`). */
 const matrix = new Map<string, number>();
+const contextMatrix = new Map<string, number>();
 const srcFiles = walk(SRC, /\.ts$/);
 const toolFiles = walk(join(ROOT, 'tools'), /\.(ts|mjs)$/);
 
@@ -124,6 +188,9 @@ for (const file of [...srcFiles, ...toolFiles]) {
   const layer = layerOf(file);
   const edges = new Set<string>();
   graph.set(file, edges);
+
+  const misplaced = placementProblem(file);
+  if (misplaced) problems.push(`${rel(file)} — ${misplaced}`);
 
   if (layer === 'domain' || layer === 'application') {
     text.split('\n').forEach((line, i) => {
@@ -156,6 +223,12 @@ for (const file of [...srcFiles, ...toolFiles]) {
     if (!rule.layers.includes(to)) {
       problems.push(`${where} — ${layer} не может зависеть от ${to} (${rel(target)})`);
       continue;
+    }
+    for (const p of contextProblems(file, target)) problems.push(`${where} — ${p}`);
+    const fromCtx = contextOf(file);
+    const toCtx = contextOf(target);
+    if (fromCtx && toCtx && fromCtx !== toCtx) {
+      contextMatrix.set(`${fromCtx}>${toCtx}`, (contextMatrix.get(`${fromCtx}>${toCtx}`) ?? 0) + 1);
     }
     // инфраструктура знает о приложении только его порты
     if (
@@ -240,6 +313,14 @@ if (process.argv.includes('--graph')) {
         ...order.map((to) => String(matrix.get(`${from}>${to}`) ?? '·').padStart(w)),
       ].join(''),
     );
+  }
+  // из области (строка) в область (столбец); kernel — переходные файлы корня домена
+  const contexts = ['kernel', ...Object.keys(CONTEXTS)];
+  console.log();
+  console.log(['из \\ в'.padEnd(w), ...contexts.map((c) => c.padStart(12))].join(''));
+  for (const from of contexts) {
+    const row = contexts.map((to) => String(contextMatrix.get(`${from}>${to}`) ?? '·'));
+    console.log([from.padEnd(w), ...row.map((n) => n.padStart(12))].join(''));
   }
 }
 if (problems.length) {
