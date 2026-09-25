@@ -20,7 +20,7 @@
 ### BUG-005 «Приговор»: смерть цели не возвращает осмотрительность
 - **Статус:** open
 - **Серьёзность:** minor
-- **Где:** src/domain/combat/room-battle/parts/enemy-death/EnemyDeath.ts — `killEnemy`; описание способности `sentence` в src/domain/catalog/heroes/mercenary-factory/MercenaryFactory.ts
+- **Где:** src/domain/combat/room-battle/parts/enemy-death/EnemyDeath.ts — `killEnemy`; способность `sentence` в src/domain/catalog/heroes/mercenary/abilities/assassin.ts, её описание — `ability.sentence.desc` в src/i18n/ru/abilities.ts и src/i18n/en/abilities.ts
 - **Найдено:** 2026-09-25
 - **Воспроизведение:**
   1. Ассасин (линейка наёмника) с «Приговором», осмотрительность потрачена.
