@@ -26,7 +26,8 @@ export class HubController {
    */
   async start(entry: HubEntry, from?: HubOrigin): Promise<void> {
     const { profile } = this.d;
-    const greet = (!from || from === 'game') && profile.tutorial.skill && profile.dailyStatus().available;
+    const greet =
+      (!from || from === 'game') && profile.tutorial.skill && profile.dailyStatus().available;
     if (!entry.autoSkillBuys && !greet) return;
     await this.d.clock.delay(HubController.INTRO_MS);
     if (entry.autoSkillBuys) this.d.view.autoSkilled(entry.autoSkillBuys);

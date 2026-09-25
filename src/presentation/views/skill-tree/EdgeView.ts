@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import type { NodeState } from '../../../domain/logic/skillTree';
+
+import type { NodeState } from '../../../domain/progression';
 
 /**
  * Связь двух узлов дерева. Пройденная — цвета пути (у талантов) или золотая, ведущая к доступному
@@ -25,7 +26,8 @@ export class EdgeView {
   paint(sa: NodeState, sb: NodeState): void {
     const done = (s: NodeState): boolean => s === 'owned';
     if (done(sa) && done(sb)) this.img.setTint(this.color).setAlpha(0.95);
-    else if (done(sa) && (sb === 'available' || sb === 'partial')) this.img.setTint(0x9aa2c4).setAlpha(0.8);
+    else if (done(sa) && (sb === 'available' || sb === 'partial'))
+      this.img.setTint(0x9aa2c4).setAlpha(0.8);
     else this.img.setTint(0x2b3148).setAlpha(0.85);
   }
 }

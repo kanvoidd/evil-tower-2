@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { ISkillTreeNavigator } from '../../application/skill-tree/interfaces/ISkillTreeNavigator';
 import { MenuExit } from './MenuExit';
 import { fadeToScene } from './SceneTransitions';

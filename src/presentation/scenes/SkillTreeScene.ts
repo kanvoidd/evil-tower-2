@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { AutoSkill } from '../../application/skill-tree/AutoSkill';
 import { BuySkill } from '../../application/skill-tree/BuySkill';
 import { CancelMetamorphosis } from '../../application/skill-tree/CancelMetamorphosis';
@@ -36,7 +37,11 @@ export class SkillTreeScene extends Phaser.Scene {
     const entry = autoSkill.run();
     bindAchievementToasts(this, profile.achievementUnlocked);
     const query = new SkillTreeQuery(profile);
-    this.view = new SkillTreeView(this, { query, wallet: profile, commands: (cmd) => this.controller?.execute(cmd) });
+    this.view = new SkillTreeView(this, {
+      query,
+      wallet: profile,
+      commands: (cmd) => this.controller?.execute(cmd),
+    });
     this.controller = new SkillTreeController({
       query,
       buySkill: new BuySkill(profile),

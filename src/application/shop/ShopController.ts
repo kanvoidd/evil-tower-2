@@ -1,6 +1,4 @@
-import { CONSUMABLES } from '../../domain/data/consumables';
-import type { ItemDef } from '../../domain/data/items';
-import type { ConsumableId } from '../../domain/types';
+import { type ConsumableId, CONSUMABLES, type ItemDef } from '../../domain/catalog';
 import type { ShopCommand } from './interfaces/ShopCommand';
 import type { ShopControllerDeps } from './interfaces/ShopControllerDeps';
 

@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account';
 import type { IPlatform } from '../ports';
 import type { HubEntry } from './interfaces/HubEntry';
 
@@ -8,7 +8,10 @@ import type { HubEntry } from './interfaces/HubEntry';
  * карточка героя и значки показывают уже итог прокачки.
  */
 export class EnterHub {
-  constructor(private readonly profile: Profile, private readonly platform: IPlatform) {}
+  constructor(
+    private readonly profile: Profile,
+    private readonly platform: IPlatform,
+  ) {}
 
   execute(): HubEntry {
     this.platform.ready();

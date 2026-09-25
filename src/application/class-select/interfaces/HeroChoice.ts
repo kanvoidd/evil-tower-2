@@ -1,5 +1,5 @@
-import type { Trait } from '../../../domain/logic/traits';
-import type { ClassId, LineageId } from '../../../domain/types';
+import type { ClassId, LineageId } from '../../../domain/catalog';
+import type { Trait } from '../../../domain/progression';
 
 /** Герой в карусели выбора. */
 export interface HeroChoice {

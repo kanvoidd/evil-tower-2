@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { ClassSelectController } from '../../application/class-select/ClassSelectController';
 import { ClassSelection } from '../../application/class-select/ClassSelection';
 import type { ClassSelectMode } from '../../application/class-select/interfaces/ClassSelectMode';
@@ -31,7 +32,10 @@ export class ClassSelectScene extends Phaser.Scene {
 
   create(): void {
     const selection = new ClassSelection(this.services.profile, this.mode);
-    this.view = new ClassSelectView(this, { selection, commands: (cmd) => this.controller?.execute(cmd) });
+    this.view = new ClassSelectView(this, {
+      selection,
+      commands: (cmd) => this.controller?.execute(cmd),
+    });
     this.controller = new ClassSelectController({
       selection,
       platform: this.services.platform,

@@ -1,0 +1,141 @@
+import {
+  CLASSES,
+  type ClassId,
+  type EquipmentSave,
+  hasButton,
+  ITEM_BY_ID,
+  LINEAGES,
+  PERK_BY_ID,
+} from '../../catalog';
+import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat';
+import { Percent, Ratio } from '../../shared';
+import { activePerkIds, learnedTalents, TREES } from '../skill-tree';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
+import { StatModifiers } from './stat-modifiers/StatModifiers';
+import { talentBonuses, talentPowers } from './talent-bonuses/talentBonuses';
+
+export interface Loadout {
+  classId: ClassId;
+  lineage: LineageSave;
+  weapon: EquipmentSave | null;
+  armor: EquipmentSave | null;
+}
+
+/** Бонус таланта задан в процентах (+20 %), в характеристиках героя он — доля (0,2). */
+const asRatio = (pct: number): Ratio => Percent.toRatio(Percent.of(pct));
+
+const usable = (e: EquipmentSave | null): EquipmentSave | null =>
+  e && e.durability > 0 && ITEM_BY_ID[e.id] ? e : null;
+
+/** Потолки: без них дерево талантов и экипировка складываются в неуязвимость. */
+export const CAPS = { crit: 60, dodge: 35, parry: 35, block: 20 } as const;
+
+export const buildPlayerStats = (l: Loadout): PlayerStats => {
+  const cls = CLASSES[l.classId];
+  const lin = LINEAGES[cls.lineage];
+  const tree = TREES[cls.lineage];
+  const learned = learnedTalents(tree, l.lineage);
+  const tb = talentBonuses(learned);
+  const tb2 = talentPowers(learned);
+  const g = (k: keyof typeof tb): number => tb[k] ?? 0;
+  const g2 = (k: keyof typeof tb2): number => tb2[k] ?? 0;
+
+  // Способности не теряются при метаморфозе: у финального класса в руках весь путь линейки.
+  const owned = activePerkIds(tree, l.lineage, l.classId)
+    .map((p) => PERK_BY_ID[p]?.ability)
+    .filter((a) => a !== undefined);
+  const basic = owned.find((a) => a.kind === 'basic');
+  const passiveList = owned.filter((a) => a.kind === 'passive');
+  const passives = new Set(passiveList.map((a) => a.behavior));
+
+  // ---- экипировка
+  const w = usable(l.weapon);
+  const a = usable(l.armor);
+  const armorMul = 1 + asRatio(g('armorBonus'));
+  const armorDef = a ? ITEM_BY_ID[a.id].defense * armorMul : 0;
+  const armorHp = a ? ITEM_BY_ID[a.id].health * armorMul : 0;
+  const weaponDmg = w ? ITEM_BY_ID[w.id].damage : 0;
+
+  const rawDamage = lin.base.damage + (cls.bonuses.damage ?? 0) + weaponDmg;
+  const rawHp = lin.base.health + (cls.bonuses.health ?? 0) + armorHp;
+
+  const s: PlayerStats = {
+    classId: l.classId,
+    lineage: cls.lineage,
+    resource: lin.resource,
+    maxHp: Math.max(1, Math.round(rawHp * (1 + asRatio(g('hpPct'))))),
+    damage: Math.max(1, Math.round(rawDamage * (1 + asRatio(g('dmgPct'))))),
+    crit: Percent.of(Math.min(CAPS.crit, lin.base.crit + (cls.bonuses.crit ?? 0) + g('crit'))),
+    dodge: Percent.of(Math.min(CAPS.dodge, lin.base.dodge + (cls.bonuses.dodge ?? 0) + g('dodge'))),
+    parry: Percent.of(Math.min(CAPS.parry, lin.base.parry + (cls.bonuses.parry ?? 0) + g('parry'))),
+    defense: Math.round(lin.base.defense + (cls.bonuses.defense ?? 0) + armorDef + g('def')),
+    luck: lin.base.luck + (cls.bonuses.luck ?? 0),
+    resMax: Math.max(1, Math.round(lin.resMax * (1 + asRatio(g('resMaxPct'))))),
+    regen: lin.resRegen,
+    attack: ATTACK_STRATEGIES[lin.attack],
+    rangedCost: basic?.cost ?? 0,
+    critMin: CombatBalance.critMulMin,
+    critMax: CombatBalance.critMulMax + asRatio(g('critMul')),
+    goldBonus: Ratio.of(lin.goldBonus),
+    soulBonus: Ratio.of(0),
+    artifactMul: asRatio(g('artifactMul')),
+    perkPower: 1 + asRatio(g('perkPower')),
+
+    execute: asRatio(g('execute')),
+    pierce: Ratio.of(Math.min(1, asRatio(g('pierce')))),
+    doubleStrike: Percent.of(g('doubleStrike')),
+    ignite: asRatio(g('ignite')),
+    everyThird: g('everyThird') > 0,
+    roomCrit: g('roomCrit') > 0,
+    lifesteal: Ratio.of(0),
+
+    abilityIgnite: Percent.of(g('abilityIgnite')),
+    abilityStun: Percent.of(g('abilityStun')),
+    abilitySplash: asRatio(g('abilitySplash')),
+    abilityPoison: asRatio(g('abilityPoison')),
+    abilityVuln: asRatio(g('abilityVuln')),
+    abilityCrit: Percent.of(g('abilityCrit')),
+    abilityLifesteal: asRatio(g('abilityLifesteal')),
+    abilityRefund: asRatio(g('abilityRefund')),
+    abilityShield: asRatio(g('abilityShield')),
+    killBlast: asRatio(g('killBlast')),
+    splitChance: asRatio(g('basicSplit')),
+    splitDmg: asRatio(g2('basicSplit')),
+    echoChance: asRatio(g('boltEcho')),
+    echoDmg: asRatio(g2('boltEcho')),
+    lightningPower: asRatio(g('lightningPower')),
+    shotPower: asRatio(g('shotPower')),
+    chainPower: asRatio(g('chainPower')),
+    perkCostDown: g('perkCostDown'),
+
+    startShieldPct: asRatio(g('startShield')),
+    potionPct: asRatio(g('potionPct')),
+    cheatDeath: g('cheatDeath'),
+    reviveHp: asRatio(g('revive')),
+    killHp: asRatio(g('killHp')),
+    bossHp: asRatio(g('bossHp')),
+    freePerk: g('freePerk') > 0,
+    healShield: asRatio(g('healShield')),
+    stepHeal: asRatio(g('stepHeal')),
+
+    block: Percent.of(Math.min(CAPS.block, g('block'))),
+    thorns: asRatio(g('thorns')),
+    dotDr: asRatio(g('dotDr')),
+    roomGuard: asRatio(g('roomGuard')),
+    counterBuff: asRatio(g('counterBuff')),
+    perkDef: asRatio(g('perkDef')),
+    manaShield: asRatio(g('manaShield')),
+
+    damageMods: StatModifiers.damage(g, passiveList),
+    targetMods: StatModifiers.target(g),
+    defenseMods: StatModifiers.defense(g),
+    reductions: StatModifiers.reductions(g),
+
+    allAbilities: owned,
+    abilities: owned.filter(hasButton),
+    passives,
+  };
+
+  // «Мгновенное исполнение»: первая способность в комнате бесплатна — учитывается в RoomBattle.
+  return s;
+};

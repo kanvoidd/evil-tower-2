@@ -1,4 +1,4 @@
-import type { ConsumableId } from '../../../domain/types';
+import type { ConsumableId } from '../../../domain/catalog';
 import type { Point } from '../../animations/interfaces/Point';
 
 /**

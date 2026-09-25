@@ -1,0 +1,12 @@
+# Коммиты без изменений логики — git blame их пропускает.
+# Локально: git config blame.ignoreRevsFile .git-blame-ignore-revs (GitHub учитывает файл сам).
+
+# style: отформатировать код Prettier и упорядочить импорты
+cdb8cc874b9abad8de17d6906aa371824565517f
+
+# refactor(domain): разложить домен по доменным областям
+a57764524d133c4a3b355610ca7ef717e76bd299
+# refactor(combat): переименовать бой в комнате Run → RoomBattle
+32f1826292bf0b3c009b4cbf8ee02a0b2e63341f
+# refactor(domain): импортировать чужую область только через её index.ts
+b2058229744f865de26478da914e63c17e23140d

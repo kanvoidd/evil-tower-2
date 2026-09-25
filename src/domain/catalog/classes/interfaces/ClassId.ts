@@ -1,0 +1,17 @@
+export type ClassId =
+  | 'warrior'
+  | 'knight'
+  | 'berserk'
+  | 'paladin'
+  | 'mage'
+  | 'magister'
+  | 'necromancer'
+  | 'pyromancer'
+  | 'archer'
+  | 'hawkeye'
+  | 'arrowgod'
+  | 'sniper'
+  | 'mercenary'
+  | 'assassin'
+  | 'darkassassin'
+  | 'ninja';

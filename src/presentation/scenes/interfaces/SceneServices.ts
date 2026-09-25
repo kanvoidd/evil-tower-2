@@ -1,6 +1,13 @@
 import type { AdService } from '../../../application/ads/AdService';
-import type { IAudioOutput, ILocale, IPlatform, IProfileStorage, ISoundPlayer } from '../../../application/ports';
-import type { Profile } from '../../../domain/logic/profile';
+import type {
+  IAudioOutput,
+  ILocale,
+  IPlatform,
+  IProfileStorage,
+  ISeedSource,
+  ISoundPlayer,
+} from '../../../application/ports';
+import type { Profile } from '../../../domain/account';
 
 /**
  * Всё, что сцены получают от корня композиции: профиль игрока и службы платформы за портами.
@@ -19,4 +26,6 @@ export interface SceneServices {
   /** Язык интерфейса. */
   locale: ILocale;
   ads: AdService;
+  /** Зёрна случайностей для новых комнат. */
+  seeds: ISeedSource;
 }

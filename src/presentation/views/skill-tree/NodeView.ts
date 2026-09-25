@@ -1,10 +1,9 @@
 import Phaser from 'phaser';
-import { SYNERGY_FX, TALENT_BY_ID } from '../../../domain/data/talents';
-import type { NodeState, TreeNode } from '../../../domain/logic/skillTree';
-import type { TalentPath } from '../../../domain/types';
+
+import { isSynergy, TALENT_PLACE_BY_ID, type TalentPath } from '../../../domain/catalog';
+import type { NodeState, TreeNode } from '../../../domain/progression';
 import { icon, plateTexture, txt } from '../../components';
-import { pathHex } from '../../textures/Textures';
-import { HEX } from '../../theme';
+import { HEX, pathHex } from '../../theme';
 
 /**
  * Узел дерева на экране: плитка, свечение, значок пути у таланта, рамка максимального ранга
@@ -12,7 +11,11 @@ import { HEX } from '../../theme';
  */
 export class NodeView {
   static readonly SIZE = { talent: 108, perk: 118, cls: 150, evo: 96 } as const;
-  private static readonly PATH_ICON: Record<TalentPath, string> = { attack: 'svg_sword', vitality: 'svg_health', guard: 'svg_defense' };
+  private static readonly PATH_ICON: Record<TalentPath, string> = {
+    attack: 'svg_sword',
+    vitality: 'svg_health',
+    guard: 'svg_defense',
+  };
 
   readonly size: number;
   private readonly main: Phaser.GameObjects.Image;
@@ -23,17 +26,40 @@ export class NodeView {
   private readonly badgeText?: Phaser.GameObjects.Text;
 
   /** `texture` — плитка узла: талант пути, значок способности, герб класса или врата. */
-  constructor(scene: Phaser.Scene, readonly node: TreeNode, readonly x: number, readonly y: number, texture: string, onTap: () => void) {
+  constructor(
+    scene: Phaser.Scene,
+    readonly node: TreeNode,
+    readonly x: number,
+    readonly y: number,
+    texture: string,
+    onTap: () => void,
+  ) {
     const n = node;
     const S = NodeView.SIZE;
-    this.size = n.kind === 'talent' ? S.talent : n.kind === 'perk' ? S.perk : n.kind === 'class' ? S.cls : S.evo;
+    this.size =
+      n.kind === 'talent'
+        ? S.talent
+        : n.kind === 'perk'
+          ? S.perk
+          : n.kind === 'class'
+            ? S.cls
+            : S.evo;
     const size = this.size;
-    this.glow = scene.add.image(x, y, 'glow').setTint(NodeView.colorOf(n)).setDisplaySize(size * 2.4, size * 2.4)
-      .setBlendMode(Phaser.BlendModes.ADD).setDepth(2).setAlpha(0);
+    this.glow = scene.add
+      .image(x, y, 'glow')
+      .setTint(NodeView.colorOf(n))
+      .setDisplaySize(size * 2.4, size * 2.4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(2)
+      .setAlpha(0);
     this.main = scene.add.image(x, y, texture).setDisplaySize(size, size).setDepth(5);
     if (n.kind === 'talent') {
       this.ico = icon(scene, x, y - 4, NodeView.talentIcon(n), size * 0.44).setDepth(6);
-      this.maxFrame = scene.add.image(x, y, 'tal_max').setDisplaySize(size, size).setDepth(7).setVisible(false);
+      this.maxFrame = scene.add
+        .image(x, y, 'tal_max')
+        .setDisplaySize(size, size)
+        .setDepth(7)
+        .setVisible(false);
       // счётчик рангов в углу плитки — «2/3»
       const badge = scene.add.container(x + size * 0.3, y + size * 0.32).setDepth(8);
       badge.add(scene.add.image(0, 0, plateTexture(scene, 54, 30, 1, 'dark', 15)));
@@ -54,7 +80,9 @@ export class NodeView {
 
   /** Значок таланта: у синергий — молния (они меняют способности), у остальных — символ пути. */
   static talentIcon(n: TreeNode): string {
-    return SYNERGY_FX.has(TALENT_BY_ID[n.talentId!].fx) ? 'svg_bolt' : NodeView.PATH_ICON[n.path!];
+    return isSynergy(TALENT_PLACE_BY_ID[n.talentId!].talent.effect)
+      ? 'svg_bolt'
+      : NodeView.PATH_ICON[n.path!];
   }
 
   /** Состояние узла: закрытые приглушены, купленные светятся; у таланта — рамка максимума и ранги. */
@@ -68,12 +96,15 @@ export class NodeView {
     this.ico?.setAlpha(dim ? 0.3 : 1);
     this.glow.setAlpha(st === 'owned' ? 0.7 : st === 'partial' ? 0.45 : 0);
     this.main.setAlpha(n.kind === 'class' && dim ? 0.7 : 1);
-    if (n.kind === 'talent') {
-      this.maxFrame?.setVisible(rank >= max);
-      this.badge?.setVisible(!dim || rank > 0);
-      this.badgeText?.setText(`${rank}/${max}`);
-      this.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
-    }
+    if (n.kind === 'talent') this.paintRanks(dim, rank, max);
+  }
+
+  /** Ранги таланта: рамка максимума, значок «ранг/максимум» и его цвет. */
+  private paintRanks(dim: boolean, rank: number, max: number): void {
+    this.maxFrame?.setVisible(rank >= max);
+    this.badge?.setVisible(!dim || rank > 0);
+    this.badgeText?.setText(`${rank}/${max}`);
+    this.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
   }
 
   /** «Дыхание» свечения у узлов, которые можно купить. */

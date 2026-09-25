@@ -1,4 +1,4 @@
-import type { ClassId } from '../../../domain/types';
+import type { ClassId } from '../../../domain/catalog';
 
 /** Подтверждения в дереве навыков. true — игрок согласился. */
 export interface ISkillTreeDialogs {

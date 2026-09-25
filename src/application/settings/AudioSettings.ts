@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account';
 import type { IAudioOutput } from '../ports';
 
 /**
@@ -6,7 +6,10 @@ import type { IAudioOutput } from '../ports';
  * применяется к звуковому движку — кнопкой звука на любом экране и ползунком в настройках.
  */
 export class AudioSettings {
-  constructor(private readonly profile: Profile, private readonly output: IAudioOutput) {}
+  constructor(
+    private readonly profile: Profile,
+    private readonly output: IAudioOutput,
+  ) {}
 
   get volume(): number {
     return this.profile.volume;

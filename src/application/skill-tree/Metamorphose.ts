@@ -1,6 +1,6 @@
-import type { Profile } from '../../domain/logic/profile';
-import type { BuyResult } from '../../domain/logic/skillTree';
-import type { ClassId } from '../../domain/types';
+import type { Profile } from '../../domain/account';
+import type { ClassId } from '../../domain/catalog';
+import type { BuyResult } from '../../domain/progression';
 
 /**
  * Метаморфоза за души: тот же герой становится следующим классом своей линейки. Способности

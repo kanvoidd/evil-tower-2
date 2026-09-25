@@ -1,4 +1,4 @@
-import type { GameEvent } from '../../../domain/game-data/events';
+import type { GameEvent } from '../../../domain/combat';
 
 /** Показывает события боя игроку. Разрешается, когда можно принимать следующий ход. */
 export interface IAnimationPlayer {

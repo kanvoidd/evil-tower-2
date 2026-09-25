@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import type { ConsumableId } from '../../../domain/types';
+
+import type { ConsumableId } from '../../../domain/catalog';
 
 /** Слот расходника в панели боя. */
 export interface ConsumableSlot {

@@ -1,10 +1,6 @@
-import { CLASSES } from '../../domain/data/classes';
-import { LINEAGE_ORDER } from '../../domain/data/heroes';
-import { ROOMS } from '../../domain/data/levels';
-import { GAMEPLAY } from '../../domain/gameplay';
-import type { Profile } from '../../domain/logic/profile';
-import { classStartStats, classTraits } from '../../domain/logic/traits';
-import type { ClassId, LineageId } from '../../domain/types';
+import type { Profile } from '../../domain/account';
+import { CLASSES, type ClassId, LINEAGE_ORDER, type LineageId, ROOMS } from '../../domain/catalog';
+import { classStartStats, classTraits, ProgressionBalance } from '../../domain/progression';
 import type { ClassSelectMode } from './interfaces/ClassSelectMode';
 import type { HeroChoice } from './interfaces/HeroChoice';
 
@@ -14,11 +10,14 @@ import type { HeroChoice } from './interfaces/HeroChoice';
  * поэтому смена героя ничего не отнимает у прежнего.
  */
 export class ClassSelection {
-  constructor(private readonly profile: Profile, readonly mode: ClassSelectMode) {}
+  constructor(
+    private readonly profile: Profile,
+    readonly mode: ClassSelectMode,
+  ) {}
 
   /** Цена нового героя в золоте. */
   get unlockCost(): number {
-    return GAMEPLAY.classUnlockCost;
+    return ProgressionBalance.heroUnlockCost;
   }
 
   /** Все герои по порядку линеек. */
@@ -34,7 +33,10 @@ export class ClassSelection {
   /** С кого карусель начинает: в первом запуске — с первого героя, иначе — с того, кто сейчас в игре. */
   initialIndex(choices: readonly HeroChoice[]): number {
     if (this.mode === 'first') return 0;
-    return Math.max(0, choices.findIndex((c) => c.classId === this.profile.activeClass));
+    return Math.max(
+      0,
+      choices.findIndex((c) => c.classId === this.profile.activeClass),
+    );
   }
 
   /** Первый запуск: герой открыт и сразу выбран. */

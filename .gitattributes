@@ -1,0 +1,20 @@
+# Окончания строк: в репозитории и в рабочей копии — LF, независимо от core.autocrlf.
+* text=auto eol=lf
+
+# Скрипты Windows требуют CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Двоичные файлы — без преобразований.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.bmp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.jar binary
+*.apk binary
+*.zip binary

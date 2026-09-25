@@ -1,23 +1,22 @@
-import type { AutoUseSave, EquipmentSave, HeroSave, LineageId, SaveData } from '../../domain/types';
-import { CLASSES } from '../../domain/data/classes';
-import { LINEAGE_ORDER } from '../../domain/data/heroes';
-import { DEFAULT_AUTO_USE } from '../../domain/logic/autoUse';
-import { Profile } from '../../domain/logic/profile';
 import type { IProfileStorage } from '../../application/ports/IProfileStorage';
+import { Profile, type SaveData, SaveFormat } from '../../domain/account';
+import { LocalCalendar } from '../time/LocalCalendar';
 import type { CloudSaves } from './interfaces/CloudSaves';
 
 /**
- * Сохранения: локально сразу и в облако Яндекса не чаще раза в 6 секунд (побеждает более свежее),
- * принудительная запись при скрытии вкладки. Правил игры здесь нет — они в `Profile`;
- * хранилище лишь загружает документ, переносит старые форматы и записывает изменения.
+ * Сохранения: локально сразу и в облако Яндекса не чаще раза в 6 секунд, принудительная запись
+ * при скрытии вкладки. Правил здесь нет: игры — в `Profile`, формата сохранения (какое главнее,
+ * перенос старых форматов) — в `SaveFormat`; хранилище только читает и записывает.
  */
 export class ProfileStore implements IProfileStorage {
   private static readonly KEY = 'et2_save_v2';
-  /** Версия 2: новое дерево талантов и способности-кнопки — прежние сохранения несовместимы. */
-  private static readonly VERSION = 2;
 
   /** Правила профиля над загруженным документом. */
-  readonly profile = new Profile(Profile.freshData('ru', Date.now()), () => Date.now());
+  readonly profile = new Profile(
+    SaveFormat.fresh('ru', Date.now()),
+    () => Date.now(),
+    new LocalCalendar(),
+  );
   private saveTimer: number | null = null;
   private cloudTimer: number | null = null;
   private dirtyCloud = false;
@@ -34,65 +33,22 @@ export class ProfileStore implements IProfileStorage {
   // ------------------------------------------------------------------ загрузка/сохранение
 
   async load(): Promise<void> {
-    let local: SaveData | null = null;
+    let local: unknown = null;
     try {
       const raw = localStorage.getItem(ProfileStore.KEY);
-      if (raw) local = JSON.parse(raw) as SaveData;
+      if (raw) local = JSON.parse(raw);
     } catch {
       local = null;
     }
-    const cloud = (await this.cloud.loadCloud()) as SaveData | null;
-    const pick = [local, cloud].filter((x): x is SaveData => !!x && typeof x === 'object' && x.v === ProfileStore.VERSION);
-    pick.sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0));
-    const base = Profile.freshData('ru', Date.now());
-    const data = pick.length ? this.merge(base, pick[0]) : base;
-    if (!pick.length) data.lang = this.cloud.getLang();
+    const newest = SaveFormat.newest([local, await this.cloud.loadCloud()]);
+    const data = newest
+      ? SaveFormat.restore(newest, Date.now())
+      : SaveFormat.fresh(this.cloud.getLang(), Date.now());
     this.profile.replace(data);
     window.addEventListener('pagehide', () => this.flush());
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.flush();
     });
-  }
-
-  private merge(base: SaveData, src: SaveData): SaveData {
-    const out: SaveData = { ...base, ...src };
-    out.stats = { ...base.stats, ...src.stats };
-    out.tutorial = { ...base.tutorial, ...src.tutorial };
-    out.daily = { ...base.daily, ...src.daily };
-    out.gift = { ...base.gift, ...src.gift };
-    out.ads = { ...base.ads, ...src.ads };
-    // Старые сохранения не знают про автоприменение и автопрокачку — подставляем значения по умолчанию.
-    // Раньше у автоприменения был общий переключатель `on`: если он был выключен, все расходники остаются выключенными.
-    const auto = (src as Partial<SaveData>).auto as { use?: Partial<AutoUseSave> & { on?: boolean }; skill?: SaveData['auto']['skill'] } | undefined;
-    const use: AutoUseSave = { heal: !!auto?.use?.heal, regen: !!auto?.use?.regen, artifact: !!auto?.use?.artifact };
-    if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
-    out.auto = { use, skill: { ...auto?.skill } };
-    out.lineages = { ...src.lineages };
-    out.heroes = { ...src.heroes };
-    // Раньше кошелёк, расходники и доспех были общими на профиль, а прогресс хранился
-    // списком пройденных комнат. Всё общее отдаём той линейке, которой играли; рекорд
-    // забега каждой линейки — сколько комнат она уже прошла.
-    const old = src as unknown as {
-      gold?: number; souls?: number; consumables?: HeroSave['consumables']; armor?: EquipmentSave | null;
-      cleared?: string[] | Partial<Record<LineageId, string[]>>;
-    };
-    if (!src.heroes) {
-      const active = CLASSES[src.activeClass ?? LINEAGE_ORDER[0]].lineage;
-      const cleared = Array.isArray(old.cleared) ? { [active]: old.cleared } : (old.cleared ?? {});
-      for (const lin of LINEAGE_ORDER) {
-        const done = (cleared as Partial<Record<LineageId, string[]>>)[lin]?.length ?? 0;
-        if (lin !== active && !done && !src.lineages?.[lin]) continue;
-        out.heroes[lin] = lin === active
-          ? {
-            gold: old.gold ?? 0, souls: old.souls ?? 0,
-            consumables: { ...Profile.emptyHero().consumables, ...old.consumables },
-            armor: old.armor ?? null, best: done,
-          }
-          : { ...Profile.emptyHero(), best: done };
-      }
-    }
-    for (const k of ['gold', 'souls', 'consumables', 'armor', 'cleared']) delete (out as unknown as Record<string, unknown>)[k];
-    return out;
   }
 
   /** Отложенное сохранение: локально почти сразу, в облако — не чаще раза в 6 секунд. */
@@ -135,8 +91,7 @@ export class ProfileStore implements IProfileStorage {
   }
 
   reset(): void {
-    this.profile.replace(Profile.freshData(this.cloud.getLang(), Date.now()));
+    this.profile.replace(SaveFormat.fresh(this.cloud.getLang(), Date.now()));
     this.flush();
   }
 }
-

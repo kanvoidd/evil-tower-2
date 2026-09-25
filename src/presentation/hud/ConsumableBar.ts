@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../application/ports';
-import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/data/consumables';
-import { needsHeal, needsRegen, worthArtifact } from '../../domain/logic/autoUse';
-import type { IRunState } from '../../domain/logic/run';
-import type { ConsumableId, LineageId } from '../../domain/types';
+import {
+  CONSUMABLE_SLOTS,
+  type ConsumableId,
+  CONSUMABLES,
+  type LineageId,
+} from '../../domain/catalog';
+import { type IBattleState, needsHeal, needsRegen, worthArtifact } from '../../domain/combat';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';
-import { HEX } from '../theme';
 import { icon, outlineTexture, plateTexture, shadowTexture, tipOnHover, txt } from '../components';
+import { HEX } from '../theme';
 import type { ConsumableSlot } from './interfaces/ConsumableSlot';
 import type { IHudActions } from './interfaces/IHudActions';
 
@@ -20,7 +24,9 @@ export class ConsumableBar {
   static readonly Y = 58;
 
   private static readonly AUTO_TIP: Record<ConsumableId, TKey> = {
-    potion_heal: 'auto.use.heal.tip', potion_regen: 'auto.use.regen.tip', artifact: 'auto.use.artifact.tip',
+    potion_heal: 'auto.use.heal.tip',
+    potion_regen: 'auto.use.regen.tip',
+    artifact: 'auto.use.artifact.tip',
   };
 
   private readonly slots: ConsumableSlot[] = [];
@@ -39,17 +45,27 @@ export class ConsumableBar {
       const c = scene.add.container(x, y);
       c.add(scene.add.image(0, 5, shadowTexture(scene, 74, 74, 22, 10)).setAlpha(0.8));
       c.add(scene.add.image(0, 0, plateTexture(scene, 74, 74, 1, 'panel', 22)));
-      const hint = scene.add.image(0, 0, outlineTexture(scene, 74, 74, 22, '#f0c75e', 4)).setVisible(false);
+      const hint = scene.add
+        .image(0, 0, outlineTexture(scene, 74, 74, 22, '#f0c75e', 4))
+        .setVisible(false);
       c.add(hint);
-      c.add(icon(scene, 0, -1, locked ? 'svgw_lock' : CONSUMABLES[id].icon, locked ? 32 : 50).setAlpha(locked ? 0.4 : 1));
+      c.add(
+        icon(scene, 0, -1, locked ? 'svgw_lock' : CONSUMABLES[id].icon, locked ? 32 : 50).setAlpha(
+          locked ? 0.4 : 1,
+        ),
+      );
       const badge = scene.add.container(26, 26);
       badge.add(scene.add.circle(0, 0, 15, 0x0b0d12).setStrokeStyle(2, 0xf0c75e));
       const count = txt(scene, 0, -1, '', 18, { weight: 900, strokeThickness: 0 });
       badge.add(count);
       c.add(badge);
-      c.setSize(74, 74).setInteractive(new Phaser.Geom.Rectangle(0, 0, 74, 74), Phaser.Geom.Rectangle.Contains);
+      c.setSize(74, 74).setInteractive(
+        new Phaser.Geom.Rectangle(0, 0, 74, 74),
+        Phaser.Geom.Rectangle.Contains,
+      );
       c.on('pointerup', (p: Phaser.Input.Pointer) => {
-        if (Phaser.Math.Distance.Between(p.x, p.y, p.downX, p.downY) < 20) actions.command({ type: 'use-item', itemId: id });
+        if (Phaser.Math.Distance.Between(p.x, p.y, p.downX, p.downY) < 20)
+          actions.command({ type: 'use-item', itemId: id });
       });
       this.slots.push({ id, c, badge, count, hint, locked });
       if (!locked) this.buildAutoPill(id, x, y + 55);
@@ -77,29 +93,37 @@ export class ConsumableBar {
     if (sl) this.animations.bump.play(sl.c, 1.16, 170);
   }
 
-  update(run: IRunState): void {
+  update(battle: IBattleState): void {
     this.slots.forEach((sl) => {
-      const n = run.consumables[sl.id];
+      const n = battle.consumables[sl.id];
       sl.count.setText(String(n));
       sl.badge.setVisible(!sl.locked && n > 0);
       sl.c.setAlpha(sl.locked ? 0.5 : n > 0 ? 1 : 0.5);
     });
-    this.updateHints(run);
+    this.updateHints(battle);
   }
 
   /** Подсвечивает расходник, когда он действительно нужен (те же правила, что у автоприменения; лечение — с запасом). */
-  private updateHints(run: IRunState): void {
-    const s = run.stats;
+  private updateHints(battle: IBattleState): void {
+    const s = battle.stats;
     const wants: Partial<Record<ConsumableId, boolean>> = {
-      potion_heal: needsHeal(run) || (run.hp <= s.maxHp * 0.4 && run.consumables.potion_heal > 0),
-      potion_regen: needsRegen(run),
-      artifact: worthArtifact(run),
+      potion_heal:
+        needsHeal(battle) || (battle.hp <= s.maxHp * 0.4 && battle.consumables.potion_heal > 0),
+      potion_regen: needsRegen(battle),
+      artifact: worthArtifact(battle),
     };
     this.slots.forEach((sl) => {
       const on = !!wants[sl.id];
       sl.hint.setVisible(on);
       if (on && !sl.hintTween) {
-        sl.hintTween = this.scene.tweens.add({ targets: sl.hint, alpha: { from: 0.4, to: 1 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+        sl.hintTween = this.scene.tweens.add({
+          targets: sl.hint,
+          alpha: { from: 0.4, to: 1 },
+          duration: 1100,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
       } else if (!on && sl.hintTween) {
         sl.hintTween.stop();
         sl.hintTween = undefined;
@@ -126,7 +150,10 @@ export class ConsumableBar {
     };
     refresh();
     // область нажатия чуть больше кнопки (палец крупнее), но вниз — чтобы не отнимать площадь у самого расходника
-    c.setSize(w, h).setInteractive(new Phaser.Geom.Rectangle(-6, -2, w + 12, h + 18), Phaser.Geom.Rectangle.Contains);
+    c.setSize(w, h).setInteractive(
+      new Phaser.Geom.Rectangle(-6, -2, w + 12, h + 18),
+      Phaser.Geom.Rectangle.Contains,
+    );
     c.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (c.swallowClick) {
         c.swallowClick = false;
@@ -136,8 +163,19 @@ export class ConsumableBar {
       const on = this.actions.toggleAuto(id);
       this.sound.play('click');
       refresh();
-      this.animations.text.show(x, y + 32, `${t('auto.tag')}: ${t(on ? 'auto.on' : 'auto.off')}`, on ? HEX.good : HEX.textDim, 20);
+      this.animations.text.show(
+        x,
+        y + 32,
+        `${t('auto.tag')}: ${t(on ? 'auto.on' : 'auto.off')}`,
+        on ? HEX.good : HEX.textDim,
+        20,
+      );
     });
-    tipOnHover(s, c, () => `${t(ConsumableBar.AUTO_TIP[id])}\n${t(this.actions.isAutoOn(id) ? 'auto.state.on' : 'auto.state.off')}`);
+    tipOnHover(
+      s,
+      c,
+      () =>
+        `${t(ConsumableBar.AUTO_TIP[id])}\n${t(this.actions.isAutoOn(id) ? 'auto.state.on' : 'auto.state.off')}`,
+    );
   }
 }

@@ -4,16 +4,31 @@
  * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
  * RUNS=<n> — сколько забегов максимум.
  */
-import { CLASSES } from '../src/domain/data/classes';
-import { ITEMS, type ItemDef } from '../src/domain/data/items';
-import { ROOMS } from '../src/domain/data/levels';
-import { FULL_BAR, type PerkDef } from '../src/domain/data/perks';
-import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
-import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/domain/logic/skillTree';
-import { buildPlayerStats } from '../src/domain/logic/stats';
-import { makeRng } from '../src/domain/logic/rng';
-import { RunFactory, type Run, type RunCarryStats } from '../src/domain/logic/run';
-import { needsRegen } from '../src/domain/logic/autoUse';
+import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/catalog';
+import { type AbilityDef, FULL_BAR } from '../src/domain/catalog/abilities';
+import { CLASSES } from '../src/domain/catalog/classes';
+import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
+import { ROOMS } from '../src/domain/catalog/levels';
+import { needsRegen } from '../src/domain/combat/auto-use/autoUse';
+import type { Card } from '../src/domain/combat/card';
+import { Grid } from '../src/domain/combat/engine';
+import {
+  type Action,
+  type BattleCarryStats,
+  type RoomBattle,
+  RoomBattleFactory,
+} from '../src/domain/combat/room-battle';
+import {
+  applyBuy,
+  canInvest,
+  costOf,
+  isPurchasable,
+  newLineageSave,
+  TREES,
+} from '../src/domain/progression/skill-tree';
+import { buildPlayerStats } from '../src/domain/progression/stats/stats';
+import type { CellIndex } from '../src/domain/shared';
+import { makeRng } from '../src/domain/shared/rng/rng';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
 const N = Number(process.argv[3] ?? 20);
@@ -55,36 +70,44 @@ const spendSouls = (): number => {
   return bought;
 };
 
+/** Разумный игрок чинит предмет заранее — пока он не сломался, это дёшево. */
+const repairEarly = (list: ItemDef[], cur: EquipmentSave | null): void => {
+  if (!cur || cur.durability <= 0) return;
+  const it = list.find((i) => i.id === cur.id)!;
+  if (cur.durability >= it.durability * 0.55) return;
+  const cost = Math.ceil(it.price * 0.35 * (1 - cur.durability / it.durability));
+  if (gold < cost) return;
+  gold -= cost;
+  cur.durability = it.durability;
+};
+
+/**
+ * Разумный игрок не скатывается на пару ступеней вниз: если денег не хватает на привычный
+ * уровень, он копит.
+ */
+const upgrade = (
+  list: ItemDef[],
+  cur: EquipmentSave | null,
+  slot: 'weapon' | 'armor',
+): EquipmentSave | null => {
+  repairEarly(list, cur);
+  const worn = cur && cur.durability > 0 ? cur : null;
+  const curTier = worn ? list.find((i) => i.id === worn.id)!.tier : 0;
+  const floorTier = Math.max(1, bestTier[slot] - 1);
+  let best: ItemDef | null = null;
+  for (const it of list) {
+    if (it.tier <= curTier || it.tier < floorTier || it.price > gold) continue;
+    if (!best || it.tier > best.tier) best = it;
+  }
+  if (!best) return worn;
+  gold -= best.price;
+  bestTier[slot] = Math.max(bestTier[slot], best.tier);
+  return { id: best.id, durability: best.durability };
+};
+
 const shop = (): void => {
   const w = ITEMS.filter((i) => i.slot === 'weapon' && i.lineage === lineage);
   const a = ITEMS.filter((i) => i.slot === 'armor');
-  /**
-   * Разумный игрок чинит предмет заранее (пока он не сломался — это дёшево) и не скатывается
-   * на пару ступеней вниз: если денег не хватает на привычный уровень, он копит.
-   */
-  const upgrade = (list: ItemDef[], cur: EquipmentSave | null, slot: 'weapon' | 'armor'): EquipmentSave | null => {
-    if (cur && cur.durability > 0) {
-      const it = list.find((i) => i.id === cur.id)!;
-      if (cur.durability < it.durability * 0.55) {
-        const cost = Math.ceil(it.price * 0.35 * (1 - cur.durability / it.durability));
-        if (gold >= cost) {
-          gold -= cost;
-          cur.durability = it.durability;
-        }
-      }
-    }
-    const curTier = cur && cur.durability > 0 ? list.find((i) => i.id === cur.id)!.tier : 0;
-    const floorTier = Math.max(1, bestTier[slot] - 1);
-    let best: ItemDef | null = null;
-    for (const it of list) {
-      if (it.tier <= curTier || it.tier < floorTier || it.price > gold) continue;
-      if (!best || it.tier > best.tier) best = it;
-    }
-    if (!best) return cur && cur.durability > 0 ? cur : null;
-    gold -= best.price;
-    bestTier[slot] = Math.max(bestTier[slot], best.tier);
-    return { id: best.id, durability: best.durability };
-  };
   weapon = upgrade(w, weapon, 'weapon');
   armor = upgrade(a, armor, 'armor');
   while (gold >= 55 && consumables.potion_heal < 5) {
@@ -101,55 +124,103 @@ const shop = (): void => {
 /** Способности, которые бот применять не умеет (чистая утилита — ими играет человек). */
 const SKIP = new Set(['swap', 'deck_draw', 'bribe', 'falcon_courier', 'rewind']);
 /** Способности без цели, выгодные только при куче врагов. */
-const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_rain', 'shuriken_fan', 'heavens_wrath', 'starfall', 'inferno', 'dead_harvest', 'wind_shadow', 'shadow_reap']);
+const CROWD = new Set([
+  'earthquake',
+  'whirlwind',
+  'verdict',
+  'detonate',
+  'arrow_rain',
+  'shuriken_fan',
+  'heavens_wrath',
+  'starfall',
+  'inferno',
+  'dead_harvest',
+  'wind_shadow',
+  'shadow_reap',
+]);
 
 /** Событие, по которому видно, что способность что-то изменила. */
-const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'swap', 'slide', 'rewind', 'gold', 'souls']);
+const CHANGED = new Set([
+  'hit',
+  'kill',
+  'heal',
+  'shield',
+  'status',
+  'boost',
+  'swap',
+  'slide',
+  'rewind',
+  'gold',
+  'souls',
+]);
 
 /**
  * Сколько ресурса нельзя разменивать. У мага основной удар — платная молния, и остаться
  * без маны в окружении значит погибнуть, поэтому цену молнии бот держит в запасе.
  */
-const reserveOf = (run: Run): { perkId: string; cost: number } | null => {
-  if (run.stats.attack.melee) return null;
-  const basic = (run.stats.abilities as PerkDef[]).find((p) => p.target === 'adjacent');
+const reserveOf = (battle: RoomBattle): { perkId: string; cost: number } | null => {
+  if (battle.stats.attack.melee) return null;
+  const basic = (battle.stats.abilities as AbilityDef[]).find((p) => p.target === 'adjacent');
   return basic ? { perkId: basic.id, cost: basic.cost ?? 0 } : null;
 };
 
-const tryPerk = (run: Run, dud: Set<string>): boolean => {
-  const enemies = run.cards.filter((c) => c?.kind === 'enemy').length;
-  const reserve = reserveOf(run);
-  for (const perk of run.stats.abilities as PerkDef[]) {
-    if (SKIP.has(perk.ability) || dud.has(perk.id)) continue;
-    if (!run.perkReady(perk).ok) continue;
-    // всё, кроме самого основного удара, не имеет права съесть запас на него
-    if (reserve && perk.id !== reserve.perkId && run.res - run.perkCostOf(perk) < reserve.cost) continue;
-    const full = perk.cost === FULL_BAR;
-    if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
-    if (full && enemies < 4) continue;
+/** Способность не для этого хода: не умеет, бесполезна, не готова, съест запас, мало врагов. */
+const perkUnfit = (
+  battle: RoomBattle,
+  perk: AbilityDef,
+  dud: Set<string>,
+  ctx: { enemies: number; reserve: { perkId: string; cost: number } | null },
+): boolean => {
+  if (SKIP.has(perk.behavior) || dud.has(perk.id)) return true;
+  if (!battle.perkReady(perk).ok) return true;
+  const { enemies, reserve } = ctx;
+  // всё, кроме самого основного удара, не имеет права съесть запас на него
+  if (reserve && perk.id !== reserve.perkId && battle.res - battle.perkCostOf(perk) < reserve.cost)
+    return true;
+  const full = perk.cost === FULL_BAR;
+  if (CROWD.has(perk.behavior) && enemies < (full ? 4 : 2)) return true;
+  return full && enemies < 4;
+};
+
+/** Способность без цели; усиление, которое ничего не поменяло, бот в этой комнате больше не трогает. */
+const useSelfPerk = (battle: RoomBattle, perk: AbilityDef, dud: Set<string>): boolean => {
+  const r = battle.usePerk(perk.id);
+  if (!r.ok) return false;
+  if (!r.events.some((e) => CHANGED.has(e.type))) dud.add(perk.id);
+  return true;
+};
+
+/** Цель способности — самый опасный достижимый враг; `NO_CELL`, если врага в досягаемости нет. */
+const perkTarget = (battle: RoomBattle, perk: AbilityDef): CellIndex => {
+  let best = Grid.NO_CELL;
+  let bestScore = -1e9;
+  for (const cell of Grid.CELLS) {
+    const card = battle.cards[cell];
+    if (!card) continue;
+    if (!battle.perkTargetOk(perk, cell)) continue;
+    const score = card.kind === 'enemy' ? card.atk * 3 + card.hp * 0.2 : -100;
+    if (score > bestScore) {
+      bestScore = score;
+      best = cell;
+    }
+  }
+  return best < 0 || bestScore < 0 ? Grid.NO_CELL : best;
+};
+
+const tryPerk = (battle: RoomBattle, dud: Set<string>): boolean => {
+  const ctx = {
+    enemies: battle.cards.filter((c) => c?.kind === 'enemy').length,
+    reserve: reserveOf(battle),
+  };
+  for (const perk of battle.stats.abilities as AbilityDef[]) {
+    if (perkUnfit(battle, perk, dud, ctx)) continue;
     if (perk.target === 'self') {
-      const r = run.usePerk(perk.id);
-      if (!r.ok) continue;
-      // усиление, которое ничего не поменяло, бот больше в этой комнате не трогает
-      if (!r.events.some((e) => CHANGED.has(e.type))) dud.add(perk.id);
-      return true;
+      if (useSelfPerk(battle, perk, dud)) return true;
+      continue;
     }
-    // ищем цель: самый опасный достижимый враг
-    let best = -1;
-    let bestScore = -1e9;
-    for (let cell = 0; cell < 9; cell++) {
-      const card = run.cards[cell];
-      if (!card) continue;
-      if (!run.perkTargetOk(perk, cell)) continue;
-      const score = card.kind === 'enemy' ? card.atk * 3 + card.hp * 0.2 : -100;
-      if (score > bestScore) {
-        bestScore = score;
-        best = cell;
-      }
-    }
-    if (best < 0 || bestScore < 0) continue;
-    if (!run.usePerk(perk.id).ok) continue;
-    if (!run.tap(best).ok) run.cancelPerk();
+    const target = perkTarget(battle, perk);
+    if (target < 0 || !battle.usePerk(perk.id).ok) continue;
+    if (!battle.tap(target).ok) battle.cancelPerk();
     return true;
   }
   return false;
@@ -159,20 +230,111 @@ const CELL_DIST = (a: number, b: number): number =>
   Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
 
 /** Сколько врагов достанет рука (или молния) с этой клетки. */
-const adjacentEnemies = (run: Run, cell: number): number => {
+const adjacentEnemies = (battle: RoomBattle, cell: number): number => {
   let n = 0;
-  for (let c = 0; c < 9; c++) if (run.cards[c]?.kind === 'enemy' && CELL_DIST(cell, c) === 1) n++;
+  for (let c = 0; c < 9; c++)
+    if (battle.cards[c]?.kind === 'enemy' && CELL_DIST(cell, c) === 1) n++;
   return n;
 };
 
 /** Расстояние до ближайшего врага. */
-const nearestEnemy = (run: Run, cell: number): number => {
+const nearestEnemy = (battle: RoomBattle, cell: number): number => {
   let best = 9;
-  for (let c = 0; c < 9; c++) if (run.cards[c]?.kind === 'enemy') best = Math.min(best, CELL_DIST(cell, c));
+  for (let c = 0; c < 9; c++)
+    if (battle.cards[c]?.kind === 'enemy') best = Math.min(best, CELL_DIST(cell, c));
   return best;
 };
 
-const bot = (run: Run): void => {
+/** Ход к переходу: действие, которое сильнее к нему приближает. `true` — ход сделан. */
+const towardExit = (battle: RoomBattle, exitCell: number): boolean => {
+  let best = Grid.NO_CELL;
+  let bestScore = -1e9;
+  for (const cell of Grid.CELLS) {
+    if (battle.actionFor(cell).kind === 'none') continue;
+    const score =
+      cell === exitCell
+        ? 1000
+        : -CELL_DIST(cell, exitCell) * 10 - (battle.cards[cell]?.kind === 'enemy' ? 5 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = cell;
+    }
+  }
+  return best >= 0 && battle.tap(best).ok;
+};
+
+/**
+ * Расходники, как у игрока: зелье при ранах, артефакт на толпу, восстановление без ресурса.
+ * Проверяем результат: расходник может быть недоступен (артефакты — только у магов), иначе бот
+ * зациклится на бесполезной попытке и не сделает ни одного хода.
+ */
+const useConsumables = (battle: RoomBattle): boolean => {
+  if (
+    battle.hp <= battle.stats.maxHp * 0.45 &&
+    battle.consumables.potion_heal > 0 &&
+    battle.useItem('potion_heal').ok
+  )
+    return true;
+  if (
+    battle.consumables.artifact > 0 &&
+    battle.cards.filter((c) => c?.kind === 'enemy').length >= 3 &&
+    battle.useItem('artifact').ok
+  )
+    return true;
+  // как у игрока с автоприменением: ресурса нет на основной удар, а шкала почти пуста
+  return needsRegen(battle) && battle.useItem('potion_regen').ok;
+};
+
+/** Оценка действия по карте: добить, выстрелить, ударить, подобрать. */
+const cardScore = (battle: RoomBattle, cell: CellIndex, card: Card, a: Action): number => {
+  if (card.kind === 'enemy') {
+    if (battle.wouldKill(cell)) return 100 + card.atk * 3;
+    if (a.kind === 'ranged') return 60 + card.atk * 2;
+    return 20 - card.atk * 2.5 - card.hp * 0.25 + (card.stun > 0 ? 40 : 0);
+  }
+  if (card.kind === 'exit') return -10;
+  return card.kind === 'chest' || card.kind === 'gold' ? 50 : 45;
+};
+
+/** Лучшая карта под рукой; `NO_CELL` — действовать не по чему. */
+const bestCard = (battle: RoomBattle): CellIndex => {
+  let bestCell = Grid.NO_CELL;
+  let bestScore = -1e9;
+  for (const cell of Grid.CELLS) {
+    const card = battle.cards[cell];
+    if (!card) continue;
+    const a = battle.actionFor(cell);
+    if (a.kind === 'none') continue;
+    const score = cardScore(battle, cell, card, a);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCell = cell;
+    }
+  }
+  return bestCell;
+};
+
+/**
+ * Ни одной карты под рукой (так живёт маг: рукой он не бьёт вовсе) — шагаем на пустую клетку
+ * поближе к врагу; выход открыт — к переходу, а не к врагам.
+ */
+const bestStep = (battle: RoomBattle): CellIndex => {
+  let bestCell = Grid.NO_CELL;
+  let bestScore = -1e9;
+  for (const cell of Grid.CELLS) {
+    if (battle.cards[cell] || battle.actionFor(cell).kind !== 'move') continue;
+    const score = battle.exitOpen
+      ? -nearestEnemy(battle, cell)
+      : adjacentEnemies(battle, cell) * 10 - nearestEnemy(battle, cell);
+    if (score > bestScore) {
+      bestScore = score;
+      bestCell = cell;
+    }
+  }
+  return bestCell;
+};
+
+const bot = (battle: RoomBattle): void => {
   const dud = new Set<string>();
   /**
    * Сколько ходов бот позволяет себе добирать добычу после того, как открылся переход.
@@ -181,65 +343,17 @@ const bot = (run: Run): void => {
    */
   let loot = 6;
   // колода бесконечна: комната кончается шагом на переход, а не зачисткой поля
-  for (let guard = 0; guard < 1200 && !run.over; guard++) {
-    const exitCell = run.cards.findIndex((c) => c?.kind === 'exit');
-    const leaving = exitCell >= 0 && (loot <= 0 || run.hp < run.stats.maxHp * 0.55);
+  for (let guard = 0; guard < 1200 && !battle.over; guard++) {
+    const exitCell = battle.cards.findIndex((c) => c?.kind === 'exit');
+    const leaving = exitCell >= 0 && (loot <= 0 || battle.hp < battle.stats.maxHp * 0.55);
     if (exitCell >= 0) loot--;
-    if (leaving) {
-      // идём к переходу: любое действие оценивается тем, насколько оно к нему приближает
-      let best = -1;
-      let bestScore = -1e9;
-      for (let cell = 0; cell < 9; cell++) {
-        if (run.actionFor(cell).kind === 'none') continue;
-        const score = cell === exitCell ? 1000 : -CELL_DIST(cell, exitCell) * 10 - (run.cards[cell]?.kind === 'enemy' ? 5 : 0);
-        if (score > bestScore) {
-          bestScore = score;
-          best = cell;
-        }
-      }
-      if (best >= 0 && run.tap(best).ok) continue;
-    }
-    // проверяем результат: расходник может быть недоступен (артефакты — только у магов),
-    // иначе бот зациклится на бесполезной попытке и не сделает ни одного хода
-    if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0 && run.useItem('potion_heal').ok) continue;
-    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3 && run.useItem('artifact').ok) continue;
-    // как у игрока с автоприменением: ресурса нет на основной удар, а шкала почти пуста
-    if (needsRegen(run) && run.useItem('potion_regen').ok) continue;
-    if (tryPerk(run, dud)) continue;
-    let bestCell = -1;
-    let bestScore = -1e9;
-    for (let cell = 0; cell < 9; cell++) {
-      const card = run.cards[cell];
-      if (!card) continue;
-      const a = run.actionFor(cell);
-      if (a.kind === 'none') continue;
-      let score: number;
-      if (card.kind === 'enemy') {
-        if (run.wouldKill(cell)) score = 100 + card.atk * 3;
-        else if (a.kind === 'ranged') score = 60 + card.atk * 2;
-        else score = 20 - card.atk * 2.5 - card.hp * 0.25 + (card.stun > 0 ? 40 : 0);
-      } else if (card.kind === 'exit') score = -10;
-      else score = card.kind === 'chest' || card.kind === 'gold' ? 50 : 45;
-      if (score > bestScore) {
-        bestScore = score;
-        bestCell = cell;
-      }
-    }
-    // Ни одной карты под рукой (так живёт маг: рукой он не бьёт вовсе) — шагаем на пустую
-    // клетку поближе к врагу. Ход по пустому полю теперь разрешён и считается полноценным.
-    if (bestCell < 0) {
-      for (let cell = 0; cell < 9; cell++) {
-        if (run.cards[cell] || run.actionFor(cell).kind !== 'move') continue;
-        // выход открыт — идём к переходу, а не к врагам
-        const score = run.exitOpen ? -nearestEnemy(run, cell) : adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
-        if (score > bestScore) {
-          bestScore = score;
-          bestCell = cell;
-        }
-      }
-    }
-    if (bestCell < 0) break;
-    if (!run.tap(bestCell).ok) break;
+    // идём к переходу: любое действие оценивается тем, насколько оно к нему приближает
+    if (leaving && towardExit(battle, exitCell)) continue;
+    if (useConsumables(battle)) continue;
+    if (tryPerk(battle, dud)) continue;
+    let cell = bestCard(battle);
+    if (cell < 0) cell = bestStep(battle);
+    if (cell < 0 || !battle.tap(cell).ok) break;
   }
 };
 
@@ -250,8 +364,17 @@ const bot = (run: Run): void => {
 /** Сколько прочности съел последний забег (оружие, доспех). */
 let wear = { w: 0, a: 0 };
 
+/** Износ и расходники — такими, какими их оставил бой; сломанное снимается. */
+const keepAfterRoom = (battle: RoomBattle): void => {
+  wear.w += (weapon?.durability ?? 0) - (battle.weapon?.durability ?? 0);
+  wear.a += (armor?.durability ?? 0) - (battle.armor?.durability ?? 0);
+  if (weapon) weapon = battle.weapon && battle.weapon.durability > 0 ? battle.weapon : null;
+  if (armor) armor = battle.armor && battle.armor.durability > 0 ? battle.armor : null;
+  Object.assign(consumables, battle.consumables);
+};
+
 const runTower = (): { rooms: number; turns: number; gold: number; souls: number } => {
-  let carry: RunCarryStats | undefined;
+  let carry: BattleCarryStats | undefined;
   let rooms = 0;
   let turns = 0;
   let got = { gold: 0, souls: 0 };
@@ -259,22 +382,25 @@ const runTower = (): { rooms: number; turns: number; gold: number; souls: number
   for (let i = 0; i < ROOMS.length; i++) {
     const room = ROOMS[i];
     const stats = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-    const run = RunFactory.standard().create({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed++), carry });
-    run.start();
-    bot(run);
-    turns += run.totals.turns;
-    wear.w += (weapon?.durability ?? 0) - (run.weapon?.durability ?? 0);
-    wear.a += (armor?.durability ?? 0) - (run.armor?.durability ?? 0);
-    // износ и расходники берём такими, какими их оставил бой
-    if (weapon) weapon = run.weapon && run.weapon.durability > 0 ? run.weapon : null;
-    if (armor) armor = run.armor && run.armor.durability > 0 ? run.armor : null;
-    Object.assign(consumables, run.consumables);
-    if (run.over !== 'win') break;
+    const battle = RoomBattleFactory.standard().create({
+      room,
+      stats,
+      weapon,
+      armor,
+      consumables: { ...consumables },
+      rng: makeRng(seed++),
+      carry,
+    });
+    battle.start();
+    bot(battle);
+    turns += battle.totals.turns;
+    keepAfterRoom(battle);
+    if (battle.over !== 'win') break;
     rooms++;
-    const g = Math.round((run.totals.gold + room.clearGold) * FARM);
-    const so = Math.round((run.totals.souls + room.clearSouls) * FARM);
+    const g = Math.round((battle.totals.gold + room.clearGold) * FARM);
+    const so = Math.round((battle.totals.souls + room.clearSouls) * FARM);
     got = { gold: got.gold + g, souls: got.souls + so };
-    carry = run.carryOut();
+    carry = battle.carryOut();
   }
   gold += got.gold;
   souls += got.souls;
@@ -286,7 +412,9 @@ const SEC_PER_ROOM = 8;
 const SEC_PER_RUN = 45;
 const MAX_RUNS = Number(process.env.RUNS ?? 400);
 console.log(`Линейка: ${lineage}, повторов забега на точку: ${N}, фарм x${FARM}`);
-console.log('run | rooms | best | minutes | +souls | +gold | class      | HP DMG DEF crit | reach p50/p90');
+console.log(
+  'run | rooms | best | minutes | +souls | +gold | class      | HP DMG DEF crit | reach p50/p90',
+);
 let seed = Number(process.env.SEED ?? 1);
 let seconds = 0;
 let best = 0;
@@ -294,7 +422,13 @@ const milestones: Array<[number, number, number]> = [];
 
 /** Насколько далеко этот герой доходит сейчас: медиана и 90-й процентиль по N забегам (без трат). */
 const probe = (): [number, number] => {
-  const save = { gold, souls, weapon: weapon && { ...weapon }, armor: armor && { ...armor }, cons: { ...consumables } };
+  const save = {
+    gold,
+    souls,
+    weapon: weapon && { ...weapon },
+    armor: armor && { ...armor },
+    cons: { ...consumables },
+  };
   const reach: number[] = [];
   for (let k = 0; k < N; k++) {
     reach.push(runTower().rooms);
@@ -319,7 +453,8 @@ for (let r = 1; r <= MAX_RUNS && best < ROOMS.length; r++) {
   seconds += res.turns * SEC_PER_TURN + (res.rooms + 1) * SEC_PER_ROOM + SEC_PER_RUN;
   const record = res.rooms > best;
   if (record) {
-    for (let f = Math.floor(best / 5) + 1; f <= Math.floor(res.rooms / 5); f++) milestones.push([f, r, Math.round(seconds / 60)]);
+    for (let f = Math.floor(best / 5) + 1; f <= Math.floor(res.rooms / 5); f++)
+      milestones.push([f, r, Math.round(seconds / 60)]);
     best = res.rooms;
   }
   if (record || r % EVERY === 0) {
@@ -328,4 +463,7 @@ for (let r = 1; r <= MAX_RUNS && best < ROOMS.length; r++) {
     );
   }
 }
-console.log('этаж пройден впервые: ' + milestones.map(([f, r, m]) => `${f}: забег ${r}, ${m} мин`).join(' · '));
+console.log(
+  'этаж пройден впервые: ' +
+    milestones.map(([f, r, m]) => `${f}: забег ${r}, ${m} мин`).join(' · '),
+);

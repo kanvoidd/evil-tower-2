@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../../application/ports';
-import type { CardView } from '../../board/card-view';
 import { BoardLayout } from '../../board/BoardLayout';
+import type { CardView } from '../../board/card-view';
 import type { PhaserClock } from '../../phaser/PhaserClock';
 import type { PhaserTweens } from '../../phaser/PhaserTweens';
-import { GAME_W } from '../../theme';
-import { CARD_W } from '../../textures/Textures';
+import { CARD_W, GAME_W } from '../../theme';
 import type { BackgroundMotion } from '../BackgroundMotion';
 import type { BurstAnimation } from '../effects/BurstAnimation';
 import type { Vfx } from '../effects/vfx/Vfx';
@@ -44,35 +44,72 @@ export class BackstabAnimation implements IAttackAnimation {
     v.setDepth(60);
     this.sound.play('dodge');
     this.vfx.smoke(a);
-    await this.tweens.play({ targets: v, alpha: 0, scale: 0.7, duration: 110, ease: 'Quad.easeIn' });
+    await this.tweens.play({
+      targets: v,
+      alpha: 0,
+      scale: 0.7,
+      duration: 110,
+      ease: 'Quad.easeIn',
+    });
     v.setPosition(behind.x, behind.y);
     this.vfx.smoke(behind);
     // за спиной герой чуть меньше — цель остаётся видна
-    await this.tweens.play({ targets: v, alpha: 1, scale: 0.8, duration: 120, ease: 'Back.easeOut' });
+    await this.tweens.play({
+      targets: v,
+      alpha: 1,
+      scale: 0.8,
+      duration: 120,
+      ease: 'Back.easeOut',
+    });
     // два скрещённых росчерка на цели
     const ang = Phaser.Math.RadToDeg(Math.atan2(dy, dx)) + 90;
     this.slash(b.x, b.y, ang - 32, 0);
     this.slash(b.x, b.y, ang + 32, 70);
     this.burst.play(b.x, b.y, 0xffe38a, 14);
     await this.clock.delay(90);
-    this.motion.follow((async () => {
-      await this.clock.delay(190);
-      if (!v.scene) return;
-      this.vfx.smoke({ x: v.x, y: v.y });
-      await this.tweens.play({ targets: v, alpha: 0, scale: 0.7, duration: 100, ease: 'Quad.easeIn' });
-      v.setPosition(a.x, a.y);
-      this.vfx.smoke(a);
-      await this.tweens.play({ targets: v, alpha: 1, scale: 1, duration: 120, ease: 'Back.easeOut' });
-      v.setDepth(depth);
-    })());
+    this.motion.follow(
+      (async () => {
+        await this.clock.delay(190);
+        if (!v.scene) return;
+        this.vfx.smoke({ x: v.x, y: v.y });
+        await this.tweens.play({
+          targets: v,
+          alpha: 0,
+          scale: 0.7,
+          duration: 100,
+          ease: 'Quad.easeIn',
+        });
+        v.setPosition(a.x, a.y);
+        this.vfx.smoke(a);
+        await this.tweens.play({
+          targets: v,
+          alpha: 1,
+          scale: 1,
+          duration: 120,
+          ease: 'Back.easeOut',
+        });
+        v.setDepth(depth);
+      })(),
+    );
   }
 
   /** Быстрый белый росчерк клинка. */
   private slash(x: number, y: number, angle: number, delay: number): void {
-    const s = this.scene.add.image(x, y, 'px').setDepth(75).setAngle(angle).setBlendMode(Phaser.BlendModes.ADD)
-      .setDisplaySize(20, 8).setAlpha(0);
+    const s = this.scene.add
+      .image(x, y, 'px')
+      .setDepth(75)
+      .setAngle(angle)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDisplaySize(20, 8)
+      .setAlpha(0);
     this.scene.tweens.add({
-      targets: s, alpha: { from: 1, to: 0 }, displayWidth: 210, displayHeight: 5, delay, duration: 240, ease: 'Cubic.easeOut',
+      targets: s,
+      alpha: { from: 1, to: 0 },
+      displayWidth: 210,
+      displayHeight: 5,
+      delay,
+      duration: 240,
+      ease: 'Cubic.easeOut',
       onComplete: () => s.destroy(),
     });
   }

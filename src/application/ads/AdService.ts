@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account';
 import type { IPlatform } from '../ports/IPlatform';
 import { AD_POLICY } from './adPolicy';
 
@@ -8,7 +8,11 @@ import { AD_POLICY } from './adPolicy';
  * поверх лимитов платформы. На время показа игра отмечается как «на паузе».
  */
 export class AdService {
-  constructor(private readonly platform: IPlatform, private readonly profile: Profile, private readonly now: () => number) {}
+  constructor(
+    private readonly platform: IPlatform,
+    private readonly profile: Profile,
+    private readonly now: () => number,
+  ) {}
 
   /** true — видео досмотрено, награду нужно выдать. */
   rewarded(): Promise<boolean> {

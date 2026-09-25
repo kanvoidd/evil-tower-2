@@ -1,59 +1,11 @@
 import Phaser from 'phaser';
-import { CLASS_ORDER, CLASSES } from '../../domain/data/classes';
-import { ITEMS } from '../../domain/data/items';
-import { ENEMIES } from '../../domain/data/enemies';
-import { PERKS, type VfxStyle } from '../../domain/data/perks';
+
+import { CLASS_ORDER, CLASSES, ENEMIES, ITEMS, PERKS } from '../../domain/catalog';
+import type { FxStyle } from '../../domain/combat';
+import { ABILITY_FX, CARD_H, CARD_W, LINEAGE_COLOR, PATH_COLOR, STAT_COLOR } from '../theme';
+import { abilityIcon } from './artKeys';
+import { armorArt, type Draw, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt } from './PixelArt';
 import { SVG_ICONS } from './SvgIcons';
-import { armorArt, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt, type Draw } from './PixelArt';
-
-export const LINEAGE_COLOR: Record<string, string> = {
-  warrior: '#e67e22',
-  mage: '#5b8def',
-  archer: '#3fae55',
-  mercenary: '#9b59b6',
-};
-
-/**
- * Цвета характеристик. Оттенки разнесены по кругу (красный, янтарный, зелёный, голубой, синий, фиолетовый),
- * чтобы значки урона и здоровья, а также соседние ветки дерева не сливались.
- */
-export const STAT_COLOR: Record<string, string> = {
-  damage: '#f0483a',
-  crit: '#ffb31a',
-  health: '#3fdb84',
-  dodge: '#22c9e6',
-  defense: '#3f8cf4',
-  parry: '#a07cf6',
-  luck: '#f472b6',
-};
-
-/** Цвета путей дерева талантов: урон / жизнь / защита. */
-export const PATH_COLOR: Record<string, string> = {
-  attack: STAT_COLOR.damage,
-  vitality: STAT_COLOR.health,
-  guard: STAT_COLOR.defense,
-};
-
-/** Цвета значков состояний на карточках врагов. */
-export const STATUS_TINT: Record<string, number> = {
-  stun: 0xffd86b,
-  burn: 0xff7a2a,
-  poison: 0x9fd12a,
-  mark: 0xb287ff,
-  link: 0x7e57d8,
-  vuln: 0xff4d6d,
-  weak: 0x7fc4ff,
-  corpse: 0x8fd14f,
-  haunt: 0xa9e8ff,
-  ghost: 0xa9e8ff,
-};
-
-export const pathHex = (path: string): number => parseInt((PATH_COLOR[path] ?? '#888888').slice(1), 16);
-
-export const statHex = (stat: string): number => {
-  const h = STAT_COLOR[stat];
-  return h ? parseInt(h.slice(1), 16) : 0x888888;
-};
 
 /**
  * Файлы из src/assets/images подхватываются автоматически: имя файла без расширения = ключ текстуры
@@ -68,13 +20,20 @@ const ART_FILES = import.meta.glob('../../assets/images/*.{png,jpg,jpeg,bmp,webp
 
 export const queueExternalArt = (scene: Phaser.Scene): void => {
   for (const [path, url] of Object.entries(ART_FILES)) {
-    const key = path.split('/').pop()!.replace(/\.[^.]+$/, '');
+    const key = path
+      .split('/')
+      .pop()!
+      .replace(/\.[^.]+$/, '');
     scene.load.image(key, url);
   }
 };
 
 const canvasTex = (
-  scene: Phaser.Scene, key: string, w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void,
+  scene: Phaser.Scene,
+  key: string,
+  w: number,
+  h: number,
+  draw: (ctx: CanvasRenderingContext2D) => void,
 ): void => {
   if (scene.textures.exists(key)) return;
   const tex = scene.textures.createCanvas(key, w, h)!;
@@ -94,7 +53,12 @@ const loadSvg = (scene: Phaser.Scene, key: string, svg: string): Promise<void> =
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   });
 
-const bakeSprite = (scene: Phaser.Scene, key: string, draw: Draw, scale = 4): HTMLCanvasElement | null => {
+const bakeSprite = (
+  scene: Phaser.Scene,
+  key: string,
+  draw: Draw,
+  scale = 4,
+): HTMLCanvasElement | null => {
   if (scene.textures.exists(key)) return null;
   const g = new Grid();
   draw(g);
@@ -105,7 +69,14 @@ const bakeSprite = (scene: Phaser.Scene, key: string, draw: Draw, scale = 4): HT
   return cv;
 };
 
-const rr = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void => {
+const rr = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void => {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -115,7 +86,14 @@ const rr = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
   ctx.closePath();
 };
 
-const polyStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, points: number, outer: number, inner: number): void => {
+const polyStar = (
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  points: number,
+  outer: number,
+  inner: number,
+): void => {
   ctx.beginPath();
   for (let i = 0; i < points * 2; i++) {
     const r = i % 2 === 0 ? outer : inner;
@@ -129,14 +107,34 @@ const polyStar = (ctx: CanvasRenderingContext2D, cx: number, cy: number, points:
 };
 
 /** Цвета семейств эффектов — те же, что у вспышек способностей в бою. */
-export const VFX_COLOR: Record<VfxStyle, string> = {
-  bolt: '#9ad8ff', chain: '#7fc4ff', arcane: '#b287ff', beam: '#fff0b0',
-  fire: '#ff8a2a', explosion: '#ffb44a', holy: '#fff3c4', banner: '#f0c75e',
-  ignite: '#ff6a1a', fireball: '#ffa03a', detonate: '#ff5a2a', inferno: '#ff7a18',
-  dark: '#a678ff', soul: '#a98bff', mark: '#ff6a8a', quake: '#d2a15a',
-  corpse: '#8fd14f', ghost: '#a9e8ff', voodoo: '#d05aff', harvest: '#9a6bff',
-  slam: '#ffe0a0', blades: '#eaf2ff', shot: '#d8f0a0', arrows: '#c6e878',
-  smoke: '#9aa0b4', swap: '#7fe8d0', rewind: '#b79dff',
+export const VFX_COLOR: Record<FxStyle, string> = {
+  bolt: '#9ad8ff',
+  chain: '#7fc4ff',
+  arcane: '#b287ff',
+  beam: '#fff0b0',
+  fire: '#ff8a2a',
+  explosion: '#ffb44a',
+  holy: '#fff3c4',
+  banner: '#f0c75e',
+  ignite: '#ff6a1a',
+  fireball: '#ffa03a',
+  detonate: '#ff5a2a',
+  inferno: '#ff7a18',
+  dark: '#a678ff',
+  soul: '#a98bff',
+  mark: '#ff6a8a',
+  quake: '#d2a15a',
+  corpse: '#8fd14f',
+  ghost: '#a9e8ff',
+  voodoo: '#d05aff',
+  harvest: '#9a6bff',
+  slam: '#ffe0a0',
+  blades: '#eaf2ff',
+  shot: '#d8f0a0',
+  arrows: '#c6e878',
+  smoke: '#9aa0b4',
+  swap: '#7fe8d0',
+  rewind: '#b79dff',
 };
 
 type Ctx = CanvasRenderingContext2D;
@@ -156,18 +154,30 @@ const stroke = (ctx: Ctx, w: number): void => {
 };
 
 /** Дуга со стрелкой на конце — для «обмена местами» и «отката времени». */
-const arcArrow = (ctx: Ctx, cx: number, cy: number, r: number, a0: number, a1: number, w: number): void => {
+const arcArrow = (
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  r: number,
+  a0: number,
+  a1: number,
+  w: number,
+): void => {
   ctx.beginPath();
   ctx.arc(cx, cy, r, a0, a1);
   stroke(ctx, w);
   const tip = [cx + r * Math.cos(a1), cy + r * Math.sin(a1)];
   const n = [-Math.sin(a1), Math.cos(a1)];
   const t = [Math.cos(a1), Math.sin(a1)];
-  path(ctx, [
-    [tip[0] + t[0] * 11, tip[1] + t[1] * 11],
-    [tip[0] - t[0] * 4 + n[0] * 9, tip[1] - t[1] * 4 + n[1] * 9],
-    [tip[0] - t[0] * 4 - n[0] * 9, tip[1] - t[1] * 4 - n[1] * 9],
-  ], true);
+  path(
+    ctx,
+    [
+      [tip[0] + t[0] * 11, tip[1] + t[1] * 11],
+      [tip[0] - t[0] * 4 + n[0] * 9, tip[1] - t[1] * 4 + n[1] * 9],
+      [tip[0] - t[0] * 4 - n[0] * 9, tip[1] - t[1] * 4 - n[1] * 9],
+    ],
+    true,
+  );
   ctx.fill();
 };
 
@@ -175,17 +185,38 @@ const arcArrow = (ctx: Ctx, cx: number, cy: number, r: number, a0: number, a1: n
  * Значок семейства эффектов: у каждой способности свой узнаваемый рисунок, чтобы десять
  * кнопок в нижней панели не сливались в один ряд одинаковых звёздочек.
  */
-const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
+const VFX_GLYPH: Record<FxStyle, (ctx: Ctx) => void> = {
   // молния — ломаная стрела вниз
   bolt: (ctx) => {
-    path(ctx, [[74, 22], [44, 62], [64, 64], [50, 106], [84, 60], [62, 58]], true);
+    path(
+      ctx,
+      [
+        [74, 22],
+        [44, 62],
+        [64, 64],
+        [50, 106],
+        [84, 60],
+        [62, 58],
+      ],
+      true,
+    );
     ctx.fill();
   },
   // цепная молния — два разряда друг за другом
   chain: (ctx) => {
-    path(ctx, [[46, 24], [30, 62], [44, 62], [32, 96]]);
+    path(ctx, [
+      [46, 24],
+      [30, 62],
+      [44, 62],
+      [32, 96],
+    ]);
     stroke(ctx, 9);
-    path(ctx, [[90, 32], [74, 66], [88, 66], [76, 100]]);
+    path(ctx, [
+      [90, 32],
+      [74, 66],
+      [88, 66],
+      [76, 100],
+    ]);
     stroke(ctx, 9);
   },
   // тайная магия — звезда в кольце
@@ -198,7 +229,16 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
   },
   // луч — столб света с гранями
   beam: (ctx) => {
-    path(ctx, [[50, 18], [78, 18], [86, 110], [42, 110]], true);
+    path(
+      ctx,
+      [
+        [50, 18],
+        [78, 18],
+        [86, 110],
+        [42, 110],
+      ],
+      true,
+    );
     ctx.fill();
     ctx.globalAlpha = 0.45;
     ctx.fillRect(58, 18, 12, 92);
@@ -244,23 +284,40 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.beginPath();
     ctx.arc(78, 62, 30, 0, Math.PI * 2);
     ctx.fill();
-    path(ctx, [[48, 44], [10, 30]]);
+    path(ctx, [
+      [48, 44],
+      [10, 30],
+    ]);
     stroke(ctx, 8);
-    path(ctx, [[46, 62], [4, 62]]);
+    path(ctx, [
+      [46, 62],
+      [4, 62],
+    ]);
     stroke(ctx, 10);
-    path(ctx, [[48, 80], [10, 94]]);
+    path(ctx, [
+      [48, 80],
+      [10, 94],
+    ]);
     stroke(ctx, 8);
   },
   // детонация — три вспышки цепочкой
   detonate: (ctx) => {
-    for (const [x, y, r] of [[34, 40, 16], [64, 70, 24], [96, 44, 13]]) {
+    for (const [x, y, r] of [
+      [34, 40, 16],
+      [64, 70, 24],
+      [96, 44, 13],
+    ]) {
       polyStar(ctx, x, y, 8, r * 2, r);
       ctx.fill();
     }
   },
   // инферно — стена пламени
   inferno: (ctx) => {
-    for (const [x, h] of [[30, 34], [64, 14], [98, 40]]) {
+    for (const [x, h] of [
+      [30, 34],
+      [64, 14],
+      [98, 40],
+    ]) {
       ctx.beginPath();
       ctx.moveTo(x, h);
       ctx.bezierCurveTo(x + 24, h + 34, x + 20, h + 54, x + 10, h + 64);
@@ -279,7 +336,10 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.fillRect(36, 58, 56, 22);
     for (let i = 0; i < 8; i++) {
       const a = (Math.PI * 2 * i) / 8;
-      path(ctx, [[64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44], [64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58]]);
+      path(ctx, [
+        [64 + Math.cos(a) * 44, 64 + Math.sin(a) * 44],
+        [64 + Math.cos(a) * 58, 64 + Math.sin(a) * 58],
+      ]);
       stroke(ctx, 7);
     }
   },
@@ -300,16 +360,28 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.arc(64, 34, 15, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillRect(54, 52, 20, 40);
-    path(ctx, [[30, 62], [98, 62]]);
+    path(ctx, [
+      [30, 62],
+      [98, 62],
+    ]);
     stroke(ctx, 9);
-    path(ctx, [[54, 92], [44, 112]]);
+    path(ctx, [
+      [54, 92],
+      [44, 112],
+    ]);
     stroke(ctx, 9);
-    path(ctx, [[74, 92], [84, 112]]);
+    path(ctx, [
+      [74, 92],
+      [84, 112],
+    ]);
     stroke(ctx, 9);
   },
   // жатва душ — коса: почти отвесное древко и широкий серп сверху
   harvest: (ctx) => {
-    path(ctx, [[84, 22], [56, 114]]);
+    path(ctx, [
+      [84, 22],
+      [56, 114],
+    ]);
     stroke(ctx, 10);
     ctx.beginPath();
     ctx.moveTo(88, 24);
@@ -326,14 +398,27 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.fill();
     for (let i = 0; i < 8; i++) {
       const a = (Math.PI / 4) * i;
-      path(ctx, [[64 + Math.cos(a) * 32, 64 + Math.sin(a) * 32], [64 + Math.cos(a) * 48, 64 + Math.sin(a) * 48]]);
+      path(ctx, [
+        [64 + Math.cos(a) * 32, 64 + Math.sin(a) * 32],
+        [64 + Math.cos(a) * 48, 64 + Math.sin(a) * 48],
+      ]);
       stroke(ctx, 8);
     }
   },
   // знамя — флаг на древке
   banner: (ctx) => {
     ctx.fillRect(38, 16, 8, 96);
-    path(ctx, [[46, 22], [102, 22], [88, 46], [102, 70], [46, 70]], true);
+    path(
+      ctx,
+      [
+        [46, 22],
+        [102, 22],
+        [88, 46],
+        [102, 70],
+        [46, 70],
+      ],
+      true,
+    );
     ctx.fill();
   },
   // тьма — щупальца из тени
@@ -343,7 +428,10 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.fill();
     for (let i = 0; i < 5; i++) {
       const a = Math.PI + (Math.PI / 4) * (i - 2) * 0.9;
-      path(ctx, [[64, 70], [64 + Math.cos(a) * 46, 70 + Math.sin(a) * 46]]);
+      path(ctx, [
+        [64, 70],
+        [64 + Math.cos(a) * 46, 70 + Math.sin(a) * 46],
+      ]);
       stroke(ctx, 9);
     }
     ctx.fillRect(38, 70, 52, 14);
@@ -365,17 +453,33 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.beginPath();
     ctx.arc(64, 64, 10, 0, Math.PI * 2);
     ctx.fill();
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      path(ctx, [[64 + dx * 34, 64 + dy * 34], [64 + dx * 54, 64 + dy * 54]]);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      path(ctx, [
+        [64 + dx * 34, 64 + dy * 34],
+        [64 + dx * 54, 64 + dy * 54],
+      ]);
       stroke(ctx, 8);
     }
   },
   // землетрясение — трещина
   quake: (ctx) => {
     ctx.fillRect(22, 84, 84, 10);
-    path(ctx, [[46, 84], [60, 54], [52, 52], [72, 20]]);
+    path(ctx, [
+      [46, 84],
+      [60, 54],
+      [52, 52],
+      [72, 20],
+    ]);
     stroke(ctx, 9);
-    path(ctx, [[84, 84], [92, 62]]);
+    path(ctx, [
+      [84, 84],
+      [92, 62],
+    ]);
     stroke(ctx, 7);
   },
   // удар — четырёхлучевая вспышка
@@ -385,30 +489,65 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
   },
   // клинки — скрещённые росчерки
   blades: (ctx) => {
-    path(ctx, [[26, 26], [102, 102]]);
+    path(ctx, [
+      [26, 26],
+      [102, 102],
+    ]);
     stroke(ctx, 11);
-    path(ctx, [[102, 26], [26, 102]]);
+    path(ctx, [
+      [102, 26],
+      [26, 102],
+    ]);
     stroke(ctx, 11);
   },
   // выстрел — стрела вправо
   shot: (ctx) => {
-    path(ctx, [[18, 64], [86, 64]]);
+    path(ctx, [
+      [18, 64],
+      [86, 64],
+    ]);
     stroke(ctx, 10);
-    path(ctx, [[110, 64], [76, 44], [82, 64], [76, 84]], true);
+    path(
+      ctx,
+      [
+        [110, 64],
+        [76, 44],
+        [82, 64],
+        [76, 84],
+      ],
+      true,
+    );
     ctx.fill();
   },
   // ливень стрел — три стрелы вниз
   arrows: (ctx) => {
     for (const x of [36, 64, 92]) {
-      path(ctx, [[x, 16], [x, 84]]);
+      path(ctx, [
+        [x, 16],
+        [x, 84],
+      ]);
       stroke(ctx, 8);
-      path(ctx, [[x, 110], [x - 15, 80], [x, 86], [x + 15, 80]], true);
+      path(
+        ctx,
+        [
+          [x, 110],
+          [x - 15, 80],
+          [x, 86],
+          [x + 15, 80],
+        ],
+        true,
+      );
       ctx.fill();
     }
   },
   // дым — облако
   smoke: (ctx) => {
-    for (const [x, y, r] of [[46, 74, 22], [70, 68, 26], [90, 80, 18], [58, 88, 20]]) {
+    for (const [x, y, r] of [
+      [46, 74, 22],
+      [70, 68, 26],
+      [90, 80, 18],
+      [58, 88, 20],
+    ]) {
       ctx.beginPath();
       ctx.arc(x, y, r, 0, Math.PI * 2);
       ctx.fill();
@@ -424,13 +563,18 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.beginPath();
     ctx.arc(64, 64, 36, Math.PI * 0.75, Math.PI * 2.15);
     stroke(ctx, 10);
-    path(ctx, [[36, 26], [40, 66], [4, 50]], true);
+    path(
+      ctx,
+      [
+        [36, 26],
+        [40, 66],
+        [4, 50],
+      ],
+      true,
+    );
     ctx.fill();
   },
 };
-
-export const CARD_W = 200;
-export const CARD_H = 228;
 
 /** Светлый оттенок для иконок на тёмных кнопках и панелях. */
 const ICON_LIGHT = '#f4eddc';
@@ -499,11 +643,13 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
     bakeSprite(scene, it.icon, draw);
   }
 
-  // --- иконки перков: рисунок по семейству эффекта, рамка по линейке, золото у легендарных
+  // --- значки способностей: рисунок по семейству вспышки, рамка по линейке класса, который её
+  // выдаёт, золото у легендарных
   for (const p of PERKS) {
     const col = LINEAGE_COLOR[CLASSES[p.classId].lineage];
-    const fxCol = VFX_COLOR[p.vfx] ?? col;
-    canvasTex(scene, p.icon, 128, 128, (ctx) => {
+    const fx = ABILITY_FX[p.ability.id];
+    const fxCol = VFX_COLOR[fx] ?? col;
+    canvasTex(scene, abilityIcon(p.ability.id), 128, 128, (ctx) => {
       const legend = p.slot === 'legend';
       const g = ctx.createRadialGradient(64, 54, 6, 64, 64, 62);
       g.addColorStop(0, legend ? '#5a3f9a' : '#343948');
@@ -524,7 +670,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       ctx.strokeStyle = fxCol;
       ctx.shadowColor = fxCol;
       ctx.shadowBlur = 10;
-      VFX_GLYPH[p.vfx](ctx);
+      VFX_GLYPH[fx](ctx);
       ctx.restore();
     });
   }
@@ -699,7 +845,14 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       rr(ctx, wx, wy, ww, wh, 13);
       ctx.fillStyle = '#0d1018';
       ctx.fill();
-      const rg = ctx.createRadialGradient(CARD_W / 2, wy + wh * 0.55, 6, CARD_W / 2, wy + wh * 0.55, ww * 0.62);
+      const rg = ctx.createRadialGradient(
+        CARD_W / 2,
+        wy + wh * 0.55,
+        6,
+        CARD_W / 2,
+        wy + wh * 0.55,
+        ww * 0.62,
+      );
       rg.addColorStop(0, tint);
       rg.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.save();
@@ -751,7 +904,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       }
     }
     let seed = 1234;
-    const rnd = (): number => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    const rnd = (): number => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
     for (let i = 0; i < 1400; i++) {
       ctx.fillStyle = `rgba(255,255,255,${rnd() * 0.025})`;
       ctx.fillRect(rnd() * 720, rnd() * 1280, 2, 2);

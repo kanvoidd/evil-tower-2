@@ -1,9 +1,14 @@
-import type { Profile } from '../../domain/logic/profile';
-import type { AutoUseSave, ConsumableId } from '../../domain/types';
+import type { Profile } from '../../domain/account';
+import type { ConsumableId } from '../../domain/catalog';
+import type { AutoUseSave } from '../../domain/combat';
 
 /** Переключатели «АВТО» под расходниками: у каждого расходника свой флаг в профиле. */
 export class AutoUseToggles {
-  private static readonly KEY: Record<ConsumableId, keyof AutoUseSave> = { potion_heal: 'heal', potion_regen: 'regen', artifact: 'artifact' };
+  private static readonly KEY: Record<ConsumableId, keyof AutoUseSave> = {
+    potion_heal: 'heal',
+    potion_regen: 'regen',
+    artifact: 'artifact',
+  };
 
   constructor(private readonly profile: Profile) {}
 

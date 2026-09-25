@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { BuyConsumable } from '../../application/shop/BuyConsumable';
 import { BuyItem } from '../../application/shop/BuyItem';
 import { ShopCatalog } from '../../application/shop/ShopCatalog';

@@ -1,0 +1,55 @@
+import {
+  type EnemyDef,
+  FLOOR_FACTORIES,
+  type FloorFactory,
+  type LineageDef,
+  type LineageId,
+  LINEAGES,
+  rollRoom,
+} from '../../../catalog';
+import { RoomCardFactory } from '../../card/room-card-factory/RoomCardFactory';
+import { Engine } from '../../engine/Engine';
+import type { BattleInit } from '../interfaces/BattleInit';
+import { RoomBattle } from '../RoomBattle';
+
+/**
+ * Собирает бой в комнате: берёт линейку героя из каталога (`LINEAGES`), каталог врагов —
+ * у фабрик этажей (`FloorFactory`), и из них делает фабрику карт, движок и правила.
+ * Сцена и тесты получают готовый `RoomBattle` и не создают его части сами.
+ */
+export class RoomBattleFactory {
+  private static shared: RoomBattleFactory | null = null;
+
+  private readonly enemies: Readonly<Record<string, EnemyDef>>;
+
+  constructor(
+    private readonly lineages: Readonly<Record<LineageId, LineageDef>>,
+    floors: readonly FloorFactory[],
+  ) {
+    this.enemies = Object.fromEntries(
+      floors.flatMap((f) => f.createEnemies()).map((e) => [e.id, e]),
+    );
+  }
+
+  /** Фабрика на всех героях и этажах игры. */
+  static standard(): RoomBattleFactory {
+    RoomBattleFactory.shared ??= new RoomBattleFactory(LINEAGES, FLOOR_FACTORIES);
+    return RoomBattleFactory.shared;
+  }
+
+  create(init: BattleInit): RoomBattle {
+    const lineage = this.lineages[init.stats.lineage];
+    if (!lineage) throw new Error(`нет линейки ${init.stats.lineage}`);
+    const plan = init.plan ?? rollRoom(init.room, init.rng);
+    const cards = new RoomCardFactory({
+      room: init.room,
+      plan,
+      rng: init.rng,
+      stats: init.stats,
+      enemies: this.enemies,
+      lineage,
+    });
+    const engine = new Engine(cards);
+    return new RoomBattle(init, { engine, cards, plan, enemies: this.enemies, lineage });
+  }
+}

@@ -1,7 +1,8 @@
 import type Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../../application/ports';
-import type { CardView } from '../../board/card-view';
 import { BoardLayout } from '../../board/BoardLayout';
+import type { CardView } from '../../board/card-view';
 import type { PhaserClock } from '../../phaser/PhaserClock';
 import type { BackgroundMotion } from '../BackgroundMotion';
 import type { Vfx } from '../effects/vfx/Vfx';

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { DialogBtn } from './DialogBtn';
 
 export interface DialogOpts {

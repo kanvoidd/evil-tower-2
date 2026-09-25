@@ -1,7 +1,8 @@
 import type Phaser from 'phaser';
+
 import type { Point } from '../animations/interfaces/Point';
-import { GAME_W } from '../theme';
 import { CurrencyBar } from '../components';
+import { GAME_W } from '../theme';
 
 /**
  * Кошель в правом верхнем углу боя: всё, что принёс забег, — пройденные комнаты (уже в кошельке героя)
@@ -12,7 +13,10 @@ export class LootBar {
   private gold = 0;
   private souls = 0;
 
-  constructor(scene: Phaser.Scene, private readonly banked: { gold: number; souls: number }) {
+  constructor(
+    scene: Phaser.Scene,
+    private readonly banked: { gold: number; souls: number },
+  ) {
     this.bar = new CurrencyBar(scene, GAME_W - 32, 46, { goldIcon: 'ico_pouch', compact: true });
     this.show();
   }

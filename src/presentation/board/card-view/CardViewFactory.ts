@@ -1,12 +1,12 @@
 import type Phaser from 'phaser';
-import { ENEMIES } from '../../../domain/data/enemies';
-import { HEX } from '../../theme';
-import { t, tr } from '../../../i18n';
+
+import { ENEMIES } from '../../../domain/catalog';
+import type { Card, PlayerStats } from '../../../domain/combat';
+import type { CellIndex } from '../../../domain/shared';
 import type { TKey } from '../../../i18n';
-import type { Card } from '../../../domain/game-data/card/Card';
-import type { PlayerStats } from '../../../domain/logic/stats';
+import { enemyName, t } from '../../../i18n';
 import { plateTexture, statPill, txt } from '../../components';
-import { CARD_W, STATUS_TINT } from '../../textures/Textures';
+import { CARD_W, HEX, STATUS_TINT } from '../../theme';
 import type { CardView } from './interfaces/CardView';
 
 /**
@@ -21,14 +21,22 @@ export class CardViewFactory {
 
   /** Значки статусов на карточке врага: короткая подпись. */
   private static readonly STATUS_TAG: Record<string, string> = {
-    stun: '✶', burn: '♨', poison: '☠', mark: '◆', link: '⚯', vuln: '!', weak: '↓',
+    stun: '✶',
+    burn: '♨',
+    poison: '☠',
+    mark: '◆',
+    link: '⚯',
+    vuln: '!',
+    weak: '↓',
     // метка «взрыв трупа», заражение призрачными слугами и оставшиеся ходы призрака
-    corpse: '✹', haunt: '☁', ghost: '⏳',
+    corpse: '✹',
+    haunt: '☁',
+    ghost: '⏳',
   };
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  createCard(card: Card, cell: number, at: { x: number; y: number }): CardView {
+  createCard(card: Card, cell: CellIndex, at: { x: number; y: number }): CardView {
     const s = this.scene;
     const { ART_Y, LABEL_Y, PILL_Y } = CardViewFactory;
     const c = s.add.container(at.x, at.y).setDepth(1);
@@ -43,28 +51,80 @@ export class CardViewFactory {
         frameKey = 'card_enemy';
         spriteKey = def.icon;
         spriteSize = def.boss ? 124 : 108;
-        label = tr(def.name);
+        label = enemyName(def);
         if (def.boss) labelColor = HEX.gold;
         break;
       }
-      case 'exit': frameKey = 'card_exit'; spriteKey = 'spr_exit'; spriteSize = 120; label = t('game.exit'); labelColor = HEX.gold; break;
-      case 'ghost': frameKey = 'card_ghost'; spriteKey = 'enemy_ghost'; spriteSize = 108; label = t('game.ghost'); labelColor = '#a9e8ff'; break;
-      case 'gold': frameKey = 'card_gold'; spriteKey = 'spr_gold'; label = `+${card.value}`; labelColor = HEX.gold; break;
-      case 'chest': frameKey = 'card_chest'; spriteKey = 'spr_chest'; label = t('game.chest'); break;
-      case 'potion_heal': spriteKey = 'item_potion_heal'; label = t('shop.potion_heal'); break;
-      case 'potion_regen': spriteKey = 'item_potion_regen'; label = t('shop.potion_regen'); break;
-      case 'artifact': spriteKey = 'item_artifact'; label = t('shop.artifact'); break;
+      case 'exit':
+        frameKey = 'card_exit';
+        spriteKey = 'spr_exit';
+        spriteSize = 120;
+        label = t('game.exit');
+        labelColor = HEX.gold;
+        break;
+      case 'ghost':
+        frameKey = 'card_ghost';
+        spriteKey = 'enemy_ghost';
+        spriteSize = 108;
+        label = t('game.ghost');
+        labelColor = '#a9e8ff';
+        break;
+      case 'gold':
+        frameKey = 'card_gold';
+        spriteKey = 'spr_gold';
+        label = `+${card.value}`;
+        labelColor = HEX.gold;
+        break;
+      case 'chest':
+        frameKey = 'card_chest';
+        spriteKey = 'spr_chest';
+        label = t('game.chest');
+        break;
+      case 'potion_heal':
+        spriteKey = 'item_potion_heal';
+        label = t('shop.potion_heal');
+        break;
+      case 'potion_regen':
+        spriteKey = 'item_potion_regen';
+        label = t('shop.potion_regen');
+        break;
+      case 'artifact':
+        spriteKey = 'item_artifact';
+        label = t('shop.artifact');
+        break;
     }
     const frame = s.add.image(0, 0, frameKey);
-    const shadow = s.add.ellipse(0, ART_Y + spriteSize / 2 - 6, spriteSize * 0.62, 12, 0x000000, 0.35);
+    const shadow = s.add.ellipse(
+      0,
+      ART_Y + spriteSize / 2 - 6,
+      spriteSize * 0.62,
+      12,
+      0x000000,
+      0.35,
+    );
     const sprite = s.add.image(0, ART_Y, spriteKey).setDisplaySize(spriteSize, spriteSize);
     const flash = s.add.image(0, 0, frameKey).setTintFill(0xff2a2a).setAlpha(0.5).setVisible(false);
     c.add([frame, shadow, sprite, flash]);
-    const view: CardView = { c, uid: card.uid, kind: card.kind, cell, frame, sprite, flash, defId: card.defId };
+    const view: CardView = {
+      c,
+      uid: card.uid,
+      kind: card.kind,
+      cell,
+      frame,
+      sprite,
+      flash,
+      defId: card.defId,
+    };
     if (card.kind === 'enemy') {
       view.statusRow = s.add.container(0, -92);
       c.add(view.statusRow);
-      c.add(txt(s, 0, LABEL_Y, label, 21, { color: labelColor, maxWidth: CARD_W - 32, strokeThickness: 3 }));
+      c.add(
+        txt(s, 0, LABEL_Y, label, 21, {
+          color: labelColor,
+          maxWidth: CARD_W - 32,
+          strokeThickness: 3,
+        }),
+      );
       view.atk = statPill(s, -47, PILL_Y, { w: 84, stat: 'damage', text: String(card.atk) });
       view.hp = statPill(s, 47, PILL_Y, { w: 84, stat: 'health', text: String(card.hp) });
       c.add([view.atk.c, view.hp.c]);
@@ -85,19 +145,47 @@ export class CardViewFactory {
     return view;
   }
 
-  createHero(stats: PlayerStats, hp: number, cell: number, at: { x: number; y: number }): CardView {
+  createHero(
+    stats: PlayerStats,
+    hp: number,
+    cell: CellIndex,
+    at: { x: number; y: number },
+  ): CardView {
     const s = this.scene;
     const { ART_Y, LABEL_Y, PILL_Y } = CardViewFactory;
     const c = s.add.container(at.x, at.y).setDepth(5);
     const frame = s.add.image(0, 0, 'card_hero');
     const shadow = s.add.ellipse(0, ART_Y + 50, 70, 12, 0x000000, 0.35);
     const sprite = s.add.image(0, ART_Y, `hero_${stats.classId}`).setDisplaySize(112, 112);
-    const flash = s.add.image(0, 0, 'card_hero').setTintFill(0xff2a2a).setAlpha(0.5).setVisible(false);
+    const flash = s.add
+      .image(0, 0, 'card_hero')
+      .setTintFill(0xff2a2a)
+      .setAlpha(0.5)
+      .setVisible(false);
     c.add([frame, shadow, sprite, flash]);
-    c.add(txt(s, 0, LABEL_Y, t(`class.${stats.classId}.name` as TKey), 21, { color: HEX.gold, maxWidth: CARD_W - 32 }));
-    const view: CardView = { c, uid: -1, kind: 'player', cell, frame, sprite, flash, defId: 'player' };
+    c.add(
+      txt(s, 0, LABEL_Y, t(`class.${stats.classId}.name` as TKey), 21, {
+        color: HEX.gold,
+        maxWidth: CARD_W - 32,
+      }),
+    );
+    const view: CardView = {
+      c,
+      uid: -1,
+      kind: 'player',
+      cell,
+      frame,
+      sprite,
+      flash,
+      defId: 'player',
+    };
     view.atk = statPill(s, -52, PILL_Y, { w: 70, stat: 'damage', text: String(stats.damage) });
-    view.hp = statPill(s, 45, PILL_Y, { w: 98, stat: 'health', text: `${hp}/${stats.maxHp}`, fontSize: 18 });
+    view.hp = statPill(s, 45, PILL_Y, {
+      w: 98,
+      stat: 'health',
+      text: `${hp}/${stats.maxHp}`,
+      fontSize: 18,
+    });
     view.shield = statPill(s, -56, -88, { w: 66, h: 28, stat: 'defense', text: '0', fontSize: 16 });
     view.shield.c.setVisible(false);
     c.add([view.atk.c, view.hp.c, view.shield.c]);
@@ -122,7 +210,13 @@ export class CardViewFactory {
       chip.add(s.add.rectangle(0, 13, w - 10, 3, STATUS_TINT[kind] ?? 0xffffff));
       const tag = CardViewFactory.STATUS_TAG[kind];
       const label = turns > 1 ? `${tag}${turns}` : tag;
-      chip.add(txt(s, 0, -2, label, 17, { weight: 900, strokeThickness: 3, color: `#${(STATUS_TINT[kind] ?? 0xffffff).toString(16).padStart(6, '0')}` }));
+      chip.add(
+        txt(s, 0, -2, label, 17, {
+          weight: 900,
+          strokeThickness: 3,
+          color: `#${(STATUS_TINT[kind] ?? 0xffffff).toString(16).padStart(6, '0')}`,
+        }),
+      );
       row.add(chip);
     });
   }

@@ -22,9 +22,12 @@ cpSync(dist, target, { recursive: true });
 
 const bytes = (dir) =>
   readdirSync(dir, { withFileTypes: true }).reduce(
-    (sum, e) => sum + (e.isDirectory() ? bytes(join(dir, e.name)) : statSync(join(dir, e.name)).size),
+    (sum, e) =>
+      sum + (e.isDirectory() ? bytes(join(dir, e.name)) : statSync(join(dir, e.name)).size),
     0,
   );
 
-console.log(`Игра скопирована в android/app/src/main/assets/www (${(bytes(target) / 1024 / 1024).toFixed(2)} МБ).`);
+console.log(
+  `Игра скопирована в android/app/src/main/assets/www (${(bytes(target) / 1024 / 1024).toFixed(2)} МБ).`,
+);
 console.log('Дальше:  npm run apk   (или откройте папку android/ в Android Studio)');

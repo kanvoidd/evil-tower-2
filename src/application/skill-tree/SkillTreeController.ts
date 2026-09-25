@@ -1,7 +1,6 @@
-import { CLASSES } from '../../domain/data/classes';
-import { GAMEPLAY } from '../../domain/gameplay';
-import type { AutoSkillPlan } from '../../domain/logic/autoSkill';
-import type { TreeNode } from '../../domain/logic/skillTree';
+import { CLASSES } from '../../domain/catalog';
+import type { AutoSkillPlan, TreeNode } from '../../domain/progression';
+import { ProgressionBalance } from '../../domain/progression';
 import type { SkillTreeCommand } from './interfaces/SkillTreeCommand';
 import type { SkillTreeControllerDeps } from './interfaces/SkillTreeControllerDeps';
 
@@ -70,7 +69,7 @@ export class SkillTreeController {
   private async cancelMetamorphosis(): Promise<void> {
     const from = this.d.query.activeClass;
     const to = CLASSES[from].parent!;
-    const pct = Math.round(GAMEPLAY.cancelMetamorphosisRefund * 100);
+    const pct = Math.round(ProgressionBalance.cancelMetamorphosisRefund * 100);
     if (!(await this.d.dialogs.confirmCancel(from, to, pct))) return;
     this.d.view.metamorphosisCancelled(this.d.cancelMetamorphosis.execute().to);
   }

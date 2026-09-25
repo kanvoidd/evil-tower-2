@@ -1,8 +1,17 @@
 import Phaser from 'phaser';
-import { ACHIEVEMENTS } from '../../../domain/data/achievements';
-import { fmt, t, tr } from '../../../i18n';
+
+import { ACHIEVEMENTS } from '../../../domain/rewards';
+import { achievementDesc, achievementName, fmt, t } from '../../../i18n';
 import {
-  background, closeButton, icon, outlineTexture, plateTexture, ScrollList, shadowTexture, staggerIn, txt,
+  background,
+  closeButton,
+  icon,
+  outlineTexture,
+  plateTexture,
+  ScrollList,
+  shadowTexture,
+  staggerIn,
+  txt,
 } from '../../components';
 import { zoomIn } from '../../navigation/SceneTransitions';
 import { GAME_H, GAME_W, HEX } from '../../theme';
@@ -19,7 +28,11 @@ export class AchievementsView {
     const { VIEW, ROW_W, ROW_H, GAP } = AchievementsView;
     const s = scene;
     background(s);
-    const title = txt(s, GAME_W / 2, 66, t('ach.title'), 54, { font: 'title', color: HEX.gold, strokeThickness: 6 });
+    const title = txt(s, GAME_W / 2, 66, t('ach.title'), 54, {
+      font: 'title',
+      color: HEX.gold,
+      strokeThickness: 6,
+    });
     const close = closeButton(s, () => d.exit.leave());
 
     const list = new ScrollList(s, VIEW, ACHIEVEMENTS.length * (ROW_H + GAP) + 20);
@@ -32,14 +45,42 @@ export class AchievementsView {
       if (done) row.add(s.add.image(0, 0, outlineTexture(s, ROW_W, ROW_H, 26, '#f0c75e', 3)));
       const tx = -ROW_W / 2 + 26;
       row.add(s.add.image(tx + 44, 0, plateTexture(s, 88, 88, 1, done ? 'gold' : 'dark', 24)));
-      row.add(icon(s, tx + 44, 0, done ? 'svg_trophy' : 'svgw_trophy', 50).setAlpha(done ? 1 : 0.35));
+      row.add(
+        icon(s, tx + 44, 0, done ? 'svg_trophy' : 'svgw_trophy', 50).setAlpha(done ? 1 : 0.35),
+      );
       const lx = tx + 112;
-      row.add(txt(s, lx, -34, tr(a.name), 26, { origin: [0, 0.5], maxWidth: ROW_W - 160, weight: 900, color: done ? HEX.gold : HEX.text }));
-      row.add(txt(s, lx, -2, tr(a.desc), 19, { origin: [0, 0.5], maxWidth: ROW_W - 160, weight: 700, strokeThickness: 0, color: HEX.textDim }));
+      row.add(
+        txt(s, lx, -34, achievementName(a), 26, {
+          origin: [0, 0.5],
+          maxWidth: ROW_W - 160,
+          weight: 900,
+          color: done ? HEX.gold : HEX.text,
+        }),
+      );
+      row.add(
+        txt(s, lx, -2, achievementDesc(a), 19, {
+          origin: [0, 0.5],
+          maxWidth: ROW_W - 160,
+          weight: 700,
+          strokeThickness: 0,
+          color: HEX.textDim,
+        }),
+      );
       const bw = 340;
       row.add(s.add.rectangle(lx + bw / 2, 34, bw, 10, 0x000000, 0.5));
-      row.add(s.add.rectangle(lx, 34, Math.max(4, (bw * cur) / a.target), 10, done ? 0xf0c75e : 0x7d86a6).setOrigin(0, 0.5));
-      row.add(txt(s, ROW_W / 2 - 26, 34, done ? t('ach.done') : `${fmt(cur)}/${fmt(a.target)}`, 20, { origin: [1, 0.5], weight: 900, strokeThickness: 0, color: done ? HEX.good : HEX.textDim }));
+      row.add(
+        s.add
+          .rectangle(lx, 34, Math.max(4, (bw * cur) / a.target), 10, done ? 0xf0c75e : 0x7d86a6)
+          .setOrigin(0, 0.5),
+      );
+      row.add(
+        txt(s, ROW_W / 2 - 26, 34, done ? t('ach.done') : `${fmt(cur)}/${fmt(a.target)}`, 20, {
+          origin: [1, 0.5],
+          weight: 900,
+          strokeThickness: 0,
+          color: done ? HEX.good : HEX.textDim,
+        }),
+      );
       list.content.add(row);
     });
     s.input.keyboard?.on('keydown-ESC', () => d.exit.leave());

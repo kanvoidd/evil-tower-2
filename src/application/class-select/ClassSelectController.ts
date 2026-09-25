@@ -1,4 +1,4 @@
-import type { ClassId } from '../../domain/types';
+import type { ClassId } from '../../domain/catalog';
 import type { ClassSelectCommand } from './interfaces/ClassSelectCommand';
 import type { ClassSelectControllerDeps } from './interfaces/ClassSelectControllerDeps';
 

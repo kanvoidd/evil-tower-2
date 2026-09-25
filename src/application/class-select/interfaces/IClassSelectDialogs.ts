@@ -1,4 +1,4 @@
-import type { ClassId } from '../../../domain/types';
+import type { ClassId } from '../../../domain/catalog';
 
 /** Подтверждение смены героя. true — игрок согласился. */
 export interface IClassSelectDialogs {

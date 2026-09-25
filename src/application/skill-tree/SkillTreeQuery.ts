@@ -1,12 +1,30 @@
-import { LINEAGES } from '../../domain/data/heroes';
-import { PERK_BY_ID, type PerkDef } from '../../domain/data/perks';
-import type { TalentDef } from '../../domain/data/talents';
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account';
 import {
-  canBuy, canCancelMetamorphosis, costOf, isMaxed, maxRankOf, nodeState, perkIdOfNode, rankOf, talentOfNode,
-  talentPointsSpent, TREES, type BuyResult, type NodeState, type Tree, type TreeNode,
-} from '../../domain/logic/skillTree';
-import type { ClassId, LineageSave, ResourceKind } from '../../domain/types';
+  type ClassId,
+  LINEAGES,
+  PERK_BY_ID,
+  type PerkDef,
+  type ResourceKind,
+  type TalentPlace,
+} from '../../domain/catalog';
+import {
+  type BuyResult,
+  canBuy,
+  canCancelMetamorphosis,
+  costOf,
+  isMaxed,
+  type LineageSave,
+  maxRankOf,
+  type NodeState,
+  nodeState,
+  perkIdOfNode,
+  rankOf,
+  talentOfNode,
+  talentPointsSpent,
+  type Tree,
+  type TreeNode,
+  TREES,
+} from '../../domain/progression';
 
 /**
  * Дерево навыков активного героя для показа: состояние и ранг каждого узла, цена, можно ли купить
@@ -84,7 +102,7 @@ export class SkillTreeQuery {
     return n.kind === 'class' && canCancelMetamorphosis(this.tree, this.save, n.classId!);
   }
 
-  talent(n: TreeNode): TalentDef {
+  talent(n: TreeNode): TalentPlace {
     return talentOfNode(n);
   }
 

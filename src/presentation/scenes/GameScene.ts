@@ -1,20 +1,21 @@
 import Phaser from 'phaser';
+
 import { AutoUseToggles } from '../../application/game/AutoUseToggles';
 import { GameController } from '../../application/game/GameController';
-import type { RunCarry } from '../../application/game/interfaces/RunCarry';
 import { TowerRun } from '../../application/game/TowerRun';
 import { AudioSettings } from '../../application/settings/AudioSettings';
+import type { RunCarry } from '../../domain/expedition';
 import { Animations } from '../animations/Animations';
 import { GameEventPlayer } from '../animations/GameEventPlayer';
-import { CardViewFactory } from '../board/card-view';
 import { BoardView } from '../board/BoardView';
+import { CardViewFactory } from '../board/card-view';
+import { background, bindAchievementToasts } from '../components';
 import { GameDialogs } from '../dialogs/GameDialogs';
 import { Hud } from '../hud/Hud';
+import { dollyIn, GameNavigator } from '../navigation';
 import { PhaserClock } from '../phaser/PhaserClock';
 import { PhaserInput } from '../phaser/PhaserInput';
 import { PhaserRenderer } from '../phaser/PhaserRenderer';
-import { background, bindAchievementToasts } from '../components';
-import { dollyIn, GameNavigator } from '../navigation';
 import type { SceneServices } from './interfaces/SceneServices';
 
 /**
@@ -40,36 +41,53 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     dollyIn(this, 380);
     background(this);
-    const { profile, platform, storage, sound, ads } = this.services;
+    const { profile, platform, storage, sound, ads, seeds } = this.services;
     bindAchievementToasts(this, profile.achievementUnlocked);
 
-    const tower = new TowerRun(profile, platform, storage, this.carry ?? TowerRun.start(profile));
-    const run = tower.enterRoom();
+    const tower = new TowerRun(
+      { profile, platform, storage, seeds },
+      this.carry ?? TowerRun.start(profile),
+    );
+    const battle = tower.enterRoom();
     const autoUse = new AutoUseToggles(profile);
     const animations = new Animations(this, sound);
     const clock = new PhaserClock(this);
     // кнопки панелей отдают команды контроллеру; он появится ниже — до первого нажатия
-    const hud = new Hud(this, run, tower.state, {
-      command: (cmd) => this.controller?.execute(cmd),
-      isAutoOn: (item) => autoUse.isOn(item),
-      toggleAuto: (item) => this.controller?.toggleAuto(item) ?? autoUse.isOn(item),
-    }, animations, sound, new AudioSettings(profile, this.services.audio));
-    const board = new BoardView(this, new CardViewFactory(this), run.stats, run.hp, run.playerCell);
-    const player = new GameEventPlayer(run, board, animations, hud, sound, clock);
+    const hud = new Hud(
+      this,
+      battle,
+      tower.state,
+      {
+        command: (cmd) => this.controller?.execute(cmd),
+        isAutoOn: (item) => autoUse.isOn(item),
+        toggleAuto: (item) => this.controller?.toggleAuto(item) ?? autoUse.isOn(item),
+      },
+      animations,
+      sound,
+      new AudioSettings(profile, this.services.audio),
+    );
+    const board = new BoardView(
+      this,
+      new CardViewFactory(this),
+      battle.stats,
+      battle.hp,
+      battle.playerCell,
+    );
+    const player = new GameEventPlayer({ battle, board, anims: animations, hud, sound, clock });
 
     const controller = new GameController({
-      run,
+      battle,
       tower,
       profile,
       autoUse,
       ads,
       platform,
-      view: new PhaserRenderer(run, board, hud, animations, sound),
+      view: new PhaserRenderer(battle, board, hud, animations, sound),
       player,
       dialogs: new GameDialogs(this),
       navigator: new GameNavigator(this),
       clock,
-      input: new PhaserInput(this, () => run.playerCell),
+      input: new PhaserInput(this, () => battle.playerCell),
     });
     this.controller = controller;
     this.events.once('shutdown', () => {

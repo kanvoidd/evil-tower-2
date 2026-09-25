@@ -4,7 +4,8 @@
  * Запуск: npm run store
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { ENEMY_ART, Grid, HEROES, type Draw } from '../src/presentation/textures/PixelArt';
+
+import { type Draw, ENEMY_ART, Grid, HEROES } from '../src/presentation/textures/PixelArt';
 
 const FONT: Record<string, string[]> = {
   E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
@@ -24,11 +25,21 @@ const sprite = (draw: Draw, x: number, y: number, s: number, flip = false): stri
   g.outline();
   return g
     .pixels()
-    .map(([px, py, c]) => `<rect x="${x + (flip ? 15 - px : px) * s}" y="${y + py * s}" width="${s + 0.6}" height="${s + 0.6}" fill="${c}"/>`)
+    .map(
+      ([px, py, c]) =>
+        `<rect x="${x + (flip ? 15 - px : px) * s}" y="${y + py * s}" width="${s + 0.6}" height="${s + 0.6}" fill="${c}"/>`,
+    )
     .join('');
 };
 
-const word = (text: string, x: number, y: number, s: number, color: string, shadow: string): string => {
+const word = (
+  text: string,
+  x: number,
+  y: number,
+  s: number,
+  color: string,
+  shadow: string,
+): string => {
   let out = '';
   let cx = x;
   for (const ch of text) {
@@ -37,10 +48,16 @@ const word = (text: string, x: number, y: number, s: number, color: string, shad
       cx += s * 3;
       continue;
     }
-    for (const [dx, dy, col] of [[s * 0.6, s * 0.8, shadow], [0, 0, color]] as const) {
-      glyph.forEach((row, r) => [...row].forEach((v, c) => {
-        if (v === '1') out += `<rect x="${cx + c * s + dx}" y="${y + r * s + dy}" width="${s + 0.5}" height="${s + 0.5}" fill="${col}"/>`;
-      }));
+    for (const [dx, dy, col] of [
+      [s * 0.6, s * 0.8, shadow],
+      [0, 0, color],
+    ] as const) {
+      glyph.forEach((row, r) =>
+        [...row].forEach((v, c) => {
+          if (v === '1')
+            out += `<rect x="${cx + c * s + dx}" y="${y + r * s + dy}" width="${s + 0.5}" height="${s + 0.5}" fill="${col}"/>`;
+        }),
+      );
     }
     cx += s * 6;
   }
@@ -59,11 +76,13 @@ const tower = (cx: number, top: number, bottom: number, w: number): string => {
     out += `<rect x="${x}" y="${y}" width="${fw}" height="${h + 2}" fill="#3a3f52" stroke="#0b0c10" stroke-width="4"/>`;
     out += `<rect x="${x + 4}" y="${y + 4}" width="${fw - 8}" height="6" fill="#5a6078" fill-opacity="0.6"/>`;
     for (let k = 0; k < 3; k++) {
-      if ((i + k) % 2 === 0) out += `<rect x="${x + fw * (0.2 + k * 0.28)}" y="${y + h * 0.32}" width="${fw * 0.1}" height="${h * 0.34}" fill="#ffc94a" stroke="#0b0c10" stroke-width="2"/>`;
+      if ((i + k) % 2 === 0)
+        out += `<rect x="${x + fw * (0.2 + k * 0.28)}" y="${y + h * 0.32}" width="${fw * 0.1}" height="${h * 0.34}" fill="#ffc94a" stroke="#0b0c10" stroke-width="2"/>`;
     }
   }
   const tw = w * 0.72;
-  for (let k = 0; k < 5; k++) out += `<rect x="${cx - tw / 2 + k * (tw / 4.6) + 4}" y="${top - 26}" width="${tw / 9}" height="28" fill="#3a3f52" stroke="#0b0c10" stroke-width="3"/>`;
+  for (let k = 0; k < 5; k++)
+    out += `<rect x="${cx - tw / 2 + k * (tw / 4.6) + 4}" y="${top - 26}" width="${tw / 9}" height="28" fill="#3a3f52" stroke="#0b0c10" stroke-width="3"/>`;
   return out;
 };
 
@@ -71,14 +90,19 @@ const bricks = (w: number, h: number): string => {
   let out = '';
   for (let y = 0; y < h; y += 32) {
     out += `<line x1="0" y1="${y}" x2="${w}" y2="${y}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>`;
-    for (let x = (y / 32) % 2 ? 0 : 48; x < w; x += 96) out += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 32}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>`;
+    for (let x = (y / 32) % 2 ? 0 : 48; x < w; x += 96)
+      out += `<line x1="${x}" y1="${y}" x2="${x}" y2="${y + 32}" stroke="#ffffff" stroke-opacity="0.05" stroke-width="2"/>`;
   }
   return out;
 };
 
 // MuPDF не рисует градиенты, поэтому свечение собирается из концентрических кругов.
 const glow = (cx: number, cy: number, r: number, color: string, alpha = 0.09): string =>
-  Array.from({ length: 14 }, (_, i) => `<circle cx="${cx}" cy="${cy}" r="${r * (1 - i / 14)}" fill="${color}" fill-opacity="${alpha}"/>`).join('');
+  Array.from(
+    { length: 14 },
+    (_, i) =>
+      `<circle cx="${cx}" cy="${cy}" r="${r * (1 - i / 14)}" fill="${color}" fill-opacity="${alpha}"/>`,
+  ).join('');
 
 const cover = (): string => {
   const w = 800;

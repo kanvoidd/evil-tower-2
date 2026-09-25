@@ -1,11 +1,10 @@
 import type Phaser from 'phaser';
-import type { Card } from '../../domain/game-data/card/Card';
-import type { IRunState } from '../../domain/logic/run';
-import type { PlayerStats } from '../../domain/logic/stats';
+
+import { type Card, Grid, type IBattleState, type PlayerStats } from '../../domain/combat';
+import type { CellIndex } from '../../domain/shared';
 import type { Point } from '../animations/interfaces/Point';
-import { HEX } from '../theme';
 import { plateTexture } from '../components';
-import { CARD_H, CARD_W } from '../textures/Textures';
+import { CARD_H, CARD_W, HEX } from '../theme';
 import { BoardLayout } from './BoardLayout';
 import type { CardView, CardViewFactory } from './card-view';
 
@@ -18,16 +17,25 @@ export class BoardView {
   readonly player: CardView;
   private readonly views = new Map<number, CardView>();
 
-  constructor(scene: Phaser.Scene, private readonly factory: CardViewFactory, stats: PlayerStats, hp: number, playerCell: number) {
+  constructor(
+    scene: Phaser.Scene,
+    private readonly factory: CardViewFactory,
+    stats: PlayerStats,
+    hp: number,
+    playerCell: CellIndex,
+  ) {
     for (let i = 0; i < 9; i++) {
       const p = BoardLayout.cellPos(i);
-      scene.add.image(p.x, p.y, plateTexture(scene, CARD_W - 8, CARD_H - 8, 1, 'dark', 22)).setAlpha(0.45).setDepth(-10);
+      scene.add
+        .image(p.x, p.y, plateTexture(scene, CARD_W - 8, CARD_H - 8, 1, 'dark', 22))
+        .setAlpha(0.45)
+        .setDepth(-10);
     }
     this.player = factory.createHero(stats, hp, playerCell, BoardLayout.cellPos(playerCell));
   }
 
   /** Новая карточка на клетке (без анимации появления). */
-  place(card: Card, cell: number): CardView {
+  place(card: Card, cell: CellIndex): CardView {
     const v = this.factory.createCard(card, cell, BoardLayout.cellPos(cell));
     this.views.set(card.uid, v);
     return v;
@@ -56,10 +64,10 @@ export class BoardView {
   }
 
   /** Полная перерисовка поля — нужна после «Отката времени». */
-  rebuild(cards: ReadonlyArray<Card | null>, playerCell: number): void {
+  rebuild(cards: ReadonlyArray<Card | null>, playerCell: CellIndex): void {
     for (const v of this.views.values()) v.c.destroy();
     this.views.clear();
-    for (let i = 0; i < 9; i++) {
+    for (const i of Grid.CELLS) {
       const card = cards[i];
       if (card) this.place(card, i);
     }
@@ -82,16 +90,16 @@ export class BoardView {
   }
 
   /** Заряжена способность: карточки, по которым её не применить, гаснут. Без заряда подсветка снята. */
-  showTargets(run: IRunState): void {
-    const armed = run.armed;
+  showTargets(battle: IBattleState): void {
+    const armed = battle.armed;
     for (const v of this.views.values()) {
-      const ok = !!armed && run.perkTargetOk(armed, v.cell);
+      const ok = !!armed && battle.perkTargetOk(armed, v.cell);
       v.c.setAlpha(armed && !ok ? 0.45 : 1);
     }
   }
 
   /** Рамка «добьёт одним ударом» у врагов. */
-  markKillable(wouldKill: (cell: number) => boolean): void {
+  markKillable(wouldKill: (cell: CellIndex) => boolean): void {
     for (const v of this.views.values()) {
       if (v.kind !== 'enemy') continue;
       v.frame.setTexture(wouldKill(v.cell) ? 'card_kill' : 'card_enemy');

@@ -1,7 +1,8 @@
 import type Phaser from 'phaser';
+
 import type { Point } from '../animations/interfaces/Point';
-import { GAME_W, HEX } from '../theme';
 import { tapHint, txt } from '../components';
+import { GAME_W, HEX } from '../theme';
 
 /** Подсказка обучения над полосой ресурса и «палец», указывающий на карточку. */
 export class TutorialHint {
@@ -16,7 +17,11 @@ export class TutorialHint {
   show(text: string, at?: Point): void {
     this.clearHand();
     this.text?.destroy();
-    this.text = txt(this.scene, GAME_W / 2, TutorialHint.Y, text, 20, { color: HEX.gold, wrap: 660, align: 'center' }).setDepth(50);
+    this.text = txt(this.scene, GAME_W / 2, TutorialHint.Y, text, 20, {
+      color: HEX.gold,
+      wrap: 660,
+      align: 'center',
+    }).setDepth(50);
     if (at) this.hand = tapHint(this.scene, at.x, at.y + 10);
   }
 

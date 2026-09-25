@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
+
 import type { IGameNavigator } from '../../application/game/interfaces/IGameNavigator';
-import type { RunCarry } from '../../application/game/interfaces/RunCarry';
+import type { RunCarry } from '../../domain/expedition';
 import { fadeToScene } from './SceneTransitions';
 
 /** Уход из боя «наездом» камеры: в следующую комнату, в новый забег или в хаб. */

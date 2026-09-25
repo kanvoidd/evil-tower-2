@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { GAME_W } from '../../theme';
 import { plateTexture, shadowTexture } from '../plate/Plates';
 import { pinToScreen } from '../screen-pin/ScreenPin';
@@ -23,13 +24,22 @@ export const hideTip = (scene: Phaser.Scene, owner?: unknown): void => {
  * исчезает через несколько секунд или по следующему нажатию.
  */
 export const showTip = (
-  scene: Phaser.Scene, text: string, anchor: { x: number; y: number }, owner: unknown = null,
+  scene: Phaser.Scene,
+  text: string,
+  anchor: { x: number; y: number },
+  owner: unknown = null,
   o: { gap?: number; maxW?: number; ttl?: number } = {},
 ): void => {
   hideTip(scene);
   const maxW = o.maxW ?? 470;
   const gap = o.gap ?? 30;
-  const label = txt(scene, 0, 0, text, 22, { wrap: maxW, weight: 700, strokeThickness: 0, align: 'left', origin: [0, 0] });
+  const label = txt(scene, 0, 0, text, 22, {
+    wrap: maxW,
+    weight: 700,
+    strokeThickness: 0,
+    align: 'left',
+    origin: [0, 0],
+  });
   const padX = 22;
   const padY = 16;
   const w = label.width + padX * 2;
@@ -46,8 +56,14 @@ export const showTip = (
   c.setPosition(cx, cy);
   const px = Phaser.Math.Clamp(anchor.x - cx, -w / 2 + 28, w / 2 - 28);
   const tail = scene.add.graphics();
-  if (below) tail.fillStyle(0x40476a, 1).fillTriangle(px - 11, -h / 2 + 1, px + 11, -h / 2 + 1, px, -h / 2 - 11);
-  else tail.fillStyle(0x2a2f49, 1).fillTriangle(px - 11, h / 2 - 1, px + 11, h / 2 - 1, px, h / 2 + 11);
+  if (below)
+    tail
+      .fillStyle(0x40476a, 1)
+      .fillTriangle(px - 11, -h / 2 + 1, px + 11, -h / 2 + 1, px, -h / 2 - 11);
+  else
+    tail
+      .fillStyle(0x2a2f49, 1)
+      .fillTriangle(px - 11, h / 2 - 1, px + 11, h / 2 - 1, px, h / 2 + 11);
   c.add(tail);
   pinToScreen(c);
   c.setAlpha(0);
@@ -67,7 +83,11 @@ export const showTip = (
  * Подсказка для интерактивного объекта: на компьютере — при наведении мыши, на телефоне — при долгом нажатии
  * (обычное короткое нажатие работает как раньше; после долгого нажатия действие кнопки не срабатывает).
  */
-export const tipOnHover = (scene: Phaser.Scene, obj: Phaser.GameObjects.Container, tip: string | (() => string)): void => {
+export const tipOnHover = (
+  scene: Phaser.Scene,
+  obj: Phaser.GameObjects.Container,
+  tip: string | (() => string),
+): void => {
   const text = (): string => (typeof tip === 'string' ? tip : tip());
   const show = (): void => {
     const b = obj.getBounds();

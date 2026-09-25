@@ -1,0 +1,48 @@
+/** Названия оружия и брони по id вещи. */
+export const items = {
+  // weapon warrior
+  'item.w_warrior_1.name': 'Ржавый меч',
+  'item.w_warrior_2.name': 'Стальной меч',
+  'item.w_warrior_3.name': 'Боевой топор',
+  'item.w_warrior_4.name': 'Клеймор',
+  'item.w_warrior_5.name': 'Меч стража башни',
+  'item.w_warrior_6.name': 'Клинок разрушителя',
+  'item.w_warrior_7.name': 'Молот кузни',
+  'item.w_warrior_8.name': 'Разлом небес',
+  // weapon mage
+  'item.w_mage_1.name': 'Посох ученика',
+  'item.w_mage_2.name': 'Дубовый посох',
+  'item.w_mage_3.name': 'Кристальный жезл',
+  'item.w_mage_4.name': 'Посох магистра',
+  'item.w_mage_5.name': 'Жезл архимага',
+  'item.w_mage_6.name': 'Посох первозданной бури',
+  'item.w_mage_7.name': 'Скипетр пепла',
+  'item.w_mage_8.name': 'Ось мироздания',
+  // weapon archer
+  'item.w_archer_1.name': 'Короткий лук',
+  'item.w_archer_2.name': 'Охотничий лук',
+  'item.w_archer_3.name': 'Составной лук',
+  'item.w_archer_4.name': 'Эльфийский лук',
+  'item.w_archer_5.name': 'Лук соколиного глаза',
+  'item.w_archer_6.name': 'Грозовой лук',
+  'item.w_archer_7.name': 'Лук ледяных залов',
+  'item.w_archer_8.name': 'Звёздная тетива',
+  // weapon mercenary
+  'item.w_mercenary_1.name': 'Кинжал',
+  'item.w_mercenary_2.name': 'Стилет',
+  'item.w_mercenary_3.name': 'Кривой нож',
+  'item.w_mercenary_4.name': 'Клинки теней',
+  'item.w_mercenary_5.name': 'Парные кинжалы',
+  'item.w_mercenary_6.name': 'Лезвие ассасина',
+  'item.w_mercenary_7.name': 'Коготь пустоты',
+  'item.w_mercenary_8.name': 'Последний довод',
+  // armor
+  'item.a_1.name': 'Тряпичная куртка',
+  'item.a_2.name': 'Кожаный доспех',
+  'item.a_3.name': 'Кольчуга',
+  'item.a_4.name': 'Латный нагрудник',
+  'item.a_5.name': 'Доспех башни',
+  'item.a_6.name': 'Броня титана',
+  'item.a_7.name': 'Панцирь горгульи',
+  'item.a_8.name': 'Доспех владыки',
+} as const;

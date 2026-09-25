@@ -1,4 +1,4 @@
-import type { DailyStatus } from '../../../domain/logic/profile';
+import type { DailyStatus } from '../../../domain/account';
 import type { GiftState } from './GiftState';
 
 /** Хаб на экране — то, что поток хаба меняет в нём после входа и после наград. */

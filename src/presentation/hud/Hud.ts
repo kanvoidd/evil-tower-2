@@ -1,11 +1,12 @@
 import type Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../application/ports';
-import type { IRunState } from '../../domain/logic/run';
-import type { ConsumableId } from '../../domain/types';
+import type { ConsumableId } from '../../domain/catalog';
+import type { IBattleState } from '../../domain/combat';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';
+import { type IMuteSwitch, PlateButton, soundButton } from '../components';
 import { GAME_W } from '../theme';
-import { PlateButton, soundButton, type IMuteSwitch } from '../components';
 import { ConsumableBar } from './ConsumableBar';
 import { EnemyCounter } from './EnemyCounter';
 import { GearBar } from './GearBar';
@@ -23,7 +24,7 @@ import { TutorialHint } from './TutorialHint';
  * под ними — комната, её свойство и счётчик врагов. Низ целиком отдан способностям: полоса ресурса,
  * характеристики и кнопки.
  *
- *   Run State → Hud.update() → панели
+ *   IBattleState → Hud.update() → панели
  *
  * HUD бой не меняет: кнопки отдают команды игрока через `IHudActions`.
  */
@@ -39,41 +40,46 @@ export class Hud implements IBattleHud {
 
   constructor(
     scene: Phaser.Scene,
-    private readonly run: IRunState,
+    private readonly battle: IBattleState,
     banked: { gold: number; souls: number },
     actions: IHudActions,
     private readonly animations: Animations,
     sound: ISoundPlayer,
     audio: IMuteSwitch,
   ) {
-    this.consumables = new ConsumableBar(scene, run.lineage, actions, animations, sound);
+    this.consumables = new ConsumableBar(scene, battle.lineage, actions, animations, sound);
     // «сбежать», звук и добыча за комнату — верхняя полоса: весь низ экрана отдан кнопкам способностей
     new PlateButton(scene, 330, ConsumableBar.Y, {
-      w: 68, h: 68, icon: 'svg_arrow', iconSize: 34, radius: 22, onClick: () => actions.command({ type: 'escape' }),
+      w: 68,
+      h: 68,
+      icon: 'svg_arrow',
+      iconSize: 34,
+      radius: 22,
+      onClick: () => actions.command({ type: 'escape' }),
     });
     soundButton(scene, 414, ConsumableBar.Y, audio, 56);
     this.loot = new LootBar(scene, banked);
-    new RoomInfo(scene, run.room, run.mod);
+    new RoomInfo(scene, battle.room, battle.mod);
     this.enemies = new EnemyCounter(scene);
     this.resource = new ResourceBar(scene);
     this.stats = new StatsRow(scene);
     this.gear = new GearBar(scene);
-    this.perks = new PerkBar(scene, run.stats.abilities, actions);
+    this.perks = new PerkBar(scene, battle.stats.abilities, actions);
     this.hint = new TutorialHint(scene);
-    this.perks.update(run);
+    this.perks.update(battle);
     this.refresh();
   }
 
   /** Всё, что HUD показывает о бое, — после хода. */
   update(): void {
     this.refresh();
-    this.perks.update(this.run);
+    this.perks.update(this.battle);
   }
 
   // ---------------------------------------------------------------- IBattleHud
 
   refresh(): void {
-    const r = this.run;
+    const r = this.battle;
     this.resource.update(r.res, r.stats.resMax, r.stats.resource, r.boost > 0);
     this.stats.update(r.stats);
     this.gear.update(r.weapon, r.armor);
@@ -82,7 +88,7 @@ export class Hud implements IBattleHud {
   }
 
   refreshAbilities(): void {
-    this.perks.update(this.run);
+    this.perks.update(this.battle);
   }
 
   addLoot(gold: number, souls: number): void {

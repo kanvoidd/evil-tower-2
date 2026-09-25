@@ -1,5 +1,6 @@
 import type Phaser from 'phaser';
-import type { ClassId } from '../../../../domain/types';
+
+import type { ClassId } from '../../../../domain/catalog';
 
 /** Герой в карусели: герб, свечение и замок у закрытого. */
 export interface CarouselItem {

@@ -1,5 +1,5 @@
 import type { ILocale } from '../../application/ports';
-import type { Lang } from '../../domain/types';
+import type { Lang } from '../../domain/shared';
 import { setLang } from '../../i18n';
 
 /** Язык интерфейса — словарь `i18n` (и язык страницы). */

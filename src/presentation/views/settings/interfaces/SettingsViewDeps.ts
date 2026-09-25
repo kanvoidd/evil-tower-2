@@ -1,5 +1,5 @@
 import type { SettingsCommand } from '../../../../application/settings/interfaces/SettingsCommand';
-import type { Lang } from '../../../../domain/types';
+import type { Lang } from '../../../../domain/shared';
 
 export interface SettingsViewDeps {
   /** Громкость 0…1 и слышен ли звук сейчас. */

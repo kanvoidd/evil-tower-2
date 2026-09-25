@@ -21,7 +21,9 @@ const sword = (): string =>
 
 export const SVG_ICONS: Record<string, string> = {
   // урон — скрещённые мечи
-  damage: svg(`<g transform="rotate(45 32 32)">${sword()}</g><g transform="rotate(-45 32 32)">${sword()}</g>`),
+  damage: svg(
+    `<g transform="rotate(45 32 32)">${sword()}</g><g transform="rotate(-45 32 32)">${sword()}</g>`,
+  ),
   // здоровье — крест
   health: svg(`<path d="M23 5h18v18h18v18H41v18H23V41H5V23h18z"/>`),
   // защита — щит
@@ -69,7 +71,9 @@ export const SVG_ICONS: Record<string, string> = {
       `<path d="M19 30 V20 a13 13 0 0 1 26 0 V30 H38.5 V20 a6.5 6.5 0 0 0 -13 0 V30 Z"/>`,
   ),
   // крестик закрытия
-  close: svg(`<g fill="none" stroke="#000" stroke-width="9" stroke-linecap="round"><path d="M12 12L52 52"/><path d="M52 12L12 52"/></g>`),
+  close: svg(
+    `<g fill="none" stroke="#000" stroke-width="9" stroke-linecap="round"><path d="M12 12L52 52"/><path d="M52 12L12 52"/></g>`,
+  ),
   // стрелка «назад / сбежать»
   arrow: svg(`<path d="M6 32 L30 8 V22 H58 V42 H30 V56 Z"/>`),
   // шестерёнка
@@ -88,14 +92,18 @@ export const SVG_ICONS: Record<string, string> = {
     `<path fill-rule="evenodd" d="M10 12 H54 a6 6 0 0 1 6 6 V46 a6 6 0 0 1 -6 6 H10 a6 6 0 0 1 -6 -6 V18 a6 6 0 0 1 6 -6 Z M26 22 L44 32 L26 42 Z"/>`,
   ),
   // галочка — пройдено
-  check: svg(`<path d="M9 34 L25 50 L55 14" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`),
+  check: svg(
+    `<path d="M9 34 L25 50 L55 14" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ),
   // обмен — смена класса
   swap: svg(
     `<g fill="none" stroke="#000" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">` +
       `<path d="M8 22 H52"/><path d="M40 9 L53 22 L40 35"/><path d="M56 42 H12"/><path d="M24 29 L11 42 L24 55"/></g>`,
   ),
   // шеврон
-  chevron: svg(`<path d="M22 8 L46 32 L22 56" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`),
+  chevron: svg(
+    `<path d="M22 8 L46 32 L22 56" fill="none" stroke="#000" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ),
   // авто — две круговые стрелки
   auto: svg(
     `<g fill="none" stroke="#000" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round">` +

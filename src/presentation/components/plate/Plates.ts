@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { PanelSpec } from './interfaces/PanelSpec';
 import type { PlateStyle } from './interfaces/PlateStyle';
 
@@ -13,10 +14,22 @@ const PANEL_SPEC: Record<Exclude<PlateStyle, 'stone'>, PanelSpec> = {
   red: { top: '#f2726c', bottom: '#b73d36', border: '#48130f', hi: 'rgba(255,255,255,0.30)' },
   green: { top: '#66e09a', bottom: '#329f60', border: '#0f3b23', hi: 'rgba(255,255,255,0.32)' },
   dark: { top: '#151825', bottom: '#0e1019', border: '#06070b', hi: 'rgba(255,255,255,0.04)' },
-  glass: { top: 'rgba(255,255,255,0.08)', bottom: 'rgba(255,255,255,0.03)', border: 'rgba(255,255,255,0.12)', hi: 'rgba(255,255,255,0.06)' },
+  glass: {
+    top: 'rgba(255,255,255,0.08)',
+    bottom: 'rgba(255,255,255,0.03)',
+    border: 'rgba(255,255,255,0.12)',
+    hi: 'rgba(255,255,255,0.06)',
+  },
 };
 
-const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void => {
+const roundRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void => {
   const rr = Math.max(0, Math.min(r, w / 2, h / 2));
   ctx.beginPath();
   ctx.moveTo(x + rr, y);
@@ -29,7 +42,12 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 
 /** Чистая панель/кнопка: градиент, контур и светлая кромка. Параметр seed оставлен для совместимости. */
 export const plateTexture = (
-  scene: Phaser.Scene, w: number, h: number, _seed = 1, style: PlateStyle = 'panel', radius = 20,
+  scene: Phaser.Scene,
+  w: number,
+  h: number,
+  _seed = 1,
+  style: PlateStyle = 'panel',
+  radius = 20,
 ): string => {
   const st = style === 'stone' ? 'raised' : style;
   const rw = Math.round(w);
@@ -60,7 +78,14 @@ export const plateTexture = (
 };
 
 /** Прозрачный скруглённый контур — рамка выделения. */
-export const outlineTexture = (scene: Phaser.Scene, w: number, h: number, radius: number, color: string, lw = 3): string => {
+export const outlineTexture = (
+  scene: Phaser.Scene,
+  w: number,
+  h: number,
+  radius: number,
+  color: string,
+  lw = 3,
+): string => {
   const rw = Math.round(w);
   const rh = Math.round(h);
   const key = `ol_${rw}x${rh}_${radius}_${color}_${lw}`;
@@ -76,7 +101,13 @@ export const outlineTexture = (scene: Phaser.Scene, w: number, h: number, radius
 };
 
 /** Мягкая тень под панелью (рисуется отдельной картинкой). */
-export const shadowTexture = (scene: Phaser.Scene, w: number, h: number, radius = 20, blur = 16): string => {
+export const shadowTexture = (
+  scene: Phaser.Scene,
+  w: number,
+  h: number,
+  radius = 20,
+  blur = 16,
+): string => {
   const rw = Math.round(w);
   const rh = Math.round(h);
   const key = `sh_${rw}x${rh}_${radius}_${blur}`;
@@ -98,7 +129,13 @@ export const shadowTexture = (scene: Phaser.Scene, w: number, h: number, radius 
 
 /** Панель с тенью — для карточек и блоков. */
 export const panel = (
-  scene: Phaser.Scene, x: number, y: number, w: number, h: number, style: PlateStyle = 'panel', radius = 24,
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  style: PlateStyle = 'panel',
+  radius = 24,
 ): Phaser.GameObjects.Container => {
   const c = scene.add.container(x, y);
   c.add(scene.add.image(0, 8, shadowTexture(scene, w, h, radius)).setAlpha(0.85));

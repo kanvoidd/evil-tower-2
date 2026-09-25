@@ -1,0 +1,73 @@
+/** Названия врагов по id врага. */
+export const enemies = {
+  // этаж 1
+  'enemy.skeleton.name': 'Скелет',
+  'enemy.bat.name': 'Летучая мышь',
+  'enemy.slime.name': 'Слизень',
+  'enemy.skeleton_horned.name': 'Рогатый скелет',
+  'enemy.zombie.name': 'Зомби',
+  'enemy.boss_skeleton_king.name': 'Король скелетов',
+  // этаж 2
+  'enemy.rat_swarm.name': 'Крысиный рой',
+  'enemy.goblin.name': 'Гоблин',
+  'enemy.ghost.name': 'Призрак',
+  'enemy.orc.name': 'Орк',
+  'enemy.wraith.name': 'Тень',
+  'enemy.boss_ogre.name': 'Огр-вожак',
+  // этаж 3
+  'enemy.mudcrab.name': 'Грязевой краб',
+  'enemy.drowned.name': 'Утопленник',
+  'enemy.deep_hound.name': 'Глубинный пёс',
+  'enemy.tide_wraith.name': 'Дух прилива',
+  'enemy.kraken_spawn.name': 'Отродье кракена',
+  'enemy.boss_leviathan.name': 'Левиафан',
+  // этаж 4
+  'enemy.armored_husk.name': 'Пустой доспех',
+  'enemy.blade_dancer.name': 'Танцор клинков',
+  'enemy.crossbowman.name': 'Арбалетчик',
+  'enemy.iron_sentinel.name': 'Железный страж',
+  'enemy.warden.name': 'Надзиратель',
+  'enemy.boss_forge_master.name': 'Мастер оружейной',
+  // этаж 5
+  'enemy.thornling.name': 'Колючка',
+  'enemy.spider.name': 'Паук',
+  'enemy.wasp_queen.name': 'Оса-матка',
+  'enemy.vine_horror.name': 'Лозовый ужас',
+  'enemy.dryad.name': 'Дриада',
+  'enemy.boss_witch.name': 'Ведьма сада',
+  // этаж 6
+  'enemy.homunculus.name': 'Гомункул',
+  'enemy.acid_slime.name': 'Кислотный слизень',
+  'enemy.flask_golem.name': 'Колбяной голем',
+  'enemy.mutant.name': 'Мутант',
+  'enemy.plague_doctor.name': 'Чумной доктор',
+  'enemy.boss_alchemist.name': 'Алхимик башни',
+  // этаж 7
+  'enemy.frost_wolf.name': 'Морозный волк',
+  'enemy.ice_wraith.name': 'Ледяной дух',
+  'enemy.snow_troll.name': 'Снежный тролль',
+  'enemy.frozen_knight.name': 'Скованный льдом рыцарь',
+  'enemy.yeti.name': 'Йети',
+  'enemy.boss_ice_queen.name': 'Ледяная королева',
+  // этаж 8
+  'enemy.imp.name': 'Бес',
+  'enemy.hellhound.name': 'Адская гончая',
+  'enemy.magma_golem.name': 'Магмовый голем',
+  'enemy.demon_smith.name': 'Демон-кузнец',
+  'enemy.brimstone_brute.name': 'Серный громила',
+  'enemy.boss_forge_demon.name': 'Владыка кузни',
+  // этаж 9
+  'enemy.cursed_tome.name': 'Проклятый том',
+  'enemy.shadow.name': 'Тень чтеца',
+  'enemy.gargoyle.name': 'Горгулья',
+  'enemy.lich_scribe.name': 'Лич-переписчик',
+  'enemy.archivist.name': 'Архивариус',
+  'enemy.boss_lich.name': 'Лич-хранитель',
+  // этаж 10
+  'enemy.tower_guard.name': 'Страж башни',
+  'enemy.soul_eater.name': 'Пожиратель душ',
+  'enemy.golem.name': 'Голем',
+  'enemy.dark_knight.name': 'Тёмный рыцарь',
+  'enemy.void_herald.name': 'Вестник пустоты',
+  'enemy.boss_demon.name': 'Владыка башни',
+} as const;

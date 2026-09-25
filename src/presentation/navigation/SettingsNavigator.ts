@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { ISettingsNavigator } from '../../application/settings/interfaces/ISettingsNavigator';
 import { MenuExit } from './MenuExit';
 

@@ -25,7 +25,9 @@ export class WebAudioPlayer implements ISoundPlayer, IAudioOutput {
       this.ctx?.resume();
       this.startMusic();
     };
-    ['pointerdown', 'keydown', 'touchstart'].forEach((e) => window.addEventListener(e, unlock, { passive: true }));
+    ['pointerdown', 'keydown', 'touchstart'].forEach((e) =>
+      window.addEventListener(e, unlock, { passive: true }),
+    );
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.suspend('hidden');
       else this.unsuspend('hidden');
@@ -81,7 +83,12 @@ export class WebAudioPlayer implements ISoundPlayer, IAudioOutput {
   // ------------------------------------------------------------------ синтез
 
   private tone(
-    freq: number, dur: number, type: OscillatorType = 'square', vol = 0.2, delay = 0, slideTo?: number,
+    freq: number,
+    dur: number,
+    type: OscillatorType = 'square',
+    vol = 0.2,
+    delay = 0,
+    slideTo?: number,
     dest?: AudioNode,
   ): void {
     if (!this.ctx || !this.master) return;
@@ -124,29 +131,81 @@ export class WebAudioPlayer implements ISoundPlayer, IAudioOutput {
     this.ensure();
     if (!this.ctx || this.muted || this.volume <= 0 || this.paused.size > 0) return;
     switch (name) {
-      case 'click': this.tone(520, 0.06, 'square', 0.12); break;
-      case 'open': this.tone(300, 0.12, 'triangle', 0.16, 0, 620); break;
-      case 'move': this.tone(180, 0.07, 'triangle', 0.12, 0, 120); break;
-      case 'spawn': this.tone(420, 0.09, 'sine', 0.07, 0, 640); break;
-      case 'hit': this.noise(0.09, 0.22); this.tone(160, 0.11, 'square', 0.16, 0, 70); break;
-      case 'crit':
-        this.noise(0.12, 0.28); this.tone(220, 0.14, 'sawtooth', 0.18, 0, 90); this.tone(1100, 0.12, 'triangle', 0.12, 0.03);
+      case 'click':
+        this.tone(520, 0.06, 'square', 0.12);
         break;
-      case 'burst': this.tone(140, 0.25, 'sawtooth', 0.18, 0, 400); this.noise(0.15, 0.2); break;
-      case 'hurt': this.tone(230, 0.22, 'sawtooth', 0.2, 0, 80); this.noise(0.1, 0.18); break;
-      case 'dodge': this.noise(0.16, 0.14, 0, 1800); break;
-      case 'parry': this.tone(1400, 0.08, 'triangle', 0.16); this.tone(2100, 0.1, 'triangle', 0.1, 0.04); break;
-      case 'kill': this.tone(300, 0.18, 'square', 0.14, 0, 60); break;
-      case 'coin': this.tone(988, 0.07, 'square', 0.1); this.tone(1319, 0.14, 'square', 0.1, 0.06); break;
-      case 'chest': [392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.14, i * 0.07)); break;
-      case 'potion': this.tone(400, 0.3, 'sine', 0.16, 0, 900); this.tone(600, 0.25, 'sine', 0.1, 0.08, 1100); break;
-      case 'buy': this.tone(1046, 0.08, 'square', 0.1); this.tone(1568, 0.2, 'square', 0.1, 0.07); break;
-      case 'upgrade': [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.14, i * 0.06)); break;
-      case 'reward': [659, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.15, i * 0.08)); break;
-      case 'error': this.tone(140, 0.16, 'sawtooth', 0.14, 0, 100); break;
-      case 'break': this.noise(0.25, 0.22, 0, 120); this.tone(120, 0.25, 'square', 0.14, 0, 40); break;
-      case 'win': [523, 659, 784, 1046, 1319].forEach((f, i) => this.tone(f, 0.22, 'triangle', 0.16, i * 0.11)); break;
-      case 'lose': [392, 330, 262, 196].forEach((f, i) => this.tone(f, 0.3, 'sawtooth', 0.14, i * 0.18)); break;
+      case 'open':
+        this.tone(300, 0.12, 'triangle', 0.16, 0, 620);
+        break;
+      case 'move':
+        this.tone(180, 0.07, 'triangle', 0.12, 0, 120);
+        break;
+      case 'spawn':
+        this.tone(420, 0.09, 'sine', 0.07, 0, 640);
+        break;
+      case 'hit':
+        this.noise(0.09, 0.22);
+        this.tone(160, 0.11, 'square', 0.16, 0, 70);
+        break;
+      case 'crit':
+        this.noise(0.12, 0.28);
+        this.tone(220, 0.14, 'sawtooth', 0.18, 0, 90);
+        this.tone(1100, 0.12, 'triangle', 0.12, 0.03);
+        break;
+      case 'burst':
+        this.tone(140, 0.25, 'sawtooth', 0.18, 0, 400);
+        this.noise(0.15, 0.2);
+        break;
+      case 'hurt':
+        this.tone(230, 0.22, 'sawtooth', 0.2, 0, 80);
+        this.noise(0.1, 0.18);
+        break;
+      case 'dodge':
+        this.noise(0.16, 0.14, 0, 1800);
+        break;
+      case 'parry':
+        this.tone(1400, 0.08, 'triangle', 0.16);
+        this.tone(2100, 0.1, 'triangle', 0.1, 0.04);
+        break;
+      case 'kill':
+        this.tone(300, 0.18, 'square', 0.14, 0, 60);
+        break;
+      case 'coin':
+        this.tone(988, 0.07, 'square', 0.1);
+        this.tone(1319, 0.14, 'square', 0.1, 0.06);
+        break;
+      case 'chest':
+        [392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.14, i * 0.07));
+        break;
+      case 'potion':
+        this.tone(400, 0.3, 'sine', 0.16, 0, 900);
+        this.tone(600, 0.25, 'sine', 0.1, 0.08, 1100);
+        break;
+      case 'buy':
+        this.tone(1046, 0.08, 'square', 0.1);
+        this.tone(1568, 0.2, 'square', 0.1, 0.07);
+        break;
+      case 'upgrade':
+        [523, 659, 784, 1046].forEach((f, i) => this.tone(f, 0.12, 'triangle', 0.14, i * 0.06));
+        break;
+      case 'reward':
+        [659, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.16, 'triangle', 0.15, i * 0.08));
+        break;
+      case 'error':
+        this.tone(140, 0.16, 'sawtooth', 0.14, 0, 100);
+        break;
+      case 'break':
+        this.noise(0.25, 0.22, 0, 120);
+        this.tone(120, 0.25, 'square', 0.14, 0, 40);
+        break;
+      case 'win':
+        [523, 659, 784, 1046, 1319].forEach((f, i) =>
+          this.tone(f, 0.22, 'triangle', 0.16, i * 0.11),
+        );
+        break;
+      case 'lose':
+        [392, 330, 262, 196].forEach((f, i) => this.tone(f, 0.3, 'sawtooth', 0.14, i * 0.18));
+        break;
     }
   }
 
@@ -177,4 +236,3 @@ export class WebAudioPlayer implements ISoundPlayer, IAudioOutput {
     if (this.musicTimer) window.clearInterval(this.musicTimer);
   }
 }
-
