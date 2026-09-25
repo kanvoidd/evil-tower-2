@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Жнец» (darkassassin_legend). */
+/** «Жнец». */
 export class Reaper implements IAbility<'reaper'> {
-  readonly id = 'reaper';
+  readonly behavior = 'reaper';
 
   apply(ctx: AbilityContext, use: AbilityUse<'reaper'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     ctx.reaping = p.params.turns;
     ctx.emit({ type: 'fx', cells: enemies, style: 'dark' });
   }

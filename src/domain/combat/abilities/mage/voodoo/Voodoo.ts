@@ -4,9 +4,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Кукла вуду» (necromancer_p3). */
+/** «Кукла вуду». */
 export class Voodoo implements IAbility<'voodoo'> {
-  readonly id = 'voodoo';
+  readonly behavior = 'voodoo';
 
   apply(ctx: AbilityContext, use: AbilityUse<'voodoo'>): void {
     const { cell, target } = use;

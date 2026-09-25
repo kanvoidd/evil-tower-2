@@ -2,9 +2,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Откат времени» (magister_p3). */
+/** «Откат времени». */
 export class Rewind implements IAbility<'rewind'> {
-  readonly id = 'rewind';
+  readonly behavior = 'rewind';
 
   apply(ctx: AbilityContext, _use: AbilityUse<'rewind'>): void {
     ctx.restoreSnapshot();

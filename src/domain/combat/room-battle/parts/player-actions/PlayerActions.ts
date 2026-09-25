@@ -240,7 +240,7 @@ export class PlayerActions extends RoomPart {
       if (k === 'melee' || k === 'ranged') return true;
     }
     for (const p of this.state.stats.abilities) {
-      if (p.ability !== 'lightning' || !this.parts.perks.perkReady(p).ok) continue;
+      if (p.behavior !== 'lightning' || !this.parts.perks.perkReady(p).ok) continue;
       for (const c of Grid.CELLS) if (this.parts.perks.perkTargetOk(p, c)) return true;
     }
     return false;

@@ -19,7 +19,7 @@ import { WarriorFactory } from './warrior-factory/WarriorFactory';
  */
 export const HEROES: readonly HeroContent[] = [WARRIOR, MAGE, ARCHER, MERCENARY];
 
-/** Фабрики героев выпускают перки и таланты — до переноса их в определения (этапы A и D). */
+/** Фабрики героев выпускают таланты — до переноса их в определения (этап D). */
 export const HERO_FACTORIES: readonly HeroFactory[] = [
   new WarriorFactory(),
   new MageFactory(),

@@ -1,4 +1,5 @@
 import type { ClassDef } from '../../../classes/interfaces/ClassDef';
+import { diagonal, pierceShot, ricochet } from '../abilities/archer';
 
 /** «Лучник» — базовый класс. */
 export const archer: ClassDef = {
@@ -7,4 +8,5 @@ export const archer: ClassDef = {
   stage: 0,
   parent: null,
   bonuses: {},
+  perks: { start: pierceShot, p2: diagonal, p3: ricochet },
 };

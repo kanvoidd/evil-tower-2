@@ -2,9 +2,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Перестановка» (magister_start). */
+/** «Перестановка». */
 export class Swap implements IAbility<'swap'> {
-  readonly id = 'swap';
+  readonly behavior = 'swap';
 
   apply(ctx: AbilityContext, use: AbilityUse<'swap'>): void {
     const { cell } = use;

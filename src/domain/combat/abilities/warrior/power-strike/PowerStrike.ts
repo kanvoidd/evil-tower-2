@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Мощный удар» (warrior_start). */
+/** «Мощный удар». */
 export class PowerStrike implements IAbility<'power_strike'> {
-  readonly id = 'power_strike';
+  readonly behavior = 'power_strike';
 
   apply(ctx: AbilityContext, use: AbilityUse<'power_strike'>): void {
-    const { perk: p, cell, target } = use;
+    const { ability: p, cell, target } = use;
     const enemy = target!;
     let dmg = ctx.spellDamage(p.params.dmg);
     const crit = ctx.rollCrit(enemy, false);

@@ -54,9 +54,11 @@ export type GameEvent =
   /** Героя зажали со всех сторон и ему нечем ответить: карты рвут его по очереди. */
   | { type: 'swarm'; cells: CellIndex[] }
   /** Способность применена (для всплывающей подписи и звука). */
-  | { type: 'perk'; id: string; ability: AbilityId }
+  | { type: 'perk'; ability: AbilityId }
   /** Способность «заряжена» или снята с зарядки (null). */
-  | { type: 'armed'; id: string | null }
+  | { type: 'armed'; ability: AbilityId | null }
+  /** Способность ничего не нарисовала сама — её вспышка по умолчанию; стиль выбирает показ. */
+  | { type: 'cast'; ability: AbilityId; cells: CellIndex[] }
   | { type: 'rewind' }
   | { type: 'artifact'; cells: CellIndex[] }
   | { type: 'boost'; turns: number }

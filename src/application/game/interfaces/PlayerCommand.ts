@@ -1,4 +1,4 @@
-import type { ConsumableId } from '../../../domain/catalog';
+import type { AbilityId, ConsumableId } from '../../../domain/catalog';
 import type { CellIndex } from '../../../domain/shared';
 
 /**
@@ -7,7 +7,7 @@ import type { CellIndex } from '../../../domain/shared';
  */
 export type PlayerCommand =
   | { type: 'select-cell'; cell: CellIndex }
-  | { type: 'use-perk'; perkId: string }
+  | { type: 'use-perk'; abilityId: AbilityId }
   /** `auto` — расходник применило автоприменение, а не палец игрока. */
   | { type: 'use-item'; itemId: ConsumableId; auto?: boolean }
   /** Уйти из забега (с подтверждением). */

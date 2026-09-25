@@ -1,4 +1,5 @@
 import type { ClassDef } from '../../../classes/interfaces/ClassDef';
+import { lethalDose, sentence, shadowDance } from '../abilities/assassin';
 
 /** «Ассасин» — вторая ступень (после «Наёмник»). */
 export const assassin: ClassDef = {
@@ -7,4 +8,5 @@ export const assassin: ClassDef = {
   stage: 1,
   parent: 'mercenary',
   bonuses: { crit: 8, dodge: 5, health: 3 },
+  perks: { start: shadowDance, p2: sentence, p3: lethalDose },
 };

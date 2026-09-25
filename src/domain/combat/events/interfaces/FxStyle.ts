@@ -1,4 +1,4 @@
-import type { VfxStyle } from '../../../catalog';
+import type { FX_STYLES } from '../fxStyles';
 
-/** Визуальный почерк эффекта — тот же словарь, что у способностей. */
-export type FxStyle = VfxStyle;
+/** Визуальный почерк эффекта на поле: семейство вспышки, её цвет, форма и звук. */
+export type FxStyle = (typeof FX_STYLES)[number];

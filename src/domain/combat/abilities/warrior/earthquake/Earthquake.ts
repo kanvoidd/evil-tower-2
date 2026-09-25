@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Землетрясение» (warrior_p2). */
+/** «Землетрясение». */
 export class Earthquake implements IAbility<'earthquake'> {
-  readonly id = 'earthquake';
+  readonly behavior = 'earthquake';
 
   apply(ctx: AbilityContext, use: AbilityUse<'earthquake'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     const hit = enemies.filter(
       (c) => Grid.row(c) === Grid.row(ctx.playerCell) || Grid.col(c) === Grid.col(ctx.playerCell),
     );

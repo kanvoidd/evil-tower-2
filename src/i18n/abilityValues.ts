@@ -1,4 +1,11 @@
-import { CLASSES, LINEAGES, PARAM_UNITS, type ParamKey, type PerkDef } from '../domain/catalog';
+import {
+  type AbilityDef,
+  CLASSES,
+  LINEAGES,
+  PARAM_UNITS,
+  type ParamKey,
+  PERK_BY_ABILITY,
+} from '../domain/catalog';
 
 /** Доля — процентами: 0,6 → 60. */
 const percent = (x: number): number => Math.round(x * 100);
@@ -8,9 +15,9 @@ const times = (x: number): string => String(Math.round(x * 100) / 100);
 /**
  * Числа для описания способности — только отсюда, «голых» чисел в текстах нет: её `params`
  * (доли — процентами, `{имя_x}` — множителем; у списков — `{имя1}`, `{имя2}` …), цена в
- * ресурсе, перезарядка, цена золотом и восстановление ресурса линейки.
+ * ресурсе, перезарядка, цена золотом и восстановление ресурса линейки класса, который её выдаёт.
  */
-export const perkValues = (p: PerkDef): Record<string, string | number> => {
+export const abilityValues = (p: AbilityDef): Record<string, string | number> => {
   const out: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(p.params as Record<string, number | number[]>)) {
     const ratio = PARAM_UNITS[key as ParamKey] === 'ratio';
@@ -27,6 +34,7 @@ export const perkValues = (p: PerkDef): Record<string, string | number> => {
     out.goldShare = percent(p.goldCost.share);
     out.goldMin = p.goldCost.min;
   }
-  out.regen = LINEAGES[CLASSES[p.classId].lineage].resRegen;
+  const owner = PERK_BY_ABILITY[p.id];
+  if (owner) out.regen = LINEAGES[CLASSES[owner.classId].lineage].resRegen;
   return out;
 };

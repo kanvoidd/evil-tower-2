@@ -1,4 +1,4 @@
-import { type AbilityId, PERK_BY_ABILITY, type TalentFx } from '../../../catalog';
+import { type AbilityDef, type TalentFx, withBehavior } from '../../../catalog';
 import {
   ArmorToDamage,
   BigHitReduction,
@@ -35,14 +35,15 @@ type TalentSum = (fx: TalentFx) => number;
  */
 export class StatModifiers {
   /** Надбавки к урону героя: «Кровь кипит», за убийства, за золото, «Резня», защита в урон. */
-  static damage(g: TalentSum, passives: ReadonlySet<AbilityId>): IHeroDamageModifier[] {
+  static damage(g: TalentSum, passives: readonly AbilityDef[]): IHeroDamageModifier[] {
     const out: IHeroDamageModifier[] = [];
     const share = StatModifiers.share;
     if (g('rageDmg') > 0) out.push(new RageBonus(share(g('rageDmg'))));
     if (g('killDmg') > 0) out.push(new KillBonus(share(g('killDmg'))));
     if (g('goldDmg') > 0) out.push(new GoldBonus(share(g('goldDmg'))));
-    if (passives.has('carnage')) {
-      const { perKill, cap } = PERK_BY_ABILITY.carnage.params;
+    const carnage = withBehavior(passives, 'carnage');
+    if (carnage) {
+      const { perKill, cap } = carnage.params;
       out.push(new CarnageBonus(perKill, cap));
     }
     if (g('defDmg') > 0) out.push(new ArmorToDamage(share(g('defDmg'))));

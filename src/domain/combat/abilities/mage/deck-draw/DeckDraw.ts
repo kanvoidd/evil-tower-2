@@ -2,9 +2,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Жребий колоды» (magister_p2). */
+/** «Жребий колоды». */
 export class DeckDraw implements IAbility<'deck_draw'> {
-  readonly id = 'deck_draw';
+  readonly behavior = 'deck_draw';
 
   apply(ctx: AbilityContext, use: AbilityUse<'deck_draw'>): void {
     const { cell } = use;

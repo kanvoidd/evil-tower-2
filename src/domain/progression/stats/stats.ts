@@ -39,10 +39,12 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const g2 = (k: keyof typeof tb2): number => tb2[k] ?? 0;
 
   // Способности не теряются при метаморфозе: у финального класса в руках весь путь линейки.
-  const perks = activePerkIds(tree, l.lineage, l.classId);
-  const perkDefs = perks.map((p) => PERK_BY_ID[p]).filter(Boolean);
-  const basicPerk = perkDefs.find((p) => p.basic);
-  const passives = new Set(perkDefs.filter((p) => p.passive).map((p) => p.ability));
+  const owned = activePerkIds(tree, l.lineage, l.classId)
+    .map((p) => PERK_BY_ID[p]?.ability)
+    .filter((a) => a !== undefined);
+  const basic = owned.find((a) => a.kind === 'basic');
+  const passiveList = owned.filter((a) => a.kind === 'passive');
+  const passives = new Set(passiveList.map((a) => a.behavior));
 
   // ---- экипировка
   const w = usable(l.weapon);
@@ -69,7 +71,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     resMax: Math.max(1, Math.round(lin.resMax * (1 + asRatio(g('resMaxPct'))))),
     regen: lin.resRegen,
     attack: ATTACK_STRATEGIES[lin.attack],
-    rangedCost: basicPerk?.cost ?? 0,
+    rangedCost: basic?.cost ?? 0,
     critMin: CombatBalance.critMulMin,
     critMax: CombatBalance.critMulMax + asRatio(g('critMul')),
     goldBonus: Ratio.of(lin.goldBonus),
@@ -122,13 +124,13 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     perkDef: asRatio(g('perkDef')),
     manaShield: asRatio(g('manaShield')),
 
-    damageMods: StatModifiers.damage(g, passives),
+    damageMods: StatModifiers.damage(g, passiveList),
     targetMods: StatModifiers.target(g),
     defenseMods: StatModifiers.defense(g),
     reductions: StatModifiers.reductions(g),
 
-    perks,
-    abilities: perkDefs.filter(hasButton),
+    allAbilities: owned,
+    abilities: owned.filter(hasButton),
     passives,
   };
 

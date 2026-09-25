@@ -8,4 +8,4 @@
  * - `any_card` — любая карта;
  * - `two` — две карты подряд (два касания).
  */
-export type PerkTarget = 'self' | 'enemy' | 'adjacent' | 'line' | 'card' | 'any_card' | 'two';
+export type AbilityTarget = 'self' | 'enemy' | 'adjacent' | 'line' | 'card' | 'any_card' | 'two';

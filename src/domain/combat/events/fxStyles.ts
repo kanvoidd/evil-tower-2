@@ -1,8 +1,8 @@
 /**
- * Визуальный почерк способности. Рисуется в `src/presentation/animations/effects/vfx/Vfx.ts`: у каждой семьи эффектов
+ * Визуальный почерк эффектов боя. Рисуется в `src/presentation/animations/effects/vfx/Vfx.ts`: у каждой семьи эффектов
  * свой цвет, форма и звук, поэтому по вспышке сразу понятно, что именно сработало.
  */
-export const VFX_STYLES = [
+export const FX_STYLES = [
   'bolt',
   'chain',
   'arcane',

@@ -1,4 +1,9 @@
-import { type ConsumableId, CONSUMABLES, type PerkDef } from '../../../../domain/catalog';
+import {
+  ABILITY_BY_ID,
+  type AbilityId,
+  type ConsumableId,
+  CONSUMABLES,
+} from '../../../../domain/catalog';
 import type { CellIndex } from '../../../../domain/shared';
 import { GameCommandHandler } from '../../GameCommandHandler';
 import type { CellRejection } from '../../interfaces/CellRejection';
@@ -8,12 +13,12 @@ import { FlowPart } from '../flow-part/FlowPart';
 export class PlayerMoves extends FlowPart {
   private readonly commands = new GameCommandHandler(this.d.battle);
 
-  onPerk(perk: PerkDef): void {
+  onPerk(id: AbilityId): void {
     if (!this.state.idle) return;
     const battle = this.d.battle;
-    const res = this.commands.execute({ type: 'use-perk', perkId: perk.id });
+    const res = this.commands.execute({ type: 'use-perk', abilityId: id });
     if (!res.ok) {
-      this.d.view.rejectPerk(perk, res.reason);
+      this.d.view.rejectPerk(ABILITY_BY_ID[id], res.reason);
       return;
     }
     this.d.profile.markTutorial('perk');

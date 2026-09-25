@@ -1,4 +1,4 @@
-import { type ConsumableId, PERK_BY_ID } from '../../domain/catalog';
+import { type ConsumableId } from '../../domain/catalog';
 import type { IBattleSession } from '../../domain/combat';
 import { DeathFlow } from './flow/death-flow/DeathFlow';
 import { FlowState } from './flow/flow-state/FlowState';
@@ -65,7 +65,7 @@ export class GameController {
       case 'select-cell':
         return this.parts.moves.onCell(cmd.cell);
       case 'use-perk':
-        return this.parts.moves.onPerk(PERK_BY_ID[cmd.perkId]);
+        return this.parts.moves.onPerk(cmd.abilityId);
       case 'use-item':
         return this.parts.moves.onItem(cmd.itemId, !!cmd.auto);
       case 'escape':

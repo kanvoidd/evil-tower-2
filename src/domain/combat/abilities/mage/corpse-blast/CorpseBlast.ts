@@ -4,9 +4,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Взрыв трупа» (necromancer_start). */
+/** «Взрыв трупа». */
 export class CorpseBlast implements IAbility<'corpse_blast'> {
-  readonly id = 'corpse_blast';
+  readonly behavior = 'corpse_blast';
 
   apply(ctx: AbilityContext, use: AbilityUse<'corpse_blast'>): void {
     const { cell, target } = use;

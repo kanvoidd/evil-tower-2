@@ -14,6 +14,7 @@ import {
   UiSound,
 } from '../../components';
 import { zoomIn } from '../../navigation/SceneTransitions';
+import { abilityIcon } from '../../textures';
 import { GAME_H, GAME_W, HEX, pathHex } from '../../theme';
 import { EdgeView } from './EdgeView';
 import type { SkillTreeViewDeps } from './interfaces/SkillTreeViewDeps';
@@ -208,7 +209,10 @@ export class SkillTreeView implements ISkillTreeView {
 
   private textureOf(n: TreeNode): string {
     if (n.kind === 'talent') return `tal_${n.path}`;
-    if (n.kind === 'perk') return this.d.query.perk(n)?.icon ?? 'evo_gate';
+    if (n.kind === 'perk') {
+      const perk = this.d.query.perk(n);
+      return perk ? abilityIcon(perk.ability.id) : 'evo_gate';
+    }
     if (n.kind === 'class') return `cls_${n.classId}`;
     return 'evo_gate';
   }

@@ -1,4 +1,10 @@
-import type { AbilityId, ClassId, LineageId, PerkDef, ResourceKind } from '../../../catalog';
+import type {
+  AbilityBehaviorId,
+  AbilityDef,
+  ClassId,
+  LineageId,
+  ResourceKind,
+} from '../../../catalog';
 import type { Percent, Ratio } from '../../../shared';
 import type { IAttackStrategy } from '../../attack/interfaces/IAttackStrategy';
 import type {
@@ -104,9 +110,10 @@ export interface PlayerStats {
   /** Снижения входящего удара. */
   reductions: readonly IDamageReduction[];
 
-  perks: string[];
+  /** Все способности героя: кнопки, пассивки и базовое действие линейки. */
+  allAbilities: AbilityDef[];
   /** Способности с кнопкой на поле боя (в порядке слотов). */
-  abilities: PerkDef[];
-  /** Пассивные способности класса. */
-  passives: Set<AbilityId>;
+  abilities: AbilityDef[];
+  /** Механики пассивных способностей героя. */
+  passives: Set<AbilityBehaviorId>;
 }

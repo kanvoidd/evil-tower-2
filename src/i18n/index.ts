@@ -1,8 +1,8 @@
 import {
+  ABILITY_BY_ID,
+  type AbilityDef,
   type EnemyDef,
   type ItemDef,
-  PERK_BY_ID,
-  type PerkDef,
   type TalentDef,
   type TalentFx,
   talentValue,
@@ -11,8 +11,8 @@ import {
 import type { Trait } from '../domain/progression';
 import type { AchievementDef } from '../domain/rewards';
 import type { Lang } from '../domain/shared';
+import { abilityValues } from './abilityValues';
 import { en } from './en';
-import { perkValues } from './perkValues';
 import { ru, type TKey } from './ru';
 
 let lang: Lang = 'ru';
@@ -30,8 +30,9 @@ export const t = (key: TKey, params?: Record<string, string | number>): string =
 };
 
 // Тексты контента — в словарях по id сущности; числа описаний — плейсхолдерами.
-export const perkName = (p: PerkDef): string => t(`perk.${p.id}.name` as TKey);
-export const perkDesc = (p: PerkDef): string => t(`perk.${p.id}.desc` as TKey, perkValues(p));
+export const abilityName = (a: AbilityDef): string => t(`ability.${a.id}.name` as TKey);
+export const abilityDesc = (a: AbilityDef): string =>
+  t(`ability.${a.id}.desc` as TKey, abilityValues(a));
 export const talentName = (td: TalentDef): string => t(`talent.${td.id}.name` as TKey);
 export const enemyName = (e: EnemyDef): string => t(`enemy.${e.id}.name` as TKey);
 export const itemName = (it: ItemDef): string => t(`item.${it.id}.name` as TKey);
@@ -64,7 +65,9 @@ export const talentDesc = (def: TalentDef, rank: number): string => {
 export const describeTrait = (trait: Trait): string => {
   if (trait.id === 'mech') return t(`trait.mech.${trait.lineage}` as TKey);
   if (trait.id === 'ability')
-    return t('trait.ability', { name: trait.perkId ? perkName(PERK_BY_ID[trait.perkId]) : '' });
+    return t('trait.ability', {
+      name: trait.abilityId ? abilityName(ABILITY_BY_ID[trait.abilityId]) : '',
+    });
   return t(`trait.${trait.id}` as TKey, { n: trait.n ?? 0 });
 };
 

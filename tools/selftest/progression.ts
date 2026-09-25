@@ -1,10 +1,10 @@
 /** Самопроверка: Прогресс героя: дерево талантов, цены в душах, метаморфозы, характеристики, автопрокачка. */
 import { Profile } from '../../src/domain/account/profile';
 import type { ClassId, LineageId, TalentPath } from '../../src/domain/catalog';
+import { type AbilityBehaviorId, hasButton } from '../../src/domain/catalog/abilities';
 import { CLASS_DEFINITIONS, CLASSES } from '../../src/domain/catalog/classes';
 import { LINEAGE_ORDER, LINEAGES } from '../../src/domain/catalog/heroes';
-import type { AbilityId } from '../../src/domain/catalog/perks';
-import { hasButton, perksOfClass } from '../../src/domain/catalog/perks';
+import { perksOfClass } from '../../src/domain/catalog/perks';
 import { maxRank, TALENTS, talentsOfClass } from '../../src/domain/catalog/talents';
 import { ATTACK_STRATEGIES, SpellAttack } from '../../src/domain/combat/attack';
 import type { AutoSkillSave } from '../../src/domain/progression';
@@ -282,7 +282,12 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   );
 
   // досягаемость базового действия (поле 0 1 2 / 3 4 5 / 6 7 8)
-  const reach = (lin: LineageId, from: number, to: number, passives: AbilityId[] = []): boolean =>
+  const reach = (
+    lin: LineageId,
+    from: number,
+    to: number,
+    passives: AbilityBehaviorId[] = [],
+  ): boolean =>
     ATTACK_STRATEGIES[LINEAGES[lin].attack].reaches(
       CellIndex.of(from),
       CellIndex.of(to),
@@ -488,7 +493,7 @@ for (const lin of LINEAGE_ORDER) {
   ok(profile.activeHero === hero, 'после метаморфозы — тот же экземпляр героя');
   ok(hero.classId === 'magister' && profile.activeClass === 'magister', 'герой стал магистром');
   ok(
-    hero.combatStats(null, null).abilities.some((p) => p.id === 'mage_start'),
+    hero.combatStats(null, null).abilities.some((p) => p.id === 'lightning'),
     'молния мага осталась у магистра',
   );
   let threw = false;

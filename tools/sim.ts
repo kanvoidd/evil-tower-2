@@ -5,10 +5,10 @@
  * RUNS=<n> — сколько забегов максимум.
  */
 import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/catalog';
+import { type AbilityDef, FULL_BAR } from '../src/domain/catalog/abilities';
 import { CLASSES } from '../src/domain/catalog/classes';
 import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
 import { ROOMS } from '../src/domain/catalog/levels';
-import { FULL_BAR, type PerkDef } from '../src/domain/catalog/perks';
 import { needsRegen } from '../src/domain/combat/auto-use/autoUse';
 import type { Card } from '../src/domain/combat/card';
 import { Grid } from '../src/domain/combat/engine';
@@ -160,30 +160,30 @@ const CHANGED = new Set([
  */
 const reserveOf = (battle: RoomBattle): { perkId: string; cost: number } | null => {
   if (battle.stats.attack.melee) return null;
-  const basic = (battle.stats.abilities as PerkDef[]).find((p) => p.target === 'adjacent');
+  const basic = (battle.stats.abilities as AbilityDef[]).find((p) => p.target === 'adjacent');
   return basic ? { perkId: basic.id, cost: basic.cost ?? 0 } : null;
 };
 
 /** Способность не для этого хода: не умеет, бесполезна, не готова, съест запас, мало врагов. */
 const perkUnfit = (
   battle: RoomBattle,
-  perk: PerkDef,
+  perk: AbilityDef,
   dud: Set<string>,
   ctx: { enemies: number; reserve: { perkId: string; cost: number } | null },
 ): boolean => {
-  if (SKIP.has(perk.ability) || dud.has(perk.id)) return true;
+  if (SKIP.has(perk.behavior) || dud.has(perk.id)) return true;
   if (!battle.perkReady(perk).ok) return true;
   const { enemies, reserve } = ctx;
   // всё, кроме самого основного удара, не имеет права съесть запас на него
   if (reserve && perk.id !== reserve.perkId && battle.res - battle.perkCostOf(perk) < reserve.cost)
     return true;
   const full = perk.cost === FULL_BAR;
-  if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) return true;
+  if (CROWD.has(perk.behavior) && enemies < (full ? 4 : 2)) return true;
   return full && enemies < 4;
 };
 
 /** Способность без цели; усиление, которое ничего не поменяло, бот в этой комнате больше не трогает. */
-const useSelfPerk = (battle: RoomBattle, perk: PerkDef, dud: Set<string>): boolean => {
+const useSelfPerk = (battle: RoomBattle, perk: AbilityDef, dud: Set<string>): boolean => {
   const r = battle.usePerk(perk.id);
   if (!r.ok) return false;
   if (!r.events.some((e) => CHANGED.has(e.type))) dud.add(perk.id);
@@ -191,7 +191,7 @@ const useSelfPerk = (battle: RoomBattle, perk: PerkDef, dud: Set<string>): boole
 };
 
 /** Цель способности — самый опасный достижимый враг; `NO_CELL`, если врага в досягаемости нет. */
-const perkTarget = (battle: RoomBattle, perk: PerkDef): CellIndex => {
+const perkTarget = (battle: RoomBattle, perk: AbilityDef): CellIndex => {
   let best = Grid.NO_CELL;
   let bestScore = -1e9;
   for (const cell of Grid.CELLS) {
@@ -212,7 +212,7 @@ const tryPerk = (battle: RoomBattle, dud: Set<string>): boolean => {
     enemies: battle.cards.filter((c) => c?.kind === 'enemy').length,
     reserve: reserveOf(battle),
   };
-  for (const perk of battle.stats.abilities as PerkDef[]) {
+  for (const perk of battle.stats.abilities as AbilityDef[]) {
     if (perkUnfit(battle, perk, dud, ctx)) continue;
     if (perk.target === 'self') {
       if (useSelfPerk(battle, perk, dud)) return true;

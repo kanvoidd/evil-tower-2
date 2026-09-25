@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Дождь стрел» (arrowgod_p3). */
+/** «Дождь стрел». */
 export class ArrowRain implements IAbility<'arrow_rain'> {
-  readonly id = 'arrow_rain';
+  readonly behavior = 'arrow_rain';
 
   apply(ctx: AbilityContext, use: AbilityUse<'arrow_rain'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     if (!enemies.length) return;
     ctx.emit({ type: 'fx', cells: enemies, style: 'arrows' });
     for (let i = 0; i < p.params.arrows; i++) {

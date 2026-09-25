@@ -2,7 +2,7 @@ import type { CellRejection } from '../../application/game/interfaces/CellReject
 import type { IGameRenderer } from '../../application/game/interfaces/IGameRenderer';
 import type { TutorialStep } from '../../application/game/interfaces/TutorialStep';
 import type { ISoundPlayer } from '../../application/ports';
-import type { ConsumableId, PerkDef } from '../../domain/catalog';
+import type { AbilityDef, ConsumableId } from '../../domain/catalog';
 import type { IBattleState } from '../../domain/combat';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';
@@ -44,7 +44,7 @@ export class PhaserRenderer implements IGameRenderer {
     this.board.markKillable((cell) => this.battle.wouldKill(cell));
   }
 
-  rejectPerk(perk: PerkDef, reason: string | undefined): void {
+  rejectPerk(perk: AbilityDef, reason: string | undefined): void {
     this.sound.play('error');
     const key = PhaserRenderer.PERK_REJECT[reason ?? ''] ?? 'game.no_res';
     const n = this.battle.cooldownOf(perk);

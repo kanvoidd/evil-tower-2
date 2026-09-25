@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Магический выстрел» (mage_p2). */
+/** «Магический выстрел». */
 export class MagicShot implements IAbility<'magic_shot'> {
-  readonly id = 'magic_shot';
+  readonly behavior = 'magic_shot';
 
   apply(ctx: AbilityContext, use: AbilityUse<'magic_shot'>): void {
-    const { perk: p, cell, target } = use;
+    const { ability: p, cell, target } = use;
     ctx.emit({ type: 'fx', cells: [cell], style: 'arcane' });
     const crit = ctx.rollCrit(target, true);
     let dmg = ctx.spellDamage(p.params.dmg * (1 + ctx.stats.shotPower));

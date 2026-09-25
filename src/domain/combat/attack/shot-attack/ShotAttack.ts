@@ -1,4 +1,4 @@
-import type { AbilityId } from '../../../catalog';
+import type { AbilityBehaviorId } from '../../../catalog';
 import type { CellIndex } from '../../../shared';
 import { Grid } from '../../engine/grid/Grid';
 import type { BasicMode } from '../interfaces/BasicMode';
@@ -15,7 +15,7 @@ export class ShotAttack implements IAttackStrategy {
   readonly guaranteedCrit = false;
   readonly style = 'shot' as const;
 
-  reaches(from: CellIndex, to: CellIndex, passives: ReadonlySet<AbilityId>): boolean {
+  reaches(from: CellIndex, to: CellIndex, passives: ReadonlySet<AbilityBehaviorId>): boolean {
     if (Grid.dist(from, to) === 2 && Grid.sameLine(from, to)) return true;
     if (passives.has('diagonal') && Grid.diagonals(from).includes(to)) return true;
     if (passives.has('eagle_eye') && Grid.neighbors(from).includes(to)) return true;

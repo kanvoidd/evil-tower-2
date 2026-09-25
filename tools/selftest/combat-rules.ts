@@ -264,7 +264,7 @@ import { cons, ok } from './harness';
     armor: null,
   });
   ok(stats.regen === 1, `мана восстанавливается по 1 за ход (${stats.regen})`);
-  const bolt = PERK_BY_ID.mage_start;
+  const bolt = PERK_BY_ID.mage_start.ability;
   const battle = RoomBattleFactory.standard().create({
     room: ROOMS[1],
     stats: { ...stats, maxHp: 100000 },
@@ -279,7 +279,7 @@ import { cons, ok } from './harness';
   battle.hp = 100000;
   battle.cards[1] = new Card({ uid: 777, kind: 'enemy', defId: 'skeleton', hp: 100000 });
   battle.res = 10;
-  battle.usePerk('mage_start');
+  battle.usePerk('lightning');
   battle.tap(CellIndex.of(1));
   ok(
     battle.res === 10 - (bolt.cost ?? 0) + 1,
@@ -299,7 +299,7 @@ import { cons, ok } from './harness';
     `скидка не опускает цену молнии ниже 2 (${cheap.perkCostOf(bolt)})`,
   );
   ok(
-    cheap.perkCostOf(PERK_BY_ID.mage_p2) === (PERK_BY_ID.mage_p2.cost ?? 0) - 1,
+    cheap.perkCostOf(PERK_BY_ID.mage_p2.ability) === (PERK_BY_ID.mage_p2.ability.cost ?? 0) - 1,
     'дорогие заклинания скидка удешевляет',
   );
 }

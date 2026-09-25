@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Огненный шар» (pyromancer_p2). */
+/** «Огненный шар». */
 export class Fireball implements IAbility<'fireball'> {
-  readonly id = 'fireball';
+  readonly behavior = 'fireball';
 
   apply(ctx: AbilityContext, use: AbilityUse<'fireball'>): void {
-    const { perk: p, cell } = use;
+    const { ability: p, cell } = use;
     const near = Grid.neighbors(cell).filter((c) => ctx.cards[c]?.kind === 'enemy');
     ctx.emit({ type: 'fx', cells: [cell, ...near], style: 'explosion' });
     const burn = ctx.spellDamage(p.params.burn);

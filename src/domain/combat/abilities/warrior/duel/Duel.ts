@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Вызов на дуэль» (knight_p3). */
+/** «Вызов на дуэль». */
 export class Duel implements IAbility<'duel'> {
-  readonly id = 'duel';
+  readonly behavior = 'duel';
 
   apply(ctx: AbilityContext, use: AbilityUse<'duel'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     let best = Grid.NO_CELL;
     let bestAtk = -1;
     for (const c of enemies) {

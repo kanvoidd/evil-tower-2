@@ -1,20 +1,18 @@
 /** Самопроверка: Содержимое игры: способности и таланты, этажи и враги, ключи картинок, тексты. */
 import type { ClassId } from '../../src/domain/catalog';
+import {
+  ABILITY_BY_ID,
+  ABILITY_LIST,
+  FULL_BAR,
+  hasButton,
+} from '../../src/domain/catalog/abilities';
 import { CLASSES, classesOfLineage } from '../../src/domain/catalog/classes';
 import { CONSUMABLES } from '../../src/domain/catalog/consumables';
 import { ENEMY_LIST } from '../../src/domain/catalog/enemies';
 import { FLOOR_SCALING, FloorCurveScaling, FLOORS } from '../../src/domain/catalog/floors';
 import { ITEMS } from '../../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../../src/domain/catalog/levels';
-import {
-  FULL_BAR,
-  hasButton,
-  PERK_BY_ABILITY,
-  perkOf,
-  PERKS,
-  perksOfClass,
-  VFX_STYLES,
-} from '../../src/domain/catalog/perks';
+import { PERK_BY_ABILITY, perkOf, PERKS, perksOfClass } from '../../src/domain/catalog/perks';
 import {
   maxRank,
   PATH_ORDER,
@@ -24,14 +22,15 @@ import {
   talentsOfClass,
   talentsOfTier,
 } from '../../src/domain/catalog/talents';
-import { ABILITIES } from '../../src/domain/combat';
+import { ABILITY_BEHAVIORS, FX_STYLES } from '../../src/domain/combat';
 import { classTraits, type TraitId } from '../../src/domain/progression/traits/traits';
 import { ACHIEVEMENTS } from '../../src/domain/rewards';
 import { makeRng } from '../../src/domain/shared/rng/rng';
+import { abilityValues } from '../../src/i18n/abilityValues';
 import { en } from '../../src/i18n/en';
-import { perkValues } from '../../src/i18n/perkValues';
 import { ru } from '../../src/i18n/ru';
-import { contentArtKeys } from '../../src/presentation/textures/artKeys';
+import { abilityIcon, contentArtKeys } from '../../src/presentation/textures/artKeys';
+import { ABILITY_FX } from '../../src/presentation/theme/abilityFx';
 import { ok } from './harness';
 
 // ---------------------------------------------------------------- данные перков и талантов
@@ -43,7 +42,7 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
     `${cls}: перков ${perks.length}, ожидалось ${stage === 2 ? 4 : 3}`,
   );
   ok(!!perkOf(cls, 'start'), `${cls}: есть стартовая способность`);
-  const buttons = perks.filter(hasButton).length;
+  const buttons = perks.filter((p) => hasButton(p.ability)).length;
   ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4 на класс)`);
 
   const talents = talentsOfClass(cls);
@@ -115,37 +114,44 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
-// у каждой способности с кнопкой — класс в реестре боя; пассивки и базовые действия работают в правилах боя
+// у каждой механики с кнопкой — класс в реестре боя; пассивки и базовые действия работают в правилах боя
 ok(
-  PERKS.every((p) => (ABILITIES[p.ability] !== undefined) === hasButton(p)),
-  'реализация в бою есть ровно у способностей с кнопкой',
+  ABILITY_LIST.every((a) => (ABILITY_BEHAVIORS[a.behavior] !== undefined) === hasButton(a)),
+  'реализация в бою есть ровно у механик способностей с кнопкой',
 );
-// у каждой способности одна запись в каталоге: по ней бой берёт числа пассивок и состояний
+// способность выдаёт один перк: по нему её тексты берут восстановление ресурса линейки
 ok(
-  new Set(PERKS.map((p) => p.ability)).size === PERKS.length &&
-    PERKS.every((p) => PERK_BY_ABILITY[p.ability] === p),
-  'у каждой способности одна запись в каталоге',
+  new Set(ABILITY_LIST.map((a) => a.id)).size === ABILITY_LIST.length &&
+    ABILITY_LIST.length === PERKS.length &&
+    PERKS.every(
+      (p) => PERK_BY_ABILITY[p.ability.id] === p && ABILITY_BY_ID[p.ability.id] === p.ability,
+    ),
+  'id способностей уникальны, у каждой способности один перк',
 );
-const STYLES = new Set<string>(VFX_STYLES);
-for (const p of PERKS) {
+const STYLES = new Set<string>(FX_STYLES);
+for (const a of ABILITY_LIST) {
   ok(
-    [`perk.${p.id}.name`, `perk.${p.id}.desc`].every((k) => k in ru && k in en),
-    `${p.id}: есть название и описание на обоих языках`,
+    [`ability.${a.id}.name`, `ability.${a.id}.desc`].every((k) => k in ru && k in en),
+    `${a.id}: есть название и описание на обоих языках`,
   );
-  ok(STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
-  if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
-  if (p.cost === FULL_BAR)
-    ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
+  ok(STYLES.has(ABILITY_FX[a.id]), `${a.id}: задана вспышка ${ABILITY_FX[a.id]}`);
+  if (hasButton(a)) ok(a.target !== undefined, `${a.id}: у кнопки задана цель`);
+  if (a.cost === FULL_BAR)
+    ok(!!a.once, `${a.id}: способность за всю шкалу применяется раз за комнату`);
   // числа способности — положительные: множители, ходы, штуки
-  const nums = Object.values(p.params as Record<string, number | readonly number[]>).flat();
+  const nums = Object.values(a.params as Record<string, number | readonly number[]>).flat();
   ok(
     nums.every((n) => Number.isFinite(n) && n > 0),
-    `${p.id}: числа способности положительные (${nums.join(', ')})`,
+    `${a.id}: числа способности положительные (${nums.join(', ')})`,
   );
 }
+ok(
+  Object.keys(ABILITY_FX).every((id) => id in ABILITY_BY_ID),
+  'во вспышках способностей нет способностей, которых нет в игре',
+);
 // базовое действие осталось у лучника (выстрел) и наёмника (удар в спину);
 // воин бьёт рукой, а маг вообще не бьёт — только молнией по кнопке
-const basics = PERKS.filter((p) => p.basic).map((p) => p.classId);
+const basics = PERKS.filter((p) => p.ability.kind === 'basic').map((p) => p.classId);
 ok(
   basics.length === 2 && !basics.includes('warrior') && !basics.includes('mage'),
   `базовые действия линеек: ${basics.join(',')}`,
@@ -248,7 +254,7 @@ for (const r of ROOMS) {
   const icons = [
     ...ENEMY_LIST.map((e) => e.icon),
     ...ITEMS.map((i) => i.icon),
-    ...PERKS.map((p) => p.icon),
+    ...ABILITY_LIST.map((a) => abilityIcon(a.id)),
     ...Object.values(CONSUMABLES).map((c) => c.icon),
     ...Object.keys(CLASSES).flatMap((c) => [`hero_${c}`, `cls_${c}`]),
   ];
@@ -300,10 +306,10 @@ for (const cls of classesOfLineage('warrior'))
   const dict = { ru: ru as Record<string, string>, en: en as Record<string, string> };
   const holes = (text: string): string[] => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
   const bareDigits = (text: string): boolean => /\d/.test(text.replace(/\{\w+\}/g, ''));
-  for (const p of PERKS) {
-    const values = perkValues(p);
+  for (const p of ABILITY_LIST) {
+    const values = abilityValues(p);
     for (const lang of ['ru', 'en'] as const) {
-      const desc = dict[lang][`perk.${p.id}.desc`] ?? '';
+      const desc = dict[lang][`ability.${p.id}.desc`] ?? '';
       const missing = holes(desc).filter((h) => !(h in values));
       ok(
         !missing.length,
@@ -333,10 +339,10 @@ for (const cls of classesOfLineage('warrior'))
   // в словарях нет текстов сущностей, которых уже нет в игре
   const known = new Set([
     ...named,
-    ...PERKS.flatMap((p) => [`perk.${p.id}.name`, `perk.${p.id}.desc`]),
+    ...ABILITY_LIST.flatMap((a) => [`ability.${a.id}.name`, `ability.${a.id}.desc`]),
   ]);
   const orphans = Object.keys(ru)
-    .filter((k) => /^(perk|talent|enemy|item)\./.test(k) || /^ach\.[^.]+\.(name|desc)$/.test(k))
+    .filter((k) => /^(ability|talent|enemy|item)\./.test(k) || /^ach\.[^.]+\.(name|desc)$/.test(k))
     .filter((k) => !known.has(k));
   ok(!orphans.length, `тексты без сущности: ${orphans.slice(0, 5).join(', ')}`);
 }

@@ -4,12 +4,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Цепная молния» (mage_p3). */
+/** «Цепная молния». */
 export class ChainLightning implements IAbility<'chain_lightning'> {
-  readonly id = 'chain_lightning';
+  readonly behavior = 'chain_lightning';
 
   apply(ctx: AbilityContext, use: AbilityUse<'chain_lightning'>): void {
-    const { perk: p, cell } = use;
+    const { ability: p, cell } = use;
     const chain: CellIndex[] = [cell];
     const seen = new Set<CellIndex>([cell]);
     for (const n of Grid.neighbors(cell)) {

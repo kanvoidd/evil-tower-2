@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { VfxStyle } from '../../../../domain/catalog';
+import type { FxStyle } from '../../../../domain/combat';
 import type { Point } from '../../interfaces/Point';
 
 /**
@@ -10,7 +10,7 @@ import type { Point } from '../../interfaces/Point';
  */
 export class Vfx {
   /** Палитра эффектов: у каждой семьи способностей свой цвет, чтобы вспышку узнавали без подписи. */
-  private static readonly TINT: Record<VfxStyle, number> = {
+  private static readonly TINT: Record<FxStyle, number> = {
     bolt: 0x9ad8ff,
     chain: 0x7fc4ff,
     arcane: 0xb287ff,
@@ -41,7 +41,7 @@ export class Vfx {
   };
 
   /** Сколько ждать, прежде чем показывать следующее событие боя. */
-  private static readonly HOLD: Partial<Record<VfxStyle, number>> = {
+  private static readonly HOLD: Partial<Record<FxStyle, number>> = {
     bolt: 210,
     chain: 260,
     arcane: 240,
@@ -80,7 +80,7 @@ export class Vfx {
   }
 
   /** Возвращает, сколько миллисекунд стоит подождать после эффекта. */
-  play(style: VfxStyle, cells: Point[], from: Point): number {
+  play(style: FxStyle, cells: Point[], from: Point): number {
     switch (style) {
       case 'bolt':
         cells.forEach((c) => this.lightning(from, c, Vfx.TINT.bolt, 3));

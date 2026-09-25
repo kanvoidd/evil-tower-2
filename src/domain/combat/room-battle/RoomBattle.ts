@@ -1,9 +1,9 @@
 import type {
+  AbilityDef,
   ConsumableId,
   EquipmentSave,
   LineageDef,
   LineageId,
-  PerkDef,
   RoomDef,
   RoomModifier,
   RoomPlan,
@@ -166,7 +166,7 @@ export class RoomBattle implements IBattleSession {
     return this.state.totals;
   }
 
-  get armed(): PerkDef | null {
+  get armed(): AbilityDef | null {
     return this.state.armed;
   }
 
@@ -249,19 +249,19 @@ export class RoomBattle implements IBattleSession {
     return this.parts.actions.wouldKill(cell);
   }
 
-  perkReady(p: PerkDef): PerkReadiness {
+  perkReady(p: AbilityDef): PerkReadiness {
     return this.parts.perks.perkReady(p);
   }
 
-  perkTargetOk(p: PerkDef, cell: CellIndex): boolean {
+  perkTargetOk(p: AbilityDef, cell: CellIndex): boolean {
     return this.parts.perks.perkTargetOk(p, cell);
   }
 
-  perkCostOf(p: PerkDef): number {
+  perkCostOf(p: AbilityDef): number {
     return this.parts.perks.perkCostOf(p);
   }
 
-  cooldownOf(p: PerkDef): number {
+  cooldownOf(p: AbilityDef): number {
     return this.parts.perks.cooldownOf(p);
   }
 

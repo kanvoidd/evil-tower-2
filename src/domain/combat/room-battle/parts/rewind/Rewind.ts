@@ -7,7 +7,7 @@ export class Rewind extends RoomPart {
   // ------------------------------------------------------------------ откат времени
 
   takeSnapshot(): void {
-    if (!this.state.stats.perks.includes('magister_p3')) return;
+    if (!this.state.stats.allAbilities.some((a) => a.behavior === 'rewind')) return;
     this.state.snapshot = {
       engine: this.state.engine.capture(),
       hp: this.state.hp,

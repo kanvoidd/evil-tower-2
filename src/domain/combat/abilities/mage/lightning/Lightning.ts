@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Удар молнии» (mage_start). */
+/** «Удар молнии». */
 export class Lightning implements IAbility<'lightning'> {
-  readonly id = 'lightning';
+  readonly behavior = 'lightning';
 
   apply(ctx: AbilityContext, use: AbilityUse<'lightning'>): void {
-    const { perk: p, cell, target } = use;
+    const { ability: p, cell, target } = use;
     ctx.emit({
       type: 'attack',
       from: ctx.playerCell,

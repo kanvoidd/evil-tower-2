@@ -1,4 +1,11 @@
-import { CLASSES, type ClassId, type LineageId, LINEAGES, perkOf } from '../../catalog';
+import {
+  type AbilityId,
+  CLASSES,
+  type ClassId,
+  type LineageId,
+  LINEAGES,
+  perkOf,
+} from '../../catalog';
 import type { PlayerStats } from '../../combat';
 import { newLineageSave, TREES } from '../skill-tree';
 import { buildPlayerStats } from '../stats/stats';
@@ -24,8 +31,8 @@ export interface Trait {
   id: TraitId;
   /** Главное число для подстановки в текст. */
   n?: number;
-  /** Способность класса — id перка; название берётся из словаря при выводе. */
-  perkId?: string;
+  /** Стартовая способность класса — её id; название берётся из словаря при выводе. */
+  abilityId?: AbilityId;
   /** Для 'mech' — линейка, механику которой описываем. */
   lineage?: LineageId;
 }
@@ -58,7 +65,8 @@ export const classTraits = (classId: ClassId, max = MAX_TRAITS): Trait[] => {
 
   // стартовая способность класса
   const start = perkOf(classId, 'start');
-  if (start && !start.basic) out.push({ id: 'ability', perkId: start.id });
+  if (start && start.ability.kind !== 'basic')
+    out.push({ id: 'ability', abilityId: start.ability.id });
 
   // характеристики, которыми класс выделяется
   if (s.crit >= TRAIT_LIMITS.crit) out.push({ id: 'crit', n: Math.round(s.crit) });

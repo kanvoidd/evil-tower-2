@@ -42,7 +42,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     const stats = build(id);
     for (const perk of [
       ...stats.abilities,
-      ...stats.perks.map((p) => PERK_BY_ID[p]).filter((p) => p.basic),
+      ...stats.allAbilities.filter((a) => a.kind === 'basic'),
     ]) {
       const battle = RoomBattleFactory.standard().create({
         room: ROOMS[20],
@@ -64,7 +64,7 @@ const aim = (battle: RoomBattle, label: string): void => {
       // «Сокол-курьер» и «Перестановка» работают с картами добычи, «Подкуп» — с золотом кошеля
       battle.cards[8] = new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'gold', value: 25 });
       battle.totals.gold = Gold.of(400);
-      if (perk.basic) {
+      if (perk.kind === 'basic') {
         const act = battle.actionFor(CellIndex.of(2));
         ok(
           act.kind === 'ranged' || act.kind === 'none',
@@ -117,10 +117,10 @@ const aim = (battle: RoomBattle, label: string): void => {
       battle.res = stats.resMax;
       // «Удар молнии» мага остаётся в руках у всей линейки — метаморфоза ничего не отнимает
       ok(
-        stats.abilities.some((p2) => p2.id === 'mage_start'),
+        stats.abilities.some((p2) => p2.id === 'lightning'),
         `${id}: молния мага сохранилась`,
       );
-      ok(battle.usePerk('mage_start').ok, `${id}: молния мага доступна`);
+      ok(battle.usePerk('lightning').ok, `${id}: молния мага доступна`);
       if (battle.armed)
         ok(battle.tap(CellIndex.of(1)).ok, `${id}: молния наводится на соседнего врага`);
       ok(battle.cards[1] === null || battle.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
@@ -250,7 +250,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.res = stats.resMax;
     battle.cards[1] = enemy(100000, 1);
     battle.cards[3] = enemy(100000, 1);
-    battle.usePerk('mage_start');
+    battle.usePerk('lightning');
     const hits = battle
       .tap(CellIndex.of(1))
       .events.filter((e) => e.type === 'hit' && e.target === 'enemy')
@@ -299,7 +299,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     const magic = mk2(42);
     magic.cards[1] = enemy(100000, 20);
     magic.cards[3] = enemy(100000, 20);
-    magic.usePerk('warrior_start');
+    magic.usePerk('power_strike');
     const r2 = magic.tap(CellIndex.of(1));
     ok(
       JSON.stringify(strikers(r2.events)) === '[1]',
@@ -479,7 +479,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.res = 100;
     battle.cards[2] = enemy(100000, 1);
     battle.cards[4] = enemy(100000, 1);
-    const shot = PERK_BY_ID.mage_p2;
+    const shot = PERK_BY_ID.mage_p2.ability;
     ok(!battle.perkTargetOk(shot, CellIndex.of(1)), 'магический выстрел не бьёт вплотную');
     ok(battle.perkTargetOk(shot, CellIndex.of(2)), 'магический выстрел бьёт через карту');
     ok(battle.usePerk(shot.id).ok && battle.tap(CellIndex.of(2)).ok, 'выстрел применяется');
@@ -490,7 +490,7 @@ const aim = (battle: RoomBattle, label: string): void => {
       `выстрел на перезарядке (${after.reason ?? 'готов'})`,
     );
     ok(battle.cooldownOf(shot) === 1, `перезарядка один ход (${battle.cooldownOf(shot)})`);
-    const chain = PERK_BY_ID.mage_p3;
+    const chain = PERK_BY_ID.mage_p3.ability;
     battle.res = 100;
     ok(battle.usePerk(chain.id).ok && battle.tap(CellIndex.of(2)).ok, 'цепная молния применяется');
     battle.res = 100;
@@ -558,7 +558,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     {
       const pyro = surround('pyromancer');
       ok(!pyro.cornered(), 'пиромант: готовый огненный шар — не тупик');
-      pyro.state.cooldowns.pyromancer_p2 = 3;
+      pyro.state.cooldowns.fireball = 3;
       ok(pyro.cornered(), 'пиромант: шар на перезарядке и пустая шкала — тупик');
     }
     // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
@@ -626,7 +626,7 @@ const aim = (battle: RoomBattle, label: string): void => {
       battle.hp = 100000;
       battle.res = stats.resMax;
       battle.cards[1] = enemy(500, 3);
-      const perk = PERK_BY_ID[perkId2];
+      const perk = PERK_BY_ID[perkId2].ability;
       ok(battle.perkTargetOk(perk, CellIndex.of(1)), `${perkId2}: чистая цель подходит`);
       apply(battle.cards[1]!);
       ok(
@@ -657,24 +657,24 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.cards[2] = enemy(100000, 1);
     battle.cards[7] = enemy(10, 1);
     ok(
-      battle.usePerk('necromancer_start').ok && battle.tap(CellIndex.of(1)).ok,
+      battle.usePerk('corpse_blast').ok && battle.tap(CellIndex.of(1)).ok,
       'взрыв трупа наводится на врага',
     );
     ok(!!battle.cards[1]?.corpse, 'цель помечена');
     ok(
-      !battle.perkTargetOk(PERK_BY_ID.necromancer_start, CellIndex.of(1)),
+      !battle.perkTargetOk(PERK_BY_ID.necromancer_start.ability, CellIndex.of(1)),
       'помеченного повторно не метят',
     );
     const hp0 = battle.cards[0]!.hp;
     battle.res = 100;
-    battle.usePerk('mage_start');
+    battle.usePerk('lightning');
     battle.tap(CellIndex.of(1));
     ok(battle.cards[0]!.hp < hp0, 'смерть помеченного взрывает соседей');
     // смерть непомеченного ничего не взрывает
     const hp2 = battle.cards[2] ? battle.cards[2]!.hp : 0;
     battle.res = 100;
     battle.state.cooldowns = {};
-    battle.usePerk('mage_start');
+    battle.usePerk('lightning');
     const r = battle.tap(CellIndex.of(7));
     ok(!r.events.some((e) => e.type === 'fx' && e.style === 'corpse'), 'непомеченный умирает тихо');
     void hp2;
@@ -705,12 +705,12 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.cards[7] = enemy(100000, 1);
     battle.cards[8] = enemy(100000, 1);
     ok(
-      battle.usePerk('necromancer_p2').ok && battle.tap(CellIndex.of(1)).ok,
+      battle.usePerk('ghosts').ok && battle.tap(CellIndex.of(1)).ok,
       'заражение наводится на врага',
     );
     ok(!!battle.cards[1]?.haunt, 'цель заражена');
     battle.res = 100;
-    battle.usePerk('mage_start');
+    battle.usePerk('lightning');
     battle.tap(CellIndex.of(1));
     const ghost = battle.cards[1];
     ok(ghost?.kind === 'ghost', `на месте заражённого встал призрак (${ghost?.kind ?? 'пусто'})`);
@@ -721,7 +721,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     for (let i = 0; i < 2; i++) {
       battle.res = 100;
       battle.state.cooldowns = {};
-      battle.usePerk('mage_start');
+      battle.usePerk('lightning');
       battle.tap(CellIndex.of(3));
     }
     ok(battle.cards[1]?.kind !== 'ghost', 'через три хода призрак растаял');
@@ -744,7 +744,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.hp = 100000;
     battle.res = 100;
     battle.cards[0] = enemy(100000, 1);
-    battle.usePerk('pyromancer_start');
+    battle.usePerk('ignite');
     battle.tap(CellIndex.of(0));
     ok(battle.cards[0]!.burn === 3, `после поджога на значке три хода (${battle.cards[0]!.burn})`);
     let ticks = 0;
@@ -795,7 +795,7 @@ const aim = (battle: RoomBattle, label: string): void => {
           events = [...events, ...battle.tap(cell).events];
         }
         const drew = events.some(
-          (e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'),
+          (e) => e.type === 'fx' || e.type === 'cast' || (e.type === 'attack' && e.by === 'player'),
         );
         if (!drew) noFx++;
         ok(drew, `${id}/${perk.id}: способность рисует эффект`);
@@ -820,9 +820,9 @@ const aim = (battle: RoomBattle, label: string): void => {
     for (const c of [0, 1, 3, 5]) battle.cards[c] = enemy(400, 2);
     battle.hp = 100000;
     battle.res = stats.resMax;
-    ok(battle.usePerk('berserk_legend').ok, 'легендарная способность применяется');
+    ok(battle.usePerk('madness').ok, 'легендарная способность применяется');
     battle.res = stats.resMax;
-    ok(!battle.usePerk('berserk_legend').ok, 'легендарная способность — один раз за комнату');
+    ok(!battle.usePerk('madness').ok, 'легендарная способность — один раз за комнату');
   }
 
   // оглушение: враг не отвечает
@@ -843,7 +843,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.hp = 100000;
     battle.res = stats.resMax;
     const before = battle.hp;
-    battle.usePerk('knight_start');
+    battle.usePerk('shield_bash');
     const res = battle.tap(CellIndex.of(1));
     ok(res.ok, 'таран щитом применяется');
     ok(
@@ -870,7 +870,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.cards[0] = enemy(100000, 1);
     battle.hp = 100000;
     battle.res = stats.resMax;
-    battle.usePerk('pyromancer_start');
+    battle.usePerk('ignite');
     battle.tap(CellIndex.of(0));
     const burning = battle.cards[0]!;
     ok(burning.burn > 0 && burning.burnDmg > 0, 'поджог вешает горение');
@@ -899,7 +899,7 @@ const aim = (battle: RoomBattle, label: string): void => {
       battle.cards[1] = enemy(100000, 0);
       battle.hp = 100000;
       battle.res = stats.resMax;
-      battle.usePerk('warrior_start');
+      battle.usePerk('power_strike');
       battle.tap(CellIndex.of(1));
       return 100000 - battle.cards[1]!.hp;
     };
@@ -910,7 +910,7 @@ const aim = (battle: RoomBattle, label: string): void => {
   {
     // без уворота и парирования: ответ врага в первый ход должен дойти
     const stats = build('magister', { dodge: 0, parry: 0, block: 0 });
-    const rewind = stats.abilities.find((p) => p.ability === 'rewind')!;
+    const rewind = stats.abilities.find((p) => p.behavior === 'rewind')!;
     const bolt = stats.abilities.find((p) => p.target === 'adjacent')!;
     const battle = RoomBattleFactory.standard().create({
       room: ROOMS[20],

@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Святая кара» (paladin_start). */
+/** «Святая кара». */
 export class HolyWrath implements IAbility<'holy_wrath'> {
-  readonly id = 'holy_wrath';
+  readonly behavior = 'holy_wrath';
 
   apply(ctx: AbilityContext, use: AbilityUse<'holy_wrath'>): void {
-    const { perk: p, cell, target } = use;
+    const { ability: p, cell, target } = use;
     const enemy = target!;
     const holy = isHolyTarget(ctx.enemies[enemy.defId].tag);
     let dmg = ctx.spellDamage(holy ? p.params.holyDmg : p.params.dmg);

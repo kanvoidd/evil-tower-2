@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Таран щитом» (knight_start). */
+/** «Таран щитом». */
 export class ShieldBash implements IAbility<'shield_bash'> {
-  readonly id = 'shield_bash';
+  readonly behavior = 'shield_bash';
 
   apply(ctx: AbilityContext, use: AbilityUse<'shield_bash'>): void {
-    const { perk: p, cell } = use;
+    const { ability: p, cell } = use;
     const behind = ctx.behindCell(ctx.playerCell, cell);
     const dmg = ctx.spellDamage(p.params.dmg);
     ctx.emit({ type: 'fx', cells: [cell], style: 'quake' });

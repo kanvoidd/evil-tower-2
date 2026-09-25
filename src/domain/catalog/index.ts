@@ -1,4 +1,5 @@
-/** Каталог: содержимое игры из фабрик героев и этажей — публичный API области (docs/DOMAIN.md). */
+/** Каталог: содержимое игры — определения героев и фабрики этажей — публичный API области (docs/DOMAIN.md). */
+export * from './abilities';
 export * from './armor';
 export * from './classes';
 export * from './consumables';

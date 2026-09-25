@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Рикошет» (archer_p3). */
+/** «Рикошет». */
 export class Ricochet implements IAbility<'ricochet'> {
-  readonly id = 'ricochet';
+  readonly behavior = 'ricochet';
 
   apply(ctx: AbilityContext, use: AbilityUse<'ricochet'>): void {
-    const { perk: p, cell } = use;
+    const { ability: p, cell } = use;
     const chain = [cell];
     for (const n of Grid.neighbors(cell)) {
       if (ctx.cards[n]?.kind === 'enemy' && chain.length < p.params.falloff.length) chain.push(n);

@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Жатва мёртвых» (necromancer_legend). */
+/** «Жатва мёртвых». */
 export class DeadHarvest implements IAbility<'dead_harvest'> {
-  readonly id = 'dead_harvest';
+  readonly behavior = 'dead_harvest';
 
   apply(ctx: AbilityContext, use: AbilityUse<'dead_harvest'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     ctx.emit({ type: 'fx', cells: enemies, style: 'soul' });
     const bonus = ctx.stats.soulBonus;
     ctx.stats.soulBonus = Ratio.of(bonus + p.params.soulBonus);

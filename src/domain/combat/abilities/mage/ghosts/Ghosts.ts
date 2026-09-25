@@ -4,9 +4,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Призрачные слуги» (necromancer_p2). */
+/** «Призрачные слуги». */
 export class Ghosts implements IAbility<'ghosts'> {
-  readonly id = 'ghosts';
+  readonly behavior = 'ghosts';
 
   apply(ctx: AbilityContext, use: AbilityUse<'ghosts'>): void {
     const { cell, target } = use;

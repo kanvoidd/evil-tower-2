@@ -1,4 +1,4 @@
-import type { AbilityId } from '../../catalog';
+import type { AbilityBehaviorId } from '../../catalog';
 import { ArmorPiercing } from './archer/armor-piercing/ArmorPiercing';
 import { ArrowRain } from './archer/arrow-rain/ArrowRain';
 import { DoubleShot } from './archer/double-shot/DoubleShot';
@@ -44,10 +44,10 @@ import { WarCry } from './warrior/war-cry/WarCry';
 import { Whirlwind } from './warrior/whirlwind/Whirlwind';
 
 /**
- * Способности с кнопкой — по id. Пассивки и базовые действия линеек работают в правилах боя
- * (удар, ответ врагов, добыча), поэтому здесь их нет.
+ * Механики способностей с кнопкой — по id механики (`AbilityDef.behavior`). Пассивки и базовые
+ * действия линеек работают в правилах боя (удар, ответ врагов, добыча), поэтому здесь их нет.
  */
-export const ABILITIES: { readonly [A in AbilityId]?: IAbility<A> } = {
+export const ABILITY_BEHAVIORS: { readonly [B in AbilityBehaviorId]?: IAbility<B> } = {
   power_strike: new PowerStrike(),
   earthquake: new Earthquake(),
   shield_bash: new ShieldBash(),

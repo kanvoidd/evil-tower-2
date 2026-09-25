@@ -2,12 +2,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Звездопад» (arrowgod_legend). */
+/** «Звездопад». */
 export class Starfall implements IAbility<'starfall'> {
-  readonly id = 'starfall';
+  readonly behavior = 'starfall';
 
   apply(ctx: AbilityContext, use: AbilityUse<'starfall'>): void {
-    const { perk: p, enemies } = use;
+    const { ability: p, enemies } = use;
     ctx.emit({ type: 'fx', cells: enemies, style: 'arrows' });
     for (let i = 0; i < p.params.waves; i++) {
       for (const c of ctx.enemyCells()) {

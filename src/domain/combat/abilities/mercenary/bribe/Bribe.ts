@@ -2,9 +2,9 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Подкуп» (mercenary_p2). */
+/** «Подкуп». */
 export class Bribe implements IAbility<'bribe'> {
-  readonly id = 'bribe';
+  readonly behavior = 'bribe';
 
   apply(ctx: AbilityContext, use: AbilityUse<'bribe'>): void {
     const { cell, target } = use;

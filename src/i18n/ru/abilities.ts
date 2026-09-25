@@ -1,178 +1,179 @@
-/** Названия и описания способностей по id перка. Числа — плейсхолдерами из чисел способности (`PerkDef.params`, цена, перезарядка). */
-export const perks = {
+/** Названия и описания способностей по id способности. Числа — плейсхолдерами из её чисел (`AbilityDef.params`, цена, перезарядка). */
+export const abilities = {
   // warrior
-  'perk.warrior_start.name': 'Мощный удар',
-  'perk.warrior_start.desc':
+  'ability.power_strike.name': 'Мощный удар',
+  'ability.power_strike.desc':
     'Следующий удар вдвое сильнее. Излишек урона проламывает цель и бьёт врага за ней по той же линии.',
-  'perk.warrior_p2.name': 'Землетрясение',
-  'perk.warrior_p2.desc':
+  'ability.earthquake.name': 'Землетрясение',
+  'ability.earthquake.desc':
     'Топот по земле: все враги в ряду и столбце героя получают {dmg}% урона и оглушены.',
-  'perk.warrior_p3.name': 'Не сдамся',
-  'perk.warrior_p3.desc':
+  'ability.never_give_up.name': 'Не сдамся',
+  'ability.never_give_up.desc':
     'Раз за комнату смертельный удар оставляет {hpLeft} здоровья и взрывается ударной волной: все враги получают вдвое больше урона, чем приняли вы.',
   // knight
-  'perk.knight_start.name': 'Таран щитом',
-  'perk.knight_start.desc':
+  'ability.shield_bash.name': 'Таран щитом',
+  'ability.shield_bash.desc':
     'Удар с отбросом: враг отлетает на клетку назад и меняется местами с картой за ним. Оба получают урон от столкновения, у края поля — вдвое. Цель оглушена.',
-  'perk.knight_p2.name': 'Боевой клич',
-  'perk.knight_p2.desc':
+  'ability.war_cry.name': 'Боевой клич',
+  'ability.war_cry.desc':
     'Над полем разворачивается знамя: атака всех врагов на поле падает на {weaken}% до конца комнаты.',
-  'perk.knight_p3.name': 'Вызов на дуэль',
-  'perk.knight_p3.desc':
+  'ability.duel.name': 'Вызов на дуэль',
+  'ability.duel.desc':
     'Самый опасный враг перелетает в клетку рядом с героем и оглушён — голема или босса можно бить без ответа.',
   // berserk
-  'perk.berserk_start.name': 'Вихрь',
-  'perk.berserk_start.desc': 'Герой раскручивается и бьёт всех соседних врагов на {dmg}% урона.',
-  'perk.berserk_p2.name': 'Ярость',
-  'perk.berserk_p2.desc':
+  'ability.whirlwind.name': 'Вихрь',
+  'ability.whirlwind.desc': 'Герой раскручивается и бьёт всех соседних врагов на {dmg}% урона.',
+  'ability.rage.name': 'Ярость',
+  'ability.rage.desc':
     'Каждые {hpPerResource} потерянных единицы здоровья дают {resource} выносливости. Чем больнее — тем чаще Вихрь.',
-  'perk.berserk_p3.name': 'Резня',
-  'perk.berserk_p3.desc':
+  'ability.carnage.name': 'Резня',
+  'ability.carnage.desc':
     'Убийства подряд копят +{perKill}% урона за каждое, до +{cap}%. Ход без убийства обнуляет бонус.',
-  'perk.berserk_legend.name': 'Безумие берсерка',
-  'perk.berserk_legend.desc':
+  'ability.madness.name': 'Безумие берсерка',
+  'ability.madness.desc':
     'Три хода красной пелены: каждый удар задевает всех соседей цели, выжившие не отвечают. В конце герой теряет {hpCost}% текущего здоровья.',
   // paladin
-  'perk.paladin_start.name': 'Святая кара',
-  'perk.paladin_start.desc': 'Удар светом в полтора раза сильнее, а по нежити и демонам — втрое.',
-  'perk.paladin_p2.name': 'Луч правосудия',
-  'perk.paladin_p2.desc':
+  'ability.holy_wrath.name': 'Святая кара',
+  'ability.holy_wrath.desc': 'Удар светом в полтора раза сильнее, а по нежити и демонам — втрое.',
+  'ability.justice_beam.name': 'Луч правосудия',
+  'ability.justice_beam.desc':
     'Столб света бьёт весь столбец выбранной карты: каждый враг получает полный урон, нежить и демоны — двойной.',
-  'perk.paladin_p3.name': 'Вердикт',
-  'perk.paladin_p3.desc':
+  'ability.verdict.name': 'Вердикт',
+  'ability.verdict.desc':
     'Золотые колонны обрушиваются на поле: все враги, у которых здоровья не больше {limit}% вашего урона, гибнут сразу (кроме боссов).',
-  'perk.paladin_legend.name': 'Гнев небес',
-  'perk.paladin_legend.desc':
+  'ability.heavens_wrath.name': 'Гнев небес',
+  'ability.heavens_wrath.desc':
     'Небо раскалывается: каждый враг получает двойной урон (нежить и демоны — четырёхкратный) и оглушён.',
   // mage
-  'perk.mage_start.name': 'Удар молнии',
-  'perk.mage_start.desc':
+  'ability.lightning.name': 'Удар молнии',
+  'ability.lightning.desc':
     'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): {dmg}% урона заклинанием за {cost} маны. Мана восстанавливается всего по {regen} за ход — следите за ней: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
-  'perk.mage_p2.name': 'Магический выстрел',
-  'perk.mage_p2.desc':
+  'ability.magic_shot.name': 'Магический выстрел',
+  'ability.magic_shot.desc':
     '{dmg}% урона по цели на одной линии с героем — но только ЧЕРЕЗ карту: вплотную выстрел не бьёт. Перезарядка {cooldown} ход.',
-  'perk.mage_p3.name': 'Цепная молния',
-  'perk.mage_p3.desc':
+  'ability.chain_lightning.name': 'Цепная молния',
+  'ability.chain_lightning.desc':
     'Бьёт цель и перескакивает по соседним врагам: {falloff1}% → {falloff2}% → {falloff3}%. Перезарядка {cooldown} хода.',
   // magister
-  'perk.magister_start.name': 'Перестановка',
-  'perk.magister_start.desc':
+  'ability.swap.name': 'Перестановка',
+  'ability.swap.desc':
     'Поменять местами две любые карты (два касания): подтянуть зелье поближе или убрать голема от героя. Перезарядка {cooldown} ходов.',
-  'perk.magister_p2.name': 'Жребий колоды',
-  'perk.magister_p2.desc':
+  'ability.deck_draw.name': 'Жребий колоды',
+  'ability.deck_draw.desc':
     'Отправить выбранную карту (кроме босса) вниз колоды и вытянуть новую на её место. Перезарядка {cooldown} хода.',
-  'perk.magister_p3.name': 'Откат времени',
-  'perk.magister_p3.desc':
+  'ability.rewind.name': 'Откат времени',
+  'ability.rewind.desc':
     'Раз за комнату отматывает последний ход целиком: поле, здоровье, ресурс. В новой попытке случайность выпадет иначе.',
   // necromancer
-  'perk.necromancer_start.name': 'Взрыв трупа',
-  'perk.necromancer_start.desc':
+  'ability.corpse_blast.name': 'Взрыв трупа',
+  'ability.corpse_blast.desc':
     'Пометьте врага: когда он умрёт, его труп взорвётся — соседи получат половину его максимального здоровья. Помеченные соседи рвутся цепью. Перезарядка {cooldown} ход.',
-  'perk.necromancer_p2.name': 'Призрачные слуги',
-  'perk.necromancer_p2.desc':
+  'ability.ghosts.name': 'Призрачные слуги',
+  'ability.ghosts.desc':
     'Заразите врага: когда он умрёт, на его месте встанет призрак. Три хода призрак бьёт соседних врагов (вверх, вниз, влево, вправо) на {dmg}% вашего урона. Не больше двух призраков на поле. Перезарядка {cooldown} хода.',
-  'perk.necromancer_p3.name': 'Кукла вуду',
-  'perk.necromancer_p3.desc':
+  'ability.voodoo.name': 'Кукла вуду',
+  'ability.voodoo.desc':
     'Связывает врага: половина урона, который он получает, достаётся всем остальным врагам на поле. Перезарядка {cooldown} хода.',
-  'perk.necromancer_legend.name': 'Жатва мёртвых',
-  'perk.necromancer_legend.desc':
+  'ability.dead_harvest.name': 'Жатва мёртвых',
+  'ability.dead_harvest.desc':
     'Каждый враг теряет половину текущего здоровья (боссы — четверть). Умершие дают вдвое больше душ.',
   // pyromancer
-  'perk.pyromancer_start.name': 'Поджог',
-  'perk.pyromancer_start.desc':
+  'ability.ignite.name': 'Поджог',
+  'ability.ignite.desc':
     'Поджигает любого врага на {turns} хода. Умерший от огня передаёт пламя соседям. Перезарядка {cooldown} ход.',
-  'perk.pyromancer_p2.name': 'Огненный шар',
-  'perk.pyromancer_p2.desc':
+  'ability.fireball.name': 'Огненный шар',
+  'ability.fireball.desc':
     'Дальний бросок: цель получает {dmg}% урона, соседи — {splash}%, все загораются. Маны не стоит — его сдерживает перезарядка в {cooldown} хода.',
-  'perk.pyromancer_p3.name': 'Детонация',
-  'perk.pyromancer_p3.desc':
+  'ability.detonate.name': 'Детонация',
+  'ability.detonate.desc':
     'Все горящие враги взрываются: {blastMul}% урона себе и {splashMul}% соседям. Взрывы идут цепью по всему полю. Перезарядка {cooldown} хода.',
-  'perk.pyromancer_legend.name': 'Инферно',
-  'perk.pyromancer_legend.desc':
+  'ability.inferno.name': 'Инферно',
+  'ability.inferno.desc':
     'Огненный шторм волнами расходится от героя: все враги горят {turns} ходов по {burn}% вашего урона за ход.',
   // archer
-  'perk.archer_start.name': 'Сквозной выстрел',
-  'perk.archer_start.desc':
+  'ability.pierce_shot.name': 'Сквозной выстрел',
+  'ability.pierce_shot.desc':
     'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон, оставаясь вне досягаемости руки.',
-  'perk.archer_p2.name': 'Косой прицел',
-  'perk.archer_p2.desc':
+  'ability.diagonal.name': 'Косой прицел',
+  'ability.diagonal.desc':
     'Стрелять можно и по диагональным соседям, до которых обычно не дотянуться.',
-  'perk.archer_p3.name': 'Рикошет',
-  'perk.archer_p3.desc':
+  'ability.ricochet.name': 'Рикошет',
+  'ability.ricochet.desc':
     'Стрела отскакивает от цели к ближайшему врагу ({falloff2}%), затем ещё раз ({falloff3}%).',
   // hawkeye
-  'perk.hawkeye_start.name': 'Сокол-охотник',
-  'perk.hawkeye_start.desc': 'Сокол пикирует на любого врага на поле: {dmg}% урона и оглушение.',
-  'perk.hawkeye_p2.name': 'Сокол-курьер',
-  'perk.hawkeye_p2.desc':
+  'ability.falcon_hunt.name': 'Сокол-охотник',
+  'ability.falcon_hunt.desc': 'Сокол пикирует на любого врага на поле: {dmg}% урона и оглушение.',
+  'ability.falcon_courier.name': 'Сокол-курьер',
+  'ability.falcon_courier.desc':
     'Сокол приносит любую нужную карту — золото, сундук или зелье, — а герой остаётся на месте.',
-  'perk.hawkeye_p3.name': 'Орлиный взор',
-  'perk.hawkeye_p3.desc':
+  'ability.eagle_eye.name': 'Орлиный взор',
+  'ability.eagle_eye.desc':
     'Над полем видны три верхние карты колоды. Стрелять можно и по соседним врагам — без ответа.',
   // arrowgod
-  'perk.arrowgod_start.name': 'Двойной выстрел',
-  'perk.arrowgod_start.desc':
+  'ability.double_shot.name': 'Двойной выстрел',
+  'ability.double_shot.desc':
     'Две стрелы подряд. Если первая убила — вторая летит в ближайшего врага.',
-  'perk.arrowgod_p2.name': 'Азарт охотника',
-  'perk.arrowgod_p2.desc': 'Критический выстрел возвращает потраченную концентрацию.',
-  'perk.arrowgod_p3.name': 'Дождь стрел',
-  'perk.arrowgod_p3.desc': 'Пять стрел падают с неба на случайных врагов, по {dmg}% урона каждая.',
-  'perk.arrowgod_legend.name': 'Звездопад',
-  'perk.arrowgod_legend.desc':
+  'ability.hunter_thrill.name': 'Азарт охотника',
+  'ability.hunter_thrill.desc': 'Критический выстрел возвращает потраченную концентрацию.',
+  'ability.arrow_rain.name': 'Дождь стрел',
+  'ability.arrow_rain.desc':
+    'Пять стрел падают с неба на случайных врагов, по {dmg}% урона каждая.',
+  'ability.starfall.name': 'Звездопад',
+  'ability.starfall.desc':
     'Небо чернеет от стрел: каждый враг получает три попадания по {dmg}% с отдельными критами.',
   // sniper
-  'perk.sniper_start.name': 'Пробивающий выстрел',
-  'perk.sniper_start.desc':
+  'ability.rail_shot.name': 'Пробивающий выстрел',
+  'ability.rail_shot.desc':
     'Стрела пробивает всю линию: все враги в ряду или столбце цели получают урон, каждый следующий на {stepLoss}% слабее.',
-  'perk.sniper_p2.name': 'Бронебойный',
-  'perk.sniper_p2.desc':
+  'ability.armor_piercing.name': 'Бронебойный',
+  'ability.armor_piercing.desc':
     'Выстрел с бонусом в {hpShare}% максимального здоровья цели. Главные жертвы — големы и боссы.',
-  'perk.sniper_p3.name': 'Охотничья метка',
-  'perk.sniper_p3.desc': 'Первый выстрел по неповреждённому врагу всегда критический.',
-  'perk.sniper_legend.name': 'Один выстрел — один труп',
-  'perk.sniper_legend.desc':
+  'ability.hunters_mark.name': 'Охотничья метка',
+  'ability.hunters_mark.desc': 'Первый выстрел по неповреждённому врагу всегда критический.',
+  'ability.one_shot.name': 'Один выстрел — один труп',
+  'ability.one_shot.desc':
     'Время замедляется: выстрел мгновенно убивает любого не-босса и летит дальше по линии, до трёх убийств. Босс теряет {bossHpShare}% максимального здоровья.',
   // mercenary
-  'perk.mercenary_start.name': 'Удар в спину',
-  'perk.mercenary_start.desc':
+  'ability.backstab.name': 'Удар в спину',
+  'ability.backstab.desc':
     'Телепорт за спину любого врага на поле и гарантированный критический удар без ответа.',
-  'perk.mercenary_p2.name': 'Подкуп',
-  'perk.mercenary_p2.desc':
+  'ability.bribe.name': 'Подкуп',
+  'ability.bribe.desc':
     'Вы платите {goldShare}% золота из кошеля комнаты (минимум {goldMin}): не-босс уходит с поля. Ни души, ни золота за него — только безопасность.',
-  'perk.mercenary_p3.name': 'Хладнокровие',
-  'perk.mercenary_p3.desc': 'Удар в спину, убивший врага, возвращает {resource} осмотрительности.',
+  'ability.cold_blood.name': 'Хладнокровие',
+  'ability.cold_blood.desc': 'Удар в спину, убивший врага, возвращает {resource} осмотрительности.',
   // assassin
-  'perk.assassin_start.name': 'Танец теней',
-  'perk.assassin_start.desc':
+  'ability.shadow_dance.name': 'Танец теней',
+  'ability.shadow_dance.desc':
     'Удар в спину, убивший врага, бесплатно телепортирует героя к самому слабому врагу. Цепь до трёх ударов.',
-  'perk.assassin_p2.name': 'Приговор',
-  'perk.assassin_p2.desc':
+  'ability.sentence.name': 'Приговор',
+  'ability.sentence.desc':
     'Цель получает на {vuln}% больше урона от всех источников. Её смерть возвращает всю осмотрительность.',
-  'perk.assassin_p3.name': 'Смертельная доза',
-  'perk.assassin_p3.desc':
+  'ability.lethal_dose.name': 'Смертельная доза',
+  'ability.lethal_dose.desc':
     'Удар в спину отравляет: {poison}% максимального здоровья за ход, {turns} хода (у боссов — {bossPoison}%).',
   // darkassassin
-  'perk.darkassassin_start.name': 'Клеймо смерти',
-  'perk.darkassassin_start.desc':
+  'ability.death_mark.name': 'Клеймо смерти',
+  'ability.death_mark.desc':
     'Череп с отсчётом на карточке: через три хода враг умирает, а босс теряет {bossHpShare}% максимального здоровья.',
-  'perk.darkassassin_p2.name': 'Цепное клеймо',
-  'perk.darkassassin_p2.desc': 'Когда помеченный враг умирает, клеймо перескакивает на ближайшего.',
-  'perk.darkassassin_p3.name': 'Жатва теней',
-  'perk.darkassassin_p3.desc':
+  'ability.chain_mark.name': 'Цепное клеймо',
+  'ability.chain_mark.desc': 'Когда помеченный враг умирает, клеймо перескакивает на ближайшего.',
+  'ability.shadow_reap.name': 'Жатва теней',
+  'ability.shadow_reap.desc':
     'Все помеченные враги умирают мгновенно (боссы теряют {bossHpShare}% максимального здоровья).',
-  'perk.darkassassin_legend.name': 'Жнец',
-  'perk.darkassassin_legend.desc':
+  'ability.reaper.name': 'Жнец',
+  'ability.reaper.desc':
     'Три хода жатвы: удар в спину бесплатен и убивает любого не-босса, а каждое убийство продлевает жатву на ход.',
   // ninja
-  'perk.ninja_start.name': 'Веер сюрикенов',
-  'perk.ninja_start.desc':
+  'ability.shuriken_fan.name': 'Веер сюрикенов',
+  'ability.shuriken_fan.desc':
     'Четыре сюрикена летят в ближайших врагов по {dmg}% урона с отдельными критами.',
-  'perk.ninja_p2.name': 'Подмена',
-  'perk.ninja_p2.desc':
+  'ability.substitution.name': 'Подмена',
+  'ability.substitution.desc':
     'При успешном увороте герой исчезает, оставив бревно, появляется за спиной нападавшего и бьёт критом.',
-  'perk.ninja_p3.name': 'Дымовая завеса',
-  'perk.ninja_p3.desc': 'Два хода враги не отвечают на ваши удары — поле в дыму.',
-  'perk.ninja_legend.name': 'Тень ветра',
-  'perk.ninja_legend.desc':
+  'ability.smoke_screen.name': 'Дымовая завеса',
+  'ability.smoke_screen.desc': 'Два хода враги не отвечают на ваши удары — поле в дыму.',
+  'ability.wind_shadow.name': 'Тень ветра',
+  'ability.wind_shadow.desc':
     'Герой проносится по всему полю и бьёт каждого врага дважды, второй удар — критический.',
 } as const;

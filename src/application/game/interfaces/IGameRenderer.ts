@@ -1,4 +1,4 @@
-import type { ConsumableId, PerkDef } from '../../../domain/catalog';
+import type { AbilityDef, ConsumableId } from '../../../domain/catalog';
 import type { CellRejection } from './CellRejection';
 import type { TutorialStep } from './TutorialStep';
 
@@ -13,7 +13,7 @@ export interface IGameRenderer {
   /** Рамка «добьёт одним ударом» у врагов. */
   markKillable(): void;
   /** Способность не применилась (перезарядка, нет ресурса, уже действует, раз за комнату). */
-  rejectPerk(perk: PerkDef, reason: string | undefined): void;
+  rejectPerk(perk: AbilityDef, reason: string | undefined): void;
   /** Касание клетки не стало ходом. */
   rejectCell(cell: number, reason: CellRejection): void;
   /** Расходник не применился; `hpFull` — лечить некого. */

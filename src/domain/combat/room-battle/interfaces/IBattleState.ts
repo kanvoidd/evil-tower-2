@@ -1,9 +1,9 @@
 import type {
+  AbilityDef,
   ConsumableId,
   EquipmentSave,
   LineageDef,
   LineageId,
-  PerkDef,
   RoomDef,
   RoomModifier,
 } from '../../../catalog';
@@ -34,7 +34,7 @@ export interface IBattleState {
   readonly armor: EquipmentSave | null;
   readonly consumables: Readonly<Record<ConsumableId, number>>;
   readonly totals: Readonly<BattleTotals>;
-  readonly armed: PerkDef | null;
+  readonly armed: AbilityDef | null;
   readonly enemiesLeft: number;
   readonly totalEnemies: number;
   readonly killsLeft: number;
@@ -42,10 +42,10 @@ export interface IBattleState {
 
   actionFor(cell: CellIndex): Action;
   wouldKill(cell: CellIndex): boolean;
-  perkReady(p: PerkDef): PerkReadiness;
-  perkTargetOk(p: PerkDef, cell: CellIndex): boolean;
-  perkCostOf(p: PerkDef): number;
-  cooldownOf(p: PerkDef): number;
+  perkReady(p: AbilityDef): PerkReadiness;
+  perkTargetOk(p: AbilityDef, cell: CellIndex): boolean;
+  perkCostOf(p: AbilityDef): number;
+  cooldownOf(p: AbilityDef): number;
   strikeDamage(atk: number): number;
   healPotionAmount(): number;
   artifactDamage(): number;

@@ -1,10 +1,11 @@
 import type Phaser from 'phaser';
 
-import { FULL_BAR, type PerkDef } from '../../domain/catalog';
+import { type AbilityDef, FULL_BAR } from '../../domain/catalog';
 import type { IBattleState } from '../../domain/combat';
-import { perkDesc, perkName } from '../../i18n';
+import { abilityDesc, abilityName } from '../../i18n';
 import type { Animations } from '../animations/Animations';
 import { outlineTexture, PlateButton, tipOnHover, txt } from '../components';
+import { abilityIcon } from '../textures';
 import { GAME_W, HEX } from '../theme';
 import type { IHudActions } from './interfaces/IHudActions';
 import type { PerkButton } from './interfaces/PerkButton';
@@ -24,7 +25,7 @@ export class PerkBar {
 
   private readonly buttons: PerkButton[] = [];
 
-  constructor(scene: Phaser.Scene, list: readonly PerkDef[], actions: IHudActions) {
+  constructor(scene: Phaser.Scene, list: readonly AbilityDef[], actions: IHudActions) {
     if (!list.length) return;
     // до пяти кнопок — один ряд, дальше две полки (у пироманта и берсерка их десять)
     const rows = list.length > PerkBar.PER_ROW ? 2 : 1;
@@ -44,11 +45,11 @@ export class PerkBar {
       const btn = new PlateButton(scene, x, y, {
         w,
         h,
-        icon: perk.icon,
+        icon: abilityIcon(perk.id),
         iconSize: 46,
         radius: 22,
         style: 'raised',
-        onClick: () => actions.command({ type: 'use-perk', perkId: perk.id }),
+        onClick: () => actions.command({ type: 'use-perk', abilityId: perk.id }),
       });
       btn.iconImg?.setY(-12);
       const frame = scene.add
@@ -56,7 +57,7 @@ export class PerkBar {
         .setVisible(false);
       btn.pulseC.add(frame);
       // название под значком: в ряду из десяти кнопок иначе не понять, что где
-      const name = txt(scene, 0, h / 2 - 15, perkName(perk), nameSize, {
+      const name = txt(scene, 0, h / 2 - 15, abilityName(perk), nameSize, {
         weight: 800,
         strokeThickness: 3,
         color: HEX.textDim,
@@ -73,7 +74,7 @@ export class PerkBar {
         color: HEX.gold,
       });
       btn.pulseC.add([costPlate, costText]);
-      tipOnHover(scene, btn, () => `${perkName(perk)}\n${perkDesc(perk)}`);
+      tipOnHover(scene, btn, () => `${abilityName(perk)}\n${abilityDesc(perk)}`);
       this.buttons.push({ perk, btn, costText, costPlate, name, frame });
     });
   }
@@ -108,7 +109,7 @@ export class PerkBar {
   }
 
   /** Короткая метка цены: она живёт в маленьком бейдже, поэтому не больше двух знаков. */
-  private static costLabel(battle: IBattleState, perk: PerkDef): string {
+  private static costLabel(battle: IBattleState, perk: AbilityDef): string {
     const cd = battle.cooldownOf(perk);
     if (cd > 0) return `⏱${cd}`;
     if (perk.goldCost !== undefined) return '$';

@@ -1,5 +1,5 @@
 /** Самопроверка: Фазз-тест поля боя: сотни случайных комнат без падений и нарушений правил. */
-import type { PerkDef } from '../../src/domain/catalog';
+import type { AbilityDef } from '../../src/domain/catalog';
 import { LINEAGE_ORDER } from '../../src/domain/catalog/heroes';
 import { ROOMS } from '../../src/domain/catalog/levels';
 import { pickAutoUse } from '../../src/domain/combat/auto-use/autoUse';
@@ -19,7 +19,7 @@ const dist = (a: number, b: number): number =>
 const usePerkAtRandom = (
   battle: RoomBattle,
   rng: Rng,
-  abilities: readonly PerkDef[],
+  abilities: readonly AbilityDef[],
   cells: CellIndex[],
 ): void => {
   const perk = rng.pick(abilities);
@@ -39,7 +39,7 @@ const randomMove = (
   battle: RoomBattle,
   rng: Rng,
   cells: CellIndex[],
-  abilities: readonly PerkDef[],
+  abilities: readonly AbilityDef[],
 ): void => {
   const r = rng.next();
   if (r < 0.08) battle.useItem(rng.pick(['potion_heal', 'potion_regen', 'artifact'] as const));
@@ -87,7 +87,7 @@ const checkConnected = (battle: RoomBattle, where: string): void => {
 const playRoom = (
   battle: RoomBattle,
   rng: Rng,
-  abilities: readonly PerkDef[],
+  abilities: readonly AbilityDef[],
   where: string,
 ): void => {
   for (let step = 0; step < 400 && !battle.over; step++) {

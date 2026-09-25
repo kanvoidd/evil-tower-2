@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Пробивающий выстрел» (sniper_start). */
+/** «Пробивающий выстрел». */
 export class RailShot implements IAbility<'rail_shot'> {
-  readonly id = 'rail_shot';
+  readonly behavior = 'rail_shot';
 
   apply(ctx: AbilityContext, use: AbilityUse<'rail_shot'>): void {
-    const { perk: p, cell, enemies } = use;
+    const { ability: p, cell, enemies } = use;
     const line = enemies.filter(
       (c) => Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell),
     );

@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 
-import { CLASS_ORDER, CLASSES, ENEMIES, ITEMS, PERKS, type VfxStyle } from '../../domain/catalog';
-import { CARD_H, CARD_W, LINEAGE_COLOR, PATH_COLOR, STAT_COLOR } from '../theme';
+import { CLASS_ORDER, CLASSES, ENEMIES, ITEMS, PERKS } from '../../domain/catalog';
+import type { FxStyle } from '../../domain/combat';
+import { ABILITY_FX, CARD_H, CARD_W, LINEAGE_COLOR, PATH_COLOR, STAT_COLOR } from '../theme';
+import { abilityIcon } from './artKeys';
 import { armorArt, type Draw, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt } from './PixelArt';
 import { SVG_ICONS } from './SvgIcons';
 
@@ -105,7 +107,7 @@ const polyStar = (
 };
 
 /** Цвета семейств эффектов — те же, что у вспышек способностей в бою. */
-export const VFX_COLOR: Record<VfxStyle, string> = {
+export const VFX_COLOR: Record<FxStyle, string> = {
   bolt: '#9ad8ff',
   chain: '#7fc4ff',
   arcane: '#b287ff',
@@ -183,7 +185,7 @@ const arcArrow = (
  * Значок семейства эффектов: у каждой способности свой узнаваемый рисунок, чтобы десять
  * кнопок в нижней панели не сливались в один ряд одинаковых звёздочек.
  */
-const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
+const VFX_GLYPH: Record<FxStyle, (ctx: Ctx) => void> = {
   // молния — ломаная стрела вниз
   bolt: (ctx) => {
     path(
@@ -641,11 +643,13 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
     bakeSprite(scene, it.icon, draw);
   }
 
-  // --- иконки перков: рисунок по семейству эффекта, рамка по линейке, золото у легендарных
+  // --- значки способностей: рисунок по семейству вспышки, рамка по линейке класса, который её
+  // выдаёт, золото у легендарных
   for (const p of PERKS) {
     const col = LINEAGE_COLOR[CLASSES[p.classId].lineage];
-    const fxCol = VFX_COLOR[p.vfx] ?? col;
-    canvasTex(scene, p.icon, 128, 128, (ctx) => {
+    const fx = ABILITY_FX[p.ability.id];
+    const fxCol = VFX_COLOR[fx] ?? col;
+    canvasTex(scene, abilityIcon(p.ability.id), 128, 128, (ctx) => {
       const legend = p.slot === 'legend';
       const g = ctx.createRadialGradient(64, 54, 6, 64, 64, 62);
       g.addColorStop(0, legend ? '#5a3f9a' : '#343948');
@@ -666,7 +670,7 @@ export async function bakeTextures(scene: Phaser.Scene): Promise<void> {
       ctx.strokeStyle = fxCol;
       ctx.shadowColor = fxCol;
       ctx.shadowBlur = 10;
-      VFX_GLYPH[p.vfx](ctx);
+      VFX_GLYPH[fx](ctx);
       ctx.restore();
     });
   }

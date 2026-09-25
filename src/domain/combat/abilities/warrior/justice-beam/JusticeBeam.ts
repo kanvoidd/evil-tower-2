@@ -4,12 +4,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Луч правосудия» (paladin_p2). */
+/** «Луч правосудия». */
 export class JusticeBeam implements IAbility<'justice_beam'> {
-  readonly id = 'justice_beam';
+  readonly behavior = 'justice_beam';
 
   apply(ctx: AbilityContext, use: AbilityUse<'justice_beam'>): void {
-    const { perk: p, cell, enemies } = use;
+    const { ability: p, cell, enemies } = use;
     const col = Grid.col(cell);
     const hit = enemies.filter((c) => Grid.col(c) === col);
     ctx.emit({ type: 'fx', cells: hit, style: 'beam' });

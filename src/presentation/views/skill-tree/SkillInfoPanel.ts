@@ -5,10 +5,10 @@ import type { SkillTreeQuery } from '../../../application/skill-tree/SkillTreeQu
 import { FULL_BAR } from '../../../domain/catalog';
 import { classTraits, type NodeState, type TreeNode } from '../../../domain/progression';
 import {
+  abilityDesc,
+  abilityName,
   describeTrait,
   fmt,
-  perkDesc,
-  perkName,
   t,
   talentDesc,
   talentName,
@@ -23,6 +23,7 @@ import {
   shadowTexture,
   txt,
 } from '../../components';
+import { abilityIcon } from '../../textures';
 import { GAME_H, GAME_W, HEX } from '../../theme';
 import type { NodeInfo } from './interfaces/NodeInfo';
 import type { PanelAction } from './interfaces/PanelAction';
@@ -202,7 +203,7 @@ export class SkillInfoPanel {
       };
     }
     if (n.kind === 'perk') {
-      const perk = q.perk(n)!;
+      const perk = q.perk(n)!.ability;
       const slotKey = (
         {
           start: 'skill.perk_start',
@@ -211,10 +212,10 @@ export class SkillInfoPanel {
           legend: 'skill.perk_legend',
         } as const
       )[n.slot!];
-      const lines: string[] = [perkDesc(perk)];
-      if (perk.passive) lines.push(t('skill.passive'));
-      else if (perk.basic) lines.push(t('skill.basic'));
-      if (perk.cost !== undefined && !perk.passive) {
+      const lines: string[] = [abilityDesc(perk)];
+      if (perk.kind === 'passive') lines.push(t('skill.passive'));
+      else if (perk.kind === 'basic') lines.push(t('skill.basic'));
+      if (perk.cost !== undefined && perk.kind !== 'passive') {
         lines.push(
           perk.cost === FULL_BAR
             ? t('skill.cost_full')
@@ -222,7 +223,12 @@ export class SkillInfoPanel {
         );
       }
       if (perk.once) lines.push(t('skill.once'));
-      return { title: perkName(perk), sub: t(slotKey), desc: lines.join('\n'), tex: perk.icon };
+      return {
+        title: abilityName(perk),
+        sub: t(slotKey),
+        desc: lines.join('\n'),
+        tex: abilityIcon(perk.id),
+      };
     }
     if (n.kind === 'class') {
       return {

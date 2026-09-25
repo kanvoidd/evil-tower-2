@@ -1,40 +1,15 @@
+import type { AbilityDef } from '../../abilities/interfaces/AbilityDef';
 import type { ClassId } from '../../classes/interfaces/ClassId';
-import type { AbilityId } from './AbilityId';
-import type { AbilityParams } from './AbilityParams';
-import type { GoldCost } from './GoldCost';
 import type { PerkSlot } from './PerkSlot';
-import type { PerkTarget } from './PerkTarget';
-import type { VfxStyle } from './VfxStyle';
 
 /**
- * Способность с известным id: её числа (`params`) — того вида, который нужен этой способности.
- * Название и описание — в словарях по id перка (`perk.<id>.name`, `perk.<id>.desc`).
+ * Перк — выдача способности классу на месте в дереве прокачки. Реестр выводит перки из
+ * `ClassDef.perks`; что способность делает и сколько стоит — в ней самой (`AbilityDef`).
  */
-export interface PerkDefOf<A extends AbilityId> {
-  id: string;
-  classId: ClassId;
-  slot: PerkSlot;
-  ability: A;
-  /** Числа способности: урон, длительности, доли (см. `AbilityParams`). */
-  params: Readonly<AbilityParams[A]>;
-  /** Ключ текстуры иконки (perk_<id>); если файла нет — рисуется заглушка. */
-  icon: string;
-  /** Пассивный перк (🔁): кнопки нет, работает сам. */
-  passive?: boolean;
-  /** Базовое действие линейки: кнопки нет, применяется нажатием по карте; переходит ко всем эволюциям. */
-  basic?: boolean;
-  /** Цена в ресурсе класса. FULL_BAR — вся шкала. */
-  cost?: number;
-  /** Цена золотом из кошеля комнаты (для «Подкупа») — вместо ресурса. */
-  goldCost?: GoldCost;
-  target?: PerkTarget;
-  /** Один раз за комнату. */
-  once?: boolean;
-  /** Перезарядка в ходах после применения. */
-  cooldown?: number;
-  /** Как способность выглядит на поле. */
-  vfx: VfxStyle;
+export interface PerkDef {
+  /** `<класс>_<слот>` — место в дереве; узел дерева — `perk/<класс>/<слот>`. */
+  readonly id: string;
+  readonly classId: ClassId;
+  readonly slot: PerkSlot;
+  readonly ability: AbilityDef;
 }
-
-/** Любая способность: объединение по `ability`, поэтому `switch (p.ability)` знает вид `p.params`. */
-export type PerkDef = { [A in AbilityId]: PerkDefOf<A> }[AbilityId];

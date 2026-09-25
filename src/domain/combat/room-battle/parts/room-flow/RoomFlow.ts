@@ -1,4 +1,4 @@
-import { type PerkDef } from '../../../../catalog';
+import { type AbilityDef } from '../../../../catalog';
 import { type CellIndex } from '../../../../shared';
 import { CombatBalance, ConsumableBalance, DeckBalance } from '../../../balance';
 import { Grid } from '../../../engine/grid/Grid';
@@ -109,7 +109,7 @@ export class RoomFlow extends RoomPart {
    */
   private hasMove(): boolean {
     for (const c of Grid.CELLS) if (this.parts.actions.actionFor(c).kind !== 'none') return true;
-    const usable = (p: PerkDef): boolean => {
+    const usable = (p: AbilityDef): boolean => {
       if (p.target === 'self' || p.target === undefined) return true;
       for (const c of Grid.CELLS) if (this.parts.perks.perkTargetOk(p, c)) return true;
       return false;

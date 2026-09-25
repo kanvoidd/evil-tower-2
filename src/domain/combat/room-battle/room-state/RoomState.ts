@@ -1,15 +1,16 @@
 import {
-  type AbilityId,
-  type AbilityParams,
+  ABILITY_LIST,
+  type AbilityBehaviorId,
+  type AbilityBehaviorParams,
+  type AbilityDef,
   type ConsumableId,
   type EnemyDef,
   type EquipmentSave,
   type LineageDef,
-  PERK_BY_ABILITY,
-  type PerkDef,
   type RoomDef,
   type RoomModifier,
   type RoomPlan,
+  withBehavior,
 } from '../../../catalog';
 import { CellIndex, Gold, type Rng, Souls } from '../../../shared';
 import type { Card } from '../../card/Card';
@@ -67,7 +68,7 @@ export class RoomState {
 
   // ---- способности
   /** Заряженная способность: следующее касание поля применит её. */
-  armed: PerkDef | null = null;
+  armed: AbilityDef | null = null;
   /** Первая из двух карт для «Перестановки». */
   swapFirst: CellIndex | null = null;
   /** Уже потраченные «один раз за комнату» способности. */
@@ -176,10 +177,11 @@ export class RoomState {
   }
 
   /**
-   * Числа способности по её id — для пассивок и состояний, которые действуют дольше хода
-   * («Безумие», клеймо, призраки). У каждой способности одна запись в каталоге.
+   * Числа механики — для пассивок и состояний, которые действуют дольше хода («Безумие»,
+   * клеймо, призраки): из способности самого героя, которую исполняет эта механика. Если такой
+   * у героя нет (проверки собирают бой без неё), — из первой такой способности каталога.
    */
-  paramsOf<A extends AbilityId>(ability: A): Readonly<AbilityParams[A]> {
-    return PERK_BY_ABILITY[ability].params;
+  paramsOf<B extends AbilityBehaviorId>(b: B): Readonly<AbilityBehaviorParams[B]> {
+    return (withBehavior(this.stats.allAbilities, b) ?? withBehavior(ABILITY_LIST, b)!).params;
   }
 }

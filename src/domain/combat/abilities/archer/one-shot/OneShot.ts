@@ -3,12 +3,12 @@ import type { AbilityContext } from '../../interfaces/AbilityContext';
 import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
-/** «Один выстрел — один труп» (sniper_legend). */
+/** «Один выстрел — один труп». */
 export class OneShot implements IAbility<'one_shot'> {
-  readonly id = 'one_shot';
+  readonly behavior = 'one_shot';
 
   apply(ctx: AbilityContext, use: AbilityUse<'one_shot'>): void {
-    const { perk: p, cell, enemies } = use;
+    const { ability: p, cell, enemies } = use;
     ctx.emit({ type: 'fx', cells: [cell], style: 'beam' });
     const line = [
       cell,
