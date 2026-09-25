@@ -1,267 +1,192 @@
-import {
-  type AbilityId,
-  type AbilityParams,
-  type ConsumableId,
-  ELITE,
-  type EnemyDef,
-  type EquipmentSave,
-  FULL_BAR,
-  ITEM_BY_ID,
-  type LineageDef,
-  PERK_BY_ABILITY,
-  PERK_BY_ID,
-  type PerkDef,
-  type RoomDef,
-  type RoomModifier,
-  type RoomPlan,
+import type {
+  ConsumableId,
+  EquipmentSave,
+  LineageDef,
+  LineageId,
+  PerkDef,
+  RoomDef,
+  RoomModifier,
+  RoomPlan,
 } from '../../catalog';
-import { CellIndex, Gold, Percent, type Rng, Souls } from '../../shared';
-import { ABILITIES, type AbilityContext, type IAbility } from '../abilities';
-import { CombatBalance, ConsumableBalance, LootBalance } from '../balance';
+import type { CellIndex } from '../../shared';
 import type { Card } from '../card/Card';
-import type { CardFactory } from '../card/card-factory/CardFactory';
-import { CritPolicy } from '../crit';
-import type { HeroView } from '../damage';
-import { Grid } from '../engine/grid/Grid';
-import type { IEngine } from '../engine/interfaces/IEngine';
-import type { GameEvent, Loot } from '../events';
+import type { GameEvent } from '../events';
 import type { PlayerStats } from '../player';
 import type { Action } from './interfaces/Action';
 import type { BattleCarryStats } from './interfaces/BattleCarryStats';
 import type { BattleDeps } from './interfaces/BattleDeps';
 import type { BattleInit } from './interfaces/BattleInit';
-import type { BattleSnapshot } from './interfaces/BattleSnapshot';
 import type { BattleTotals } from './interfaces/BattleTotals';
 import type { IBattleSession } from './interfaces/IBattleSession';
 import type { PerkReadiness } from './interfaces/PerkReadiness';
 import type { TurnResult } from './interfaces/TurnResult';
+import { DamageCalc } from './parts/damage-calc/DamageCalc';
+import { EnemyDeath } from './parts/enemy-death/EnemyDeath';
+import { EnemyHits } from './parts/enemy-hits/EnemyHits';
+import { EnemyTurn } from './parts/enemy-turn/EnemyTurn';
+import { HeroUpkeep } from './parts/hero-upkeep/HeroUpkeep';
+import type { RoomParts } from './parts/interfaces/RoomParts';
+import { PerkActions } from './parts/perk-actions/PerkActions';
+import { PlayerActions } from './parts/player-actions/PlayerActions';
+import { Rewind } from './parts/rewind/Rewind';
+import { RoomFlow } from './parts/room-flow/RoomFlow';
+import { RoomLoot } from './parts/room-loot/RoomLoot';
+import { StatusEffects } from './parts/status-effects/StatusEffects';
+import { RoomState } from './room-state/RoomState';
 
 /**
- * Правила боя в одной комнате: ход героя, способности, ответ врагов, статусы, добыча.
- *
- * Правила не трогают поле напрямую — карты ставит, снимает и двигает движок (`IEngine`),
- * а создаёт фабрика карт (`CardFactory`). Оба приходят готовыми от `RoomBattleFactory`.
- * Наружу правила открывают только действия игрока и чтение состояния (`IBattleSession`).
+ * Бой в одной комнате — фасад для сцены, тестов и симулятора (`IBattleSession`). Правил здесь
+ * нет: они в частях боя (`parts/`) над общим состоянием комнаты (`RoomState`) — урон, удары
+ * и гибель врагов, статусы, действия героя, добыча, ответ врагов, способности, течение хода,
+ * откат. Поле и колода — у движка (`IEngine`), карты создаёт фабрика — обоих даёт
+ * `RoomBattleFactory`.
  */
 export class RoomBattle implements IBattleSession {
-  /** Потолок «защиты после способности»: ослабляет удар, но никогда не гасит его целиком. */
-  private static readonly PERK_GUARD_CAP = 0.5;
-  /** Ниже этой цены талант-скидка способность не удешевляет. */
-  private static readonly PERK_COST_FLOOR = 2;
-
-  stats: PlayerStats;
-  hp: number;
-  shield = 0;
-  res: number;
-  boost = 0;
-  over: null | 'win' | 'lose' = null;
-  revived = false;
-  /** Талант «Возвращение» уже поднял героя в этом забеге. */
-  selfRevived = false;
-  weapon: EquipmentSave | null;
-  armor: EquipmentSave | null;
-  consumables: Record<ConsumableId, number>;
-  totals: BattleTotals = {
-    gold: Gold.of(0),
-    souls: Souls.of(0),
-    kills: 0,
-    damageTaken: 0,
-    turns: 0,
-  };
-  readonly room: RoomDef;
-  readonly plan: RoomPlan;
-  readonly mod: RoomModifier;
-  readonly lineageDef: LineageDef;
-
-  /** Заряженная способность: следующее касание поля применит её. */
-  armed: PerkDef | null = null;
-  /** Первая из двух карт для «Перестановки». */
-  private swapFirst: CellIndex | null = null;
-  /** Уже потраченные «один раз за комнату» способности. */
-  private usedOnce = new Set<string>();
-
-  // ---- временные состояния героя
-  private noCounter = 0; // дымовая завеса
-  private madness = 0; // безумие берсерка
-  private reaping = 0; // жнец
-  private killStreak = 0; // резня
-  private killsRoom = 0;
-  private defTurn = 0; // «+защита на ход» после убийства
-  private perkGuard = 0; // «после перка следующий удар слабее»
-  private counterReady = false; // контрудар после парирования
-  private cheatLeft = 0;
-  private reviveLeft = 0;
-  private roomGuardLeft = 0;
-  private freePerkLeft = 0;
-  /** Урон сейчас наносит способность — работают таланты-синергии. */
-  private inAbility = false;
-  /** Цена применяемой способности (для возврата ресурса за убийство). */
-  private abilityCost = 0;
-  private playerPoison = 0;
-  private playerPoisonDmg = 0;
-  private warCry = 0; // накопленное ослабление атаки врагов
-  private snapshot: BattleSnapshot | null = null;
-
-  private readonly rng: Rng;
-  /** Герой глазами правил урона и защиты — живые значения этого боя. */
-  private readonly hero: HeroView;
-  /** Бой глазами способностей. */
-  private readonly abilities: AbilityContext;
-  /** Кто решает крит: правила героя на этот бой (у некоторых — своё состояние). */
-  private readonly crit: CritPolicy;
-  private readonly engine: IEngine;
-  private readonly factory: CardFactory;
-  private readonly enemies: Readonly<Record<string, EnemyDef>>;
+  /** Только для проверок и отладки: состояние комнаты и части боя. */
+  readonly state: RoomState;
+  readonly parts: RoomParts;
 
   constructor(init: BattleInit, deps: BattleDeps) {
-    this.room = init.room;
-    this.rng = init.rng;
-    this.engine = deps.engine;
-    this.factory = deps.cards;
-    this.enemies = deps.enemies;
-    this.lineageDef = deps.lineage;
-    this.stats = { ...init.stats };
-    this.weapon = init.weapon ? { ...init.weapon } : null;
-    this.armor = init.armor ? { ...init.armor } : null;
-    this.consumables = { ...init.consumables };
-    this.plan = deps.plan;
-    this.mod = this.plan.mod;
-    const carry = init.carry;
-    this.hp = carry
-      ? Math.max(1, Math.min(this.stats.maxHp, Math.round(carry.hp)))
-      : this.stats.maxHp;
-    // в забег герой выходит отдохнувшим — с полной шкалой; дальше её несёт из комнаты в комнату
-    this.res = carry ? Math.max(0, Math.min(this.stats.resMax, carry.res)) : this.stats.resMax;
-    this.revived = carry?.revived ?? false;
-    this.selfRevived = carry?.selfRevived ?? false;
-    this.cheatLeft = this.stats.cheatDeath;
-    this.reviveLeft = this.stats.reviveHp > 0 && !this.selfRevived ? 1 : 0;
-    this.roomGuardLeft = this.stats.roomGuard > 0 ? 1 : 0;
-    this.crit = CritPolicy.forHero(this.stats);
-    this.freePerkLeft = this.stats.freePerk ? 1 : 0;
-    const deck = this.factory.createDeck();
-    this.engine.deck.push(...deck.cards);
-    this.quota = deck.quota;
-    this.bossLeft = deck.boss;
-    this.hero = this.heroView();
-    this.abilities = this.abilityContext();
+    const state = new RoomState(init, deps);
+    const parts = {} as { -readonly [K in keyof RoomParts]: RoomParts[K] };
+    parts.damage = new DamageCalc(state, parts);
+    parts.upkeep = new HeroUpkeep(state, parts);
+    parts.hits = new EnemyHits(state, parts);
+    parts.deaths = new EnemyDeath(state, parts);
+    parts.status = new StatusEffects(state, parts);
+    parts.actions = new PlayerActions(state, parts);
+    parts.loot = new RoomLoot(state, parts);
+    parts.enemyTurn = new EnemyTurn(state, parts);
+    parts.perks = new PerkActions(state, parts);
+    parts.flow = new RoomFlow(state, parts);
+    parts.rewind = new Rewind(state, parts);
+    this.state = state;
+    this.parts = parts;
   }
 
-  private abilityContext(): AbilityContext {
-    const battle = this;
-    return {
-      get cards() {
-        return battle.cards;
-      },
-      get playerCell() {
-        return battle.playerCell;
-      },
-      engine: this.engine,
-      enemies: this.enemies,
-      get stats() {
-        return battle.stats;
-      },
-      rng: this.rng,
-      get swapFirst() {
-        return battle.swapFirst;
-      },
-      enemyCells: () => battle.enemyCells(),
-      behindCell: (from, to) => battle.behindCell(from, to),
-      nearestEnemy: (from) => battle.nearestEnemy(from),
-      emit: (ev) => battle.emit(ev),
-      spellDamage: (ratio) => battle.spellDamage(ratio),
-      rollCrit: (enemy, ranged) => battle.rollCrit(enemy, ranged),
-      rollCritMul: () => battle.rollCritMul(),
-      pp: (value, cap) => battle.pp(value, cap),
-      strike: (cell, raw, crit) => battle.strike(cell, raw, crit),
-      damageEnemy: (cell, dmg, crit, direct) => battle.damageEnemy(cell, dmg, crit, direct),
-      killEnemy: (cell) => battle.killEnemy(cell),
-      splashNeighbors: (cell, dmg) => battle.splashNeighbors(cell, dmg),
-      stepInto: (cell) => battle.stepInto(cell),
-      take: (cell) => battle.take(cell),
-      applyStun: (cell, turns) => battle.applyStun(cell, turns),
-      applyBurn: (cell, dmg, turns) => battle.applyBurn(cell, dmg, turns),
-      reapMarked: (cell, share) => battle.reapMarked(cell, share),
-      get warCry() {
-        return battle.warCry;
-      },
-      set warCry(v) {
-        battle.warCry = v;
-      },
-      get madness() {
-        return battle.madness;
-      },
-      set madness(v) {
-        battle.madness = v;
-      },
-      get reaping() {
-        return battle.reaping;
-      },
-      set reaping(v) {
-        battle.reaping = v;
-      },
-      get noCounter() {
-        return battle.noCounter;
-      },
-      set noCounter(v) {
-        battle.noCounter = v;
-      },
-      restoreSnapshot: () => battle.restoreSnapshot(),
-    };
+  // ------------------------------------------------------------------ состояние
+
+  get room(): RoomDef {
+    return this.state.room;
   }
 
-  private heroView(): HeroView {
-    const battle = this;
-    return {
-      get hp() {
-        return battle.hp;
-      },
-      get maxHp() {
-        return battle.stats.maxHp;
-      },
-      get res() {
-        return battle.res;
-      },
-      get resMax() {
-        return battle.stats.resMax;
-      },
-      get killsRoom() {
-        return battle.killsRoom;
-      },
-      get killStreak() {
-        return battle.killStreak;
-      },
-      get gold() {
-        return battle.totals.gold;
-      },
-      get killDefenseActive() {
-        return battle.defTurn > 0;
-      },
-      defense: () => battle.defenseNow(),
-    };
+  get plan(): RoomPlan {
+    return this.state.plan;
   }
 
-  get lineage() {
-    return this.stats.lineage;
+  get mod(): RoomModifier {
+    return this.state.mod;
+  }
+
+  get lineageDef(): LineageDef {
+    return this.state.lineageDef;
+  }
+
+  get lineage(): LineageId {
+    return this.state.stats.lineage;
+  }
+
+  get stats(): PlayerStats {
+    return this.state.stats;
+  }
+
+  set stats(v: PlayerStats) {
+    this.state.stats = v;
+  }
+
+  get hp(): number {
+    return this.state.hp;
+  }
+
+  set hp(v: number) {
+    this.state.hp = v;
+  }
+
+  get shield(): number {
+    return this.state.shield;
+  }
+
+  set shield(v: number) {
+    this.state.shield = v;
+  }
+
+  get res(): number {
+    return this.state.res;
+  }
+
+  set res(v: number) {
+    this.state.res = v;
+  }
+
+  get boost(): number {
+    return this.state.boost;
+  }
+
+  set boost(v: number) {
+    this.state.boost = v;
+  }
+
+  get over(): null | 'win' | 'lose' {
+    return this.state.over;
+  }
+
+  set over(v: null | 'win' | 'lose') {
+    this.state.over = v;
+  }
+
+  get revived(): boolean {
+    return this.state.revived;
+  }
+
+  set revived(v: boolean) {
+    this.state.revived = v;
+  }
+
+  get selfRevived(): boolean {
+    return this.state.selfRevived;
+  }
+
+  get weapon(): EquipmentSave | null {
+    return this.state.weapon;
+  }
+
+  get armor(): EquipmentSave | null {
+    return this.state.armor;
+  }
+
+  get consumables(): Record<ConsumableId, number> {
+    return this.state.consumables;
+  }
+
+  set consumables(v: Record<ConsumableId, number>) {
+    this.state.consumables = v;
+  }
+
+  get totals(): BattleTotals {
+    return this.state.totals;
+  }
+
+  get armed(): PerkDef | null {
+    return this.state.armed;
   }
 
   /** Поле боя — у движка; правила его только читают, а меняют командами движка. */
   get cards(): Array<Card | null> {
-    return this.engine.board;
+    return this.state.cards;
   }
 
   /** Колода — тоже у движка. */
   get pool(): Card[] {
-    return this.engine.deck;
+    return this.state.pool;
   }
 
   get playerCell(): CellIndex {
-    return this.engine.playerCell;
+    return this.state.playerCell;
   }
 
   /** Только для тестов и отладки: поставить героя на клетку без хода. */
   set playerCell(cell: CellIndex) {
-    this.engine.playerCell = cell;
+    this.state.playerCell = cell;
   }
 
   /** Враги, которые прямо сейчас на поле. Колода бесконечна, поэтому «сколько осталось» — не про неё. */
@@ -271,1387 +196,102 @@ export class RoomBattle implements IBattleSession {
 
   /** Сколько врагов нужно уложить, чтобы открылся выход с этажа. */
   get totalEnemies(): number {
-    return this.quota;
+    return this.state.quota;
   }
 
   /** Сколько ещё нужно уложить. */
   get killsLeft(): number {
-    return Math.max(0, this.quota - this.killsRoom) + (this.bossLeft ? 1 : 0);
+    return Math.max(0, this.state.quota - this.state.killsRoom) + (this.state.bossLeft ? 1 : 0);
   }
 
   /** Карта перехода уже подмешана в колоду. */
   get exitOpen(): boolean {
-    return this.exitQueued;
+    return this.state.exitQueued;
   }
 
-  private emit(ev: GameEvent): void {
-    this.engine.emit(ev);
-  }
-
-  // ------------------------------------------------------------------ подготовка
-
-  /** Сколько врагов нужно уложить в этой комнате. */
-  private quota = 0;
-  /** Босс комнаты ещё жив — без него выход не откроется. */
-  private bossLeft = false;
-  /** Карта перехода уже подмешана. */
-  private exitQueued = false;
-
-  /**
-   * Норма выполнена — в ближайшие карты колоды замешивается переход на следующий этаж.
-   * Комната закончится только когда герой сам шагнёт на эту карту.
-   */
-  private queueExit(): void {
-    if (this.exitQueued || this.bossLeft || this.killsRoom < this.quota) return;
-    this.exitQueued = true;
-    const deck = this.engine.deck;
-    deck.splice(this.rng.int(0, Math.min(3, deck.length)), 0, this.factory.createExit());
-  }
+  // ------------------------------------------------------------------ действия игрока
 
   start(): GameEvent[] {
-    this.shield = Math.round(
-      this.stats.maxHp * (this.stats.startShieldPct + (this.mod.shieldPct ?? 0)),
-    );
-    for (const i of Grid.CELLS) {
-      if (i === this.playerCell) continue;
-      const card = this.engine.draw();
-      if (!card) break;
-      this.engine.put(i, card);
-    }
-    if (this.shield > 0) this.emit({ type: 'shield', now: this.shield });
-    return this.engine.flush();
-  }
-
-  // ------------------------------------------------------------------ действия
-
-  /** Что произойдёт при нажатии на клетку (для подсветки и подсказок). */
-  actionFor(cell: CellIndex): Action {
-    if (this.over || cell === this.playerCell) return { kind: 'none', reason: 'invalid' };
-    if (this.armed)
-      return this.perkTargetOk(this.armed, cell)
-        ? { kind: 'perk' }
-        : { kind: 'none', reason: 'range' };
-    const card = this.cards[cell];
-    const d = Grid.dist(this.playerCell, cell);
-    // По пустой соседней клетке теперь тоже можно ходить — это полноценный ход.
-    if (!card) return d === 1 ? { kind: 'move' } : { kind: 'none', reason: 'invalid' };
-    if (d === 1) {
-      if (card.kind !== 'enemy') return { kind: 'move' };
-      // Маг вообще не бьёт рукой: только способностью по кнопке.
-      return this.stats.attack.melee ? { kind: 'melee' } : { kind: 'none', reason: 'melee' };
-    }
-    if (card.kind !== 'enemy') return { kind: 'none', reason: 'range' };
-    const s = this.stats;
-    if (!s.attack.reaches(this.playerCell, cell, s.passives))
-      return { kind: 'none', reason: 'range' };
-    if (this.res < s.rangedCost) return { kind: 'none', reason: 'resource' };
-    return { kind: 'ranged' };
-  }
-
-  /** Базовое действие линейки — удар в спину: всегда крит, а под «Жнецом» ещё и казнь. */
-  private get backstabs(): boolean {
-    return this.stats.attack.guaranteedCrit;
-  }
-
-  /** Убьёт ли ближайшая атака врага — для подсветки карточки. */
-  wouldKill(cell: CellIndex): boolean {
-    const card = this.cards[cell];
-    if (!card || card.kind !== 'enemy') return false;
-    const a = this.actionFor(cell);
-    if (a.kind !== 'melee' && a.kind !== 'ranged') return false;
-    let dmg = this.currentDamage();
-    if (a.kind === 'ranged') {
-      dmg = Math.round(dmg * this.stats.attack.mul);
-      if (this.backstabs || this.reaping > 0)
-        dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
-    }
-    dmg = this.contextDamage(dmg, card);
-    return this.afterArmor(dmg, card) >= card.hp;
+    return this.parts.flow.start();
   }
 
   tap(cell: CellIndex): TurnResult {
-    if (this.armed) return this.aimPerk(cell);
-    const action = this.actionFor(cell);
-    if (action.kind === 'none')
-      return { ok: false, reason: action.reason, events: this.engine.flush() };
-    this.beginTurn();
-    if (action.kind === 'melee') this.melee(cell);
-    else if (action.kind === 'ranged') this.basicRanged(cell);
-    else this.collect(cell);
-    this.finishTurn();
-    return { ok: true, events: this.engine.flush() };
+    return this.parts.flow.tap(cell);
   }
 
-  // ------------------------------------------------------------------ способности
-
-  /** Доступна ли способность прямо сейчас. */
-  perkReady(p: PerkDef): PerkReadiness {
-    if (this.over) return { ok: false, reason: 'once' };
-    if (p.once && this.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
-    if (this.cooldownOf(p) > 0) return { ok: false, reason: 'cooldown' };
-    if (p.goldCost !== undefined) {
-      return this.totals.gold >= p.goldCost.min ? { ok: true } : { ok: false, reason: 'gold' };
-    }
-    // Уже действующее усиление нельзя навесить второй раз — кнопка гаснет,
-    // иначе ход и ресурс уходят впустую.
-    if (this.buffActive(p)) return { ok: false, reason: 'active' };
-    const cost = this.perkCostOf(p);
-    if (cost > this.res) return { ok: false, reason: 'resource' };
-    return { ok: true };
-  }
-
-  /** Сколько ходов осталось до готовности способности. */
-  cooldownOf(p: PerkDef): number {
-    return this.cooldowns[p.id] ?? 0;
-  }
-
-  /** Держится ли уже эффект этой способности. */
-  private buffActive(p: PerkDef): boolean {
-    return (ABILITIES[p.ability] as IAbility | undefined)?.active?.(this.abilities) ?? false;
-  }
-
-  /** Цена способности с учётом «первый перк в комнате бесплатен» и «Жнеца». */
-  perkCostOf(p: PerkDef): number {
-    if (this.freePerkLeft > 0) return 0;
-    if (p.cost === FULL_BAR) return this.stats.resMax;
-    // скидка не опускает цену ниже двух: иначе молния за единицу окупалась бы
-    // восстановлением каждого хода, и мана перестала бы что-то значить
-    const base = p.cost ?? 0;
-    return Math.max(Math.min(base, RoomBattle.PERK_COST_FLOOR), base - this.stats.perkCostDown);
-  }
-
-  /**
-   * Нажатие на кнопку способности: несфокусированные применяются сразу,
-   * остальные «заряжаются» — следующее касание поля наводит их на цель.
-   */
   usePerk(id: string): TurnResult {
-    const p = PERK_BY_ID[id];
-    if (!p || p.passive || p.basic)
-      return { ok: false, reason: 'invalid', events: this.engine.flush() };
-    if (!this.stats.perks.includes(id))
-      return { ok: false, reason: 'invalid', events: this.engine.flush() };
-    if (this.armed?.id === id) {
-      this.armed = null;
-      this.swapFirst = null;
-      this.emit({ type: 'armed', id: null });
-      return { ok: true, events: this.engine.flush() };
-    }
-    const ready = this.perkReady(p);
-    if (!ready.ok) return { ok: false, reason: ready.reason, events: this.engine.flush() };
-    if (p.target === 'self') {
-      this.beginTurn();
-      this.payPerk(p);
-      this.emit({ type: 'perk', id: p.id, ability: p.ability });
-      this.runAbility(p, Grid.NO_CELL);
-      this.afterPerk();
-      this.finishTurn();
-      return { ok: true, events: this.engine.flush() };
-    }
-    this.armed = p;
-    this.swapFirst = null;
-    this.emit({ type: 'armed', id: p.id });
-    return { ok: true, events: this.engine.flush() };
+    return this.parts.perks.usePerk(id);
   }
 
   cancelPerk(): GameEvent[] {
-    if (!this.armed) return [];
-    this.armed = null;
-    this.swapFirst = null;
-    return [{ type: 'armed', id: null }];
+    return this.parts.perks.cancelPerk();
   }
-
-  /** Подходит ли клетка под заряженную способность. */
-  perkTargetOk(p: PerkDef, cell: CellIndex): boolean {
-    if (cell === this.playerCell) return false;
-    const card = this.cards[cell];
-    if (!card) return false;
-    // Клеймо, приговор и кукла вуду держатся до смерти цели — вешать их второй раз
-    // значит выбросить ход, поэтому такая цель просто не подсвечивается.
-    if (card.kind === 'exit' || card.kind === 'ghost') return false;
-    if ((ABILITIES[p.ability] as IAbility | undefined)?.targetable?.(card) === false) return false;
-    switch (p.target) {
-      case 'enemy':
-        return card.kind === 'enemy';
-      case 'adjacent':
-        return card.kind === 'enemy' && Grid.neighbors(this.playerCell).includes(cell);
-      // выстрел идёт ЧЕРЕЗ карту: вплотную из него не бьют
-      case 'line':
-        return (
-          card.kind === 'enemy' &&
-          Grid.sameLine(this.playerCell, cell) &&
-          Grid.dist(this.playerCell, cell) > 1
-        );
-      case 'card':
-        return card.kind !== 'enemy';
-      case 'any_card':
-        return true;
-      case 'two':
-        return true;
-      default:
-        return false;
-    }
-  }
-
-  private aimPerk(cell: CellIndex): TurnResult {
-    const p = this.armed!;
-    if (!this.perkTargetOk(p, cell))
-      return { ok: false, reason: 'range', events: this.engine.flush() };
-    if (p.target === 'two' && this.swapFirst === null) {
-      this.swapFirst = cell;
-      this.emit({ type: 'armed', id: p.id });
-      return { ok: true, events: this.engine.flush() };
-    }
-    this.armed = null;
-    this.beginTurn();
-    this.payPerk(p);
-    this.emit({ type: 'perk', id: p.id, ability: p.ability });
-    this.runAbility(p, cell);
-    this.swapFirst = null;
-    this.afterPerk();
-    this.finishTurn();
-    return { ok: true, events: this.engine.flush() };
-  }
-
-  private payPerk(p: PerkDef): void {
-    if (p.once) this.usedOnce.add(p.id);
-    // +1: перезарядка тикает в конце того же хода, поэтому «кулдаун 1» = пропуск одного хода
-    if (p.cooldown) this.cooldowns[p.id] = p.cooldown + 1;
-    if (p.goldCost !== undefined) {
-      const pay = Math.max(p.goldCost.min, Math.round(this.totals.gold * p.goldCost.share));
-      this.totals.gold = Gold.of(Math.max(0, this.totals.gold - pay));
-      this.emit({ type: 'spend', amount: pay });
-      return;
-    }
-    const cost = this.perkCostOf(p);
-    if (this.freePerkLeft > 0) this.freePerkLeft--;
-    if (cost > 0) this.spend(cost);
-  }
-
-  /**
-   * «Кровавая пелена», «Дымовая шашка», «Абсолютная защита»: после способности следующий удар слабее.
-   * Не больше чем вдвое: раньше «Абсолютная защита» гасила удар целиком, и маг, который кастует
-   * каждый ход, становился неуязвим.
-   */
-  private afterPerk(): void {
-    const s = this.stats;
-    if (s.perkDef > 0)
-      this.perkGuard = Math.max(this.perkGuard, Math.min(RoomBattle.PERK_GUARD_CAP, s.perkDef));
-    if (s.abilityShield > 0 && !this.over) {
-      this.shield += Math.max(1, Math.round(s.maxHp * s.abilityShield));
-      this.emit({ type: 'shield', now: this.shield });
-    }
-  }
-
-  // ------------------------------------------------------------------ расчёт урона
-
-  /** Урон героя с учётом временных надбавок (резня, ярость, золото, удар щитом). */
-  currentDamage(): number {
-    const acc = { base: this.stats.damage, mul: 1 };
-    for (const m of this.stats.damageMods) m.apply(acc, this.hero);
-    return Math.max(1, Math.round(acc.base * acc.mul));
-  }
-
-  /** Надбавки, зависящие от цели. */
-  private contextDamage(dmg: number, enemy: Card): number {
-    const def = this.enemies[enemy.defId];
-    let mul = 1;
-    for (const m of this.stats.targetMods) mul += m.bonus(enemy, def);
-    return Math.max(1, Math.round(dmg * mul));
-  }
-
-  /** Броня врага и «Приговор». */
-  private afterArmor(dmg: number, enemy: Card): number {
-    const def = this.enemies[enemy.defId];
-    const armor = Math.max(0, Math.round((def?.armor ?? 0) * (1 - this.stats.pierce)));
-    let out = Math.max(1, dmg - armor);
-    if (enemy.vuln > 0) out = Math.round(out * (1 + enemy.vuln));
-    return Math.max(1, out);
-  }
-
-  private rollCritMul(): number {
-    const { critMin, critMax } = this.stats;
-    return critMin + this.rng.next() * (critMax - critMin);
-  }
-
-  /**
-   * Числа способности по её id — для пассивок и состояний, которые действуют дольше хода
-   * («Безумие», клеймо, призраки). У каждой способности одна запись в каталоге.
-   */
-  private paramsOf<A extends AbilityId>(ability: A): Readonly<AbilityParams[A]> {
-    return PERK_BY_ABILITY[ability].params;
-  }
-
-  /** Множитель силы способностей. */
-  private pp(value: number, cap = Infinity): number {
-    return Math.min(cap, value * this.stats.perkPower);
-  }
-
-  /** Урон способности: доля от базового урона героя, усиленная талантом «перк класса сильнее». */
-  private spellDamage(ratio: number): number {
-    return Math.max(1, Math.round(this.currentDamage() * ratio * this.stats.perkPower));
-  }
-
-  private rollCrit(enemy: Card | null, ranged: boolean): boolean {
-    return this.crit.decide({ enemy, ranged, inAbility: this.inAbility, rng: this.rng });
-  }
-
-  // ------------------------------------------------------------------ удары героя
-
-  private spend(cost: number): void {
-    this.res = Math.max(0, this.res - cost);
-    this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
-  }
-
-  private gain(amount: number): void {
-    if (amount <= 0) return;
-    this.res = Math.min(this.stats.resMax, this.res + amount);
-    this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
-  }
-
-  private wearWeapon(): void {
-    const w = this.weapon;
-    if (!w || w.durability <= 0) return;
-    w.durability--;
-    if (w.durability <= 0) {
-      this.stats.damage = Math.max(1, this.stats.damage - ITEM_BY_ID[w.id].damage);
-      this.emit({ type: 'break', slot: 'weapon', id: w.id });
-    }
-  }
-
-  /**
-   * Доспех снашивается не больше одного раза за ход. Ход врагов бьёт сразу всеми соседями,
-   * и снос за каждый удар сжигал бы броню втрое быстрее, чем на неё зарабатывают.
-   */
-  private wearArmor(): void {
-    const a = this.armor;
-    if (!a || a.durability <= 0 || this.armorWorn) return;
-    this.armorWorn = true;
-    a.durability--;
-    if (a.durability <= 0) {
-      const it = ITEM_BY_ID[a.id];
-      this.stats.defense = Math.max(0, this.stats.defense - it.defense);
-      this.stats.maxHp = Math.max(1, this.stats.maxHp - it.health);
-      this.hp = Math.min(this.hp, this.stats.maxHp);
-      this.emit({ type: 'break', slot: 'armor', id: a.id });
-    }
-  }
-
-  private melee(cell: CellIndex): void {
-    const enemy = this.cards[cell]!;
-    const s = this.stats;
-    let dmg = this.currentDamage();
-    if (this.counterReady) {
-      dmg = Math.round(dmg * (1 + s.counterBuff));
-      this.counterReady = false;
-    }
-    const crit = this.rollCrit(enemy, false);
-    if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-    this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
-    this.wearWeapon();
-    let killed = this.strike(cell, dmg, crit);
-    // «Двойной удар» / «Град стрел»
-    if (!killed && s.doubleStrike > 0 && this.rng.chance(Percent.toRatio(s.doubleStrike))) {
-      killed = this.strike(cell, dmg, this.rollCrit(this.cards[cell], false));
-    }
-    if (this.madness > 0)
-      this.splashNeighbors(cell, Math.round(dmg * this.paramsOf('madness').splash));
-    // ответный удар больше не привязан к конкретной цели — его даёт общий ход врагов
-    if (killed) this.stepInto(cell);
-  }
-
-  /** Базовое действие линейки: выстрел через карту, удар молнии, удар в спину. */
-  private basicRanged(cell: CellIndex): void {
-    const s = this.stats;
-    const free = this.reaping > 0 && this.backstabs;
-    if (!free) this.spend(s.rangedCost);
-    const forceCrit = this.backstabs || this.reaping > 0;
-    let dmg = Math.round(this.currentDamage() * s.attack.mul);
-    const crit = forceCrit || this.rollCrit(this.cards[cell], true);
-    if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-    this.emit({
-      type: 'attack',
-      from: this.playerCell,
-      to: cell,
-      ranged: true,
-      by: 'player',
-      style: s.attack.style,
-    });
-    this.wearWeapon();
-    // «Жнец»: удар в спину убивает любого не-босса
-    const target = this.cards[cell];
-    if (this.reaping > 0 && this.backstabs && target && !this.enemies[target.defId]?.boss) {
-      this.reaping++;
-      this.killEnemy(cell);
-      return;
-    }
-    const killed = this.strike(cell, dmg, crit);
-    this.splitStrike(cell, dmg);
-    if (crit && s.passives.has('hunter_thrill')) this.gain(s.rangedCost);
-    if (killed) {
-      if (s.passives.has('cold_blood')) this.gain(this.paramsOf('cold_blood').resource);
-      if (s.passives.has('shadow_dance')) this.shadowChain();
-    } else if (target && s.passives.has('lethal_dose')) {
-      const boss = !!this.enemies[target.defId]?.boss;
-      const dose = this.paramsOf('lethal_dose');
-      const share = boss ? dose.bossPoison : dose.poison;
-      this.applyPoison(cell, Math.max(1, Math.round(target.maxHp * share)), dose.turns);
-    }
-  }
-
-  /** «Раздвоение молнии» / «Двойной наконечник»: основной удар с шансом цепляет ещё одного врага. */
-  private splitStrike(cell: CellIndex, dmg: number): void {
-    const { splitChance, splitDmg } = this.stats;
-    if (splitChance <= 0 || splitDmg <= 0) return;
-    if (!this.rng.chance(splitChance)) return;
-    const extra = this.enemyCells().filter((c) => c !== cell);
-    if (!extra.length) return;
-    const c2 = extra[this.rng.int(0, extra.length - 1)];
-    this.emit({ type: 'fx', cells: [c2], style: 'chain' });
-    this.damageEnemy(c2, Math.max(1, Math.round(dmg * splitDmg)), false);
-  }
-
-  /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
-  private shadowChain(): void {
-    const { extraStrikes } = this.paramsOf('shadow_dance');
-    for (let i = 0; i < extraStrikes; i++) {
-      let best = Grid.NO_CELL;
-      let bestHp = Infinity;
-      this.cards.forEach((c, idx) => {
-        if (c?.kind === 'enemy' && c.hp < bestHp) {
-          bestHp = c.hp;
-          best = CellIndex.of(idx);
-        }
-      });
-      if (best < 0) return;
-      let dmg = Math.round(this.currentDamage() * this.stats.attack.mul);
-      dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-      this.emit({
-        type: 'attack',
-        from: this.playerCell,
-        to: best,
-        ranged: true,
-        by: 'player',
-        style: 'backstab',
-      });
-      if (!this.strike(best, dmg, true)) return;
-    }
-  }
-
-  /** Один удар по врагу. Возвращает true, если враг погиб. */
-  private strike(cell: CellIndex, raw: number, crit: boolean): boolean {
-    const enemy = this.cards[cell];
-    if (!enemy || enemy.kind !== 'enemy') return false;
-    if (this.acting) this.engaged.add(enemy.uid);
-    const def = this.enemies[enemy.defId];
-    if (def?.evade && this.rng.chance(Percent.toRatio(def.evade))) {
-      this.emit({ type: 'miss', cell, kind: 'evade' });
-      return false;
-    }
-    enemy.hits++;
-    const dmg = this.afterArmor(this.contextDamage(raw, enemy), enemy);
-    if (this.inAbility) this.abilityRiders(cell, enemy, dmg);
-    return this.damageEnemy(cell, dmg, crit, true);
-  }
-
-  /**
-   * Таланты-синергии: они меняют уже полученные способности, поэтому «Живое пламя» пироманта
-   * заставляет поджигать даже цепную молнию, взятую ещё магом.
-   */
-  private abilityRiders(cell: CellIndex, enemy: Card, dmg: number): void {
-    const s = this.stats;
-    if (s.abilityIgnite > 0 && this.rng.chance(Percent.toRatio(s.abilityIgnite))) {
-      this.applyBurn(cell, Math.max(1, Math.round(dmg * 0.3)), 3);
-    }
-    if (s.abilityStun > 0 && this.rng.chance(Percent.toRatio(s.abilityStun))) this.applyStun(cell);
-    if (s.abilityPoison > 0) {
-      this.applyPoison(cell, Math.max(1, Math.round(enemy.maxHp * s.abilityPoison)), 3);
-    }
-    if (s.abilityVuln > 0 && enemy.vuln < s.abilityVuln) {
-      enemy.vuln = s.abilityVuln;
-      this.emit({ type: 'status', cell, uid: enemy.uid, kind: 'vuln', turns: 99 });
-    }
-    if (s.abilityLifesteal > 0)
-      this.heal(Math.max(1, Math.round(dmg * s.abilityLifesteal)), 'lifesteal');
-    if (s.abilitySplash > 0) {
-      const share = Math.max(1, Math.round(dmg * s.abilitySplash));
-      for (const n of Grid.neighbors(cell)) {
-        if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, share, false);
-      }
-    }
-  }
-
-  /**
-   * Наносит врагу уже посчитанный урон. `direct` — удар героя (работают вампиризм, шипы врага, ярость врага).
-   * Возвращает true, если враг погиб.
-   */
-  private damageEnemy(cell: CellIndex, dmg: number, crit: boolean, direct = false): boolean {
-    const enemy = this.cards[cell];
-    if (!enemy || enemy.kind !== 'enemy' || this.over) return false;
-    if (this.acting) this.engaged.add(enemy.uid);
-    const s = this.stats;
-    const def = this.enemies[enemy.defId];
-    const dealt = Math.min(dmg, enemy.hp);
-    enemy.hp -= dmg;
-    const executed =
-      enemy.hp > 0 && s.execute > 0 && !def?.boss && enemy.hp / enemy.maxHp <= s.execute;
-    this.emit({
-      type: 'hit',
-      cell,
-      amount: dealt,
-      crit,
-      target: 'enemy',
-      hp: Math.max(0, executed ? 0 : enemy.hp),
-    });
-
-    if (direct) {
-      if (s.lifesteal > 0 && dealt > 0)
-        this.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal');
-      if (s.ignite > 0) this.applyBurn(cell, this.spellDamage(s.ignite), 3);
-      if (def?.enrage && enemy.hp > 0) {
-        enemy.atk = Math.round(enemy.atk + enemy.baseAtk * def.enrage);
-      }
-      if (def?.thorns && enemy.hp > 0)
-        this.hurtPlayer(Math.max(1, Math.round(dealt * def.thorns)), cell, true);
-    }
-    // кукла вуду: половина урона расходится по остальным врагам
-    if (enemy.link && dealt > 0) {
-      const share = Math.max(1, Math.round(dealt * this.paramsOf('voodoo').share));
-      for (const i of Grid.CELLS) {
-        const other = this.cards[i];
-        if (i !== cell && other?.kind === 'enemy') this.damageEnemy(i, share, false);
-      }
-    }
-    if (enemy.hp <= 0 || executed) {
-      this.killEnemy(cell);
-      return true;
-    }
-    return false;
-  }
-
-  private killEnemy(cell: CellIndex): void {
-    const enemy = this.cards[cell];
-    if (!enemy || enemy.kind !== 'enemy') return;
-    const def = this.enemies[enemy.defId];
-    const s = this.stats;
-    this.emit({ type: 'kill', cell, uid: enemy.uid });
-    this.engine.clear(cell);
-    // «Призрачные слуги»: на месте заражённого встаёт призрак (не больше двух на поле)
-    if (enemy.haunt && this.ghostCount() < this.paramsOf('ghosts').maxGhosts) this.raiseGhost(cell);
-    else this.engine.vacate(cell);
-    this.totals.kills++;
-    this.killsRoom++;
-    if (this.enemies[enemy.defId]?.boss) this.bossLeft = false;
-    this.queueExit();
-    this.killStreak++;
-    const eliteMul = enemy.elite ? ELITE.value : 1;
-    const gold = Math.round(
-      def.gold * eliteMul * (this.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05),
-    );
-    const souls = Math.round(def.souls * eliteMul * (this.mod.soulMul ?? 1) * (1 + s.soulBonus));
-    if (gold > 0) {
-      this.totals.gold = Gold.of(this.totals.gold + gold);
-      this.emit({ type: 'gold', cell, amount: gold });
-    }
-    if (souls > 0) {
-      this.totals.souls = Souls.of(this.totals.souls + souls);
-      this.emit({ type: 'souls', cell, amount: souls });
-    }
-    if (s.killHp > 0 && this.totals.kills % 10 === 0) {
-      const add = Math.round(this.stats.maxHp * Math.min(0.3, s.killHp));
-      this.stats.maxHp += add;
-      this.hp += add;
-      this.emit({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
-    }
-    if (s.bossHp > 0 && def.boss) {
-      const add = Math.round(this.stats.maxHp * s.bossHp);
-      this.stats.maxHp += add;
-      this.hp += add;
-      this.emit({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
-    }
-    this.defTurn = Math.max(this.defTurn, 1);
-    // «Взрыв плоти»: любое убийство разлетается осколками по соседям
-    if (s.killBlast > 0) {
-      const blast = Math.max(1, Math.round(enemy.maxHp * s.killBlast));
-      this.splashNeighbors(cell, blast);
-    }
-    // «Отработанный удар»: убийство способностью возвращает часть её цены
-    if (this.inAbility && s.abilityRefund > 0 && this.abilityCost > 0) {
-      this.gain(Math.max(1, Math.round(this.abilityCost * s.abilityRefund)));
-    }
-    if (s.passives.has('chain_mark') && enemy.mark > 0) this.jumpMark(cell);
-    // взрыв трупа: взрывается тот, кого пометили; соседи, помеченные тоже, рвутся цепью
-    if (enemy.corpse) {
-      const blast = Math.max(
-        1,
-        Math.round(enemy.maxHp * this.pp(this.paramsOf('corpse_blast').blast)),
-      );
-      this.emit({ type: 'fx', cells: [cell], style: 'corpse' });
-      this.splashNeighbors(cell, blast);
-    }
-    if (enemy.burn > 0) {
-      for (const n of Grid.neighbors(cell)) {
-        if (this.cards[n]?.kind === 'enemy') this.applyBurn(n, enemy.burnDmg, 2);
-      }
-    }
-  }
-
-  private ghostCount(): number {
-    return this.cards.filter((c) => c?.kind === 'ghost').length;
-  }
-
-  /** Призрак встаёт на месте заражённого врага и три хода бьёт соседей. */
-  private raiseGhost(cell: CellIndex): void {
-    this.engine.put(cell, this.factory.createGhost(this.paramsOf('ghosts').turns));
-  }
-
-  /** Каждый призрак бьёт одного врага крестом (вверх, вниз, влево, вправо), потом тает на ход. */
-  private tickGhosts(): void {
-    for (const i of Grid.CELLS) {
-      if (this.over) break;
-      const g = this.cards[i];
-      if (g?.kind !== 'ghost') continue;
-      const targets = Grid.neighbors(i).filter((n) => this.cards[n]?.kind === 'enemy');
-      if (targets.length) {
-        // добиваем слабейшего — так призрак чаще превращает удар в убийство
-        const t = targets.reduce((a, b) => (this.cards[a]!.hp <= this.cards[b]!.hp ? a : b));
-        this.emit({ type: 'fx', cells: [t], style: 'ghost', from: i });
-        this.damageEnemy(t, this.spellDamage(this.paramsOf('ghosts').dmg), false);
-      }
-      g.ttl = (g.ttl ?? 1) - 1;
-      if (g.ttl <= 0 && this.cards[i] === g) {
-        this.engine.discard(i);
-        this.engine.vacate(i);
-      } else {
-        this.emit({ type: 'status', cell: i, uid: g.uid, kind: 'haunt', turns: g.ttl });
-      }
-    }
-  }
-
-  private splashNeighbors(cell: CellIndex, dmg: number): void {
-    for (const n of Grid.neighbors(cell)) {
-      if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, dmg, false);
-    }
-  }
-
-  private stepInto(cell: CellIndex): void {
-    if (this.cards[cell]) return;
-    this.engine.moveHero(cell);
-  }
-
-  // ------------------------------------------------------------------ статусы
-
-  private applyBurn(cell: CellIndex, dmg: number, turns: number): void {
-    const c = this.cards[cell];
-    if (!c || c.kind !== 'enemy' || dmg <= 0) return;
-    c.ignite(dmg, turns);
-    this.emit({ type: 'status', cell, uid: c.uid, kind: 'burn', turns: c.burn });
-  }
-
-  private applyPoison(cell: CellIndex, dmg: number, turns: number): void {
-    const c = this.cards[cell];
-    if (!c || c.kind !== 'enemy' || dmg <= 0) return;
-    c.poisonWith(dmg, turns);
-    this.emit({ type: 'status', cell, uid: c.uid, kind: 'poison', turns: c.poison });
-  }
-
-  private applyStun(cell: CellIndex, turns = 1): void {
-    const c = this.cards[cell];
-    if (!c || c.kind !== 'enemy') return;
-    c.stunFor(turns);
-    this.emit({ type: 'status', cell, uid: c.uid, kind: 'stun', turns: c.stun });
-  }
-
-  private jumpMark(from: CellIndex): void {
-    let best = Grid.NO_CELL;
-    let bestD = Infinity;
-    for (const i of Grid.CELLS) {
-      const c = this.cards[i];
-      if (c?.kind !== 'enemy' || c.mark > 0) continue;
-      const d = Grid.dist(from, i);
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    }
-    if (best < 0) return;
-    const c = this.cards[best]!;
-    c.mark = this.paramsOf('chain_mark').turns;
-    this.emit({ type: 'status', cell: best, uid: c.uid, kind: 'mark', turns: c.mark });
-  }
-
-  private enemyCells(): CellIndex[] {
-    const out: CellIndex[] = [];
-    this.cards.forEach((c, i) => c?.kind === 'enemy' && out.push(CellIndex.of(i)));
-    return out;
-  }
-
-  // ------------------------------------------------------------------ ответный удар врага
-
-  private defenseNow(): number {
-    let def = this.stats.defense;
-    for (const m of this.stats.defenseMods) def = m.apply(def, this.hero);
-    return def;
-  }
-
-  /** Урон по герою от удара силой atk (для подсказок и автоприменения). */
-  strikeDamage(atk: number): number {
-    return this.reduce(atk, null);
-  }
-
-  private reduce(atk: number, enemy: Card | null): number {
-    const hit = { enemy, def: enemy ? this.enemies[enemy.defId] : null, hero: this.hero };
-    let dmg = atk;
-    for (const r of this.stats.reductions) dmg = r.apply(dmg, hit);
-    const armor = this.defenseNow();
-    const floor = Math.ceil(dmg * (1 - CombatBalance.maxDefenseReduction));
-    return Math.max(1, Math.round(Math.max(floor, dmg - armor)));
-  }
-
-  private heal(amount: number, source: 'perk' | 'lifesteal'): void {
-    if (amount <= 0 || this.hp >= this.stats.maxHp) return;
-    const h = Math.min(amount, this.stats.maxHp - this.hp);
-    this.hp += h;
-    this.emit({ type: 'heal', amount: h, hp: this.hp, source });
-  }
-
-  /** Враги, с которыми герой вступил в бой за этот ход (uid). */
-  private engaged = new Set<number>();
-  /**
-   * Герой мог ударить врага, но шагнул на клетку без врага. Тогда бьют те, до кого
-   * новая клетка достаёт: он сам подставился. Ушёл туда, где рядом никого, — ход бесплатный.
-   */
-  private exposed = false;
-  /** Идёт действие героя: урон по врагу в это время — вступление в бой. */
-  private acting = false;
-
-  private beginTurn(): void {
-    this.takeSnapshot();
-    this.engine.resetVacated();
-    this.engaged.clear();
-    this.exposed = false;
-    this.acting = true;
-  }
-
-  /**
-   * Ответ врагов. Бьёт не всё, что стоит рядом, а только:
-   * — те, с кем герой вступил в бой за этот ход (ударил, накрыл способностью) и кто ещё рядом;
-   * — те, кто достаёт до новой клетки, если герой мог ударить, но шагнул на не-врага.
-   * Кто стоит в стороне и не тронут, ждёт своей очереди. Уйти от врага туда, где рядом
-   * никого нет, можно безнаказанно, а вот копить ману шагами мимо чужих лап — нет.
-   */
-  private retaliate(): void {
-    if (this.over || this.madness > 0 || this.noCounter > 0) {
-      this.engaged.clear();
-      this.exposed = false;
-      return;
-    }
-    const cells: CellIndex[] = [];
-    for (const c of Grid.CELLS) {
-      const card = this.cards[c];
-      if (card?.kind !== 'enemy') continue;
-      if (!Grid.neighbors(this.playerCell).includes(c)) continue;
-      if (this.exposed || this.engaged.has(card.uid)) cells.push(c);
-    }
-    for (const c of cells) {
-      if (this.over) break;
-      this.enemyStrike(c);
-    }
-    this.engaged.clear();
-    this.exposed = false;
-  }
-
-  private enemyStrike(cell: CellIndex): void {
-    const enemy = this.cards[cell];
-    if (!enemy || enemy.kind !== 'enemy' || this.over) return;
-    const s = this.stats;
-    if (enemy.stun > 0) {
-      enemy.stun--;
-      this.emit({ type: 'miss', cell, kind: 'stun' });
-      return;
-    }
-    if (this.noCounter > 0) {
-      this.emit({ type: 'miss', cell, kind: 'smoke' });
-      return;
-    }
-    const atk = Math.max(1, Math.round(enemy.atk * (1 - this.warCry)));
-    this.emit({ type: 'attack', from: cell, to: this.playerCell, ranged: false, by: 'enemy' });
-    enemy.swings++;
-    if (this.rng.chance(Percent.toRatio(s.dodge))) {
-      this.emit({ type: 'miss', cell: this.playerCell, kind: 'dodge' });
-      // «Подмена»: уворот превращается в удар из-за спины
-      if (s.passives.has('substitution')) {
-        let dmg = Math.round(this.currentDamage());
-        dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'backstab',
-        });
-        this.strike(cell, dmg, true);
-      }
-      return;
-    }
-    if (this.rng.chance(Percent.toRatio(s.parry))) {
-      this.emit({ type: 'miss', cell: this.playerCell, kind: 'parry' });
-      if (s.counterBuff > 0) this.counterReady = true;
-      this.strike(cell, Math.round(this.currentDamage() * 0.5), false);
-      return;
-    }
-    if (s.block > 0 && this.rng.chance(Percent.toRatio(s.block))) {
-      this.emit({ type: 'miss', cell: this.playerCell, kind: 'block' });
-      return;
-    }
-    this.hurtPlayer(this.reduce(atk, enemy), cell, false);
-    const def = this.enemies[enemy.defId];
-    if (def?.venom && !this.over) {
-      const dot = Math.max(1, Math.round(atk * def.venom * (1 - s.dotDr)));
-      this.playerPoisonDmg = Math.max(this.playerPoisonDmg, dot);
-      this.playerPoison = Math.max(this.playerPoison, 2);
-    }
-  }
-
-  /** Урон по герою: щит, «первый удар комнаты», мана-щит, обман смерти, шипы. */
-  private hurtPlayer(raw: number, fromCell: CellIndex, reflected: boolean): void {
-    if (this.over) return;
-    const s = this.stats;
-    let dmg = raw;
-    if (this.roomGuardLeft > 0) {
-      this.roomGuardLeft--;
-      dmg = Math.round(dmg * (1 - Math.min(1, s.roomGuard)));
-    }
-    if (this.perkGuard > 0) {
-      dmg = Math.round(dmg * (1 - this.perkGuard));
-      this.perkGuard = 0;
-    }
-    if (s.manaShield > 0 && this.res > 0 && dmg > 0) {
-      const want = Math.ceil(dmg * s.manaShield);
-      const paid = Math.min(this.res, want);
-      if (paid > 0) {
-        this.res -= paid;
-        dmg -= paid;
-        this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
-      }
-    }
-    if (this.shield > 0 && dmg > 0) {
-      const abs = Math.min(this.shield, dmg);
-      this.shield -= abs;
-      dmg -= abs;
-      this.emit({ type: 'shield', now: this.shield });
-    }
-    if (dmg <= 0) {
-      this.emit({
-        type: 'hit',
-        cell: this.playerCell,
-        amount: 0,
-        crit: false,
-        target: 'player',
-        hp: this.hp,
-        absorbed: true,
-      });
-      return;
-    }
-    this.hp -= dmg;
-    this.totals.damageTaken += dmg;
-    // «Ярость» берсерка: боль превращается в выносливость
-    if (s.passives.has('rage')) {
-      const rage = this.paramsOf('rage');
-      this.gain(Math.floor(dmg / rage.hpPerResource) * rage.resource);
-    }
-    this.emit({
-      type: 'hit',
-      cell: this.playerCell,
-      amount: dmg,
-      crit: false,
-      target: 'player',
-      hp: Math.max(0, this.hp),
-    });
-    this.wearArmor();
-    if (this.hp <= 0 && !this.tryCheatDeath(dmg)) {
-      this.over = 'lose';
-      this.emit({ type: 'lose' });
-      return;
-    }
-    if (!reflected && s.thorns > 0 && fromCell >= 0) {
-      this.damageEnemy(fromCell, Math.max(1, Math.round(dmg * s.thorns)), false);
-    }
-  }
-
-  /** «Несокрушимый», «Аварийный барьер», «Откупиться», «Не сдамся». */
-  private tryCheatDeath(dmg: number): boolean {
-    const s = this.stats;
-    const shock = s.passives.has('never_give_up') && !this.usedOnce.has('shock');
-    if (this.cheatLeft <= 0 && !shock) return false;
-    if (shock) this.usedOnce.add('shock');
-    else this.cheatLeft--;
-    const hpLeft = shock ? this.paramsOf('never_give_up').hpLeft : 1;
-    this.hp = hpLeft;
-    this.emit({ type: 'heal', amount: hpLeft, hp: hpLeft, source: 'perk' });
-    const price = this.lineageDef.cheatDeathPrice;
-    if (price.drainsResource) {
-      this.res = 0;
-      this.emit({ type: 'resource', now: 0, max: this.stats.resMax });
-    }
-    if (price.goldShare > 0)
-      this.totals.gold = Gold.of(Math.round(this.totals.gold * (1 - price.goldShare)));
-    if (shock) {
-      this.emit({ type: 'fx', cells: this.enemyCells(), style: 'quake' });
-      const blast = Math.max(1, dmg * this.paramsOf('never_give_up').shockMul);
-      for (const c of this.enemyCells()) this.damageEnemy(c, blast, false);
-    }
-    return true;
-  }
-
-  // ------------------------------------------------------------------ способности: реализация
-
-  /** Применяет способность, пометив урон как «от способности» — тогда работают таланты-синергии. */
-  private runAbility(p: PerkDef, cell: CellIndex): void {
-    const target = cell >= 0 ? this.cards[cell] : null;
-    if (target?.kind === 'enemy') this.engaged.add(target.uid);
-    this.inAbility = true;
-    this.abilityCost = this.perkCostOf(p);
-    const mark = this.engine.mark();
-    try {
-      this.applyAbility(p, cell);
-    } finally {
-      this.inAbility = false;
-      this.abilityCost = 0;
-    }
-    // У каждой способности есть своя вспышка. Если реализация не нарисовала ничего сама
-    // (усиления, лечение, щиты), показываем эффект перка на герое или на цели.
-    const drew = this.engine
-      .since(mark)
-      .some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
-    if (!drew)
-      this.engine.insert(mark, {
-        type: 'fx',
-        cells: [cell >= 0 ? cell : this.playerCell],
-        style: p.vfx,
-      });
-  }
-
-  /** Способность делает своё дело — реестр способностей; цель и поле — на момент применения. */
-  private applyAbility(p: PerkDef, cell: CellIndex): void {
-    const ability = ABILITIES[p.ability] as IAbility | undefined;
-    ability?.apply(this.abilities, {
-      perk: p,
-      cell,
-      target: cell >= 0 ? this.cards[cell] : null,
-      enemies: this.enemyCells(),
-    });
-  }
-
-  /** Клетка «за» целью по линии от героя. */
-  private behindCell(from: CellIndex, to: CellIndex): CellIndex {
-    const cell = Grid.behind(from, to);
-    return cell === this.playerCell ? Grid.NO_CELL : cell;
-  }
-
-  private nearestEnemy(from: CellIndex): CellIndex {
-    let best = Grid.NO_CELL;
-    let bestD = Infinity;
-    for (const c of this.enemyCells()) {
-      const d = Grid.dist(from, c);
-      if (d < bestD) {
-        bestD = d;
-        best = c;
-      }
-    }
-    return best;
-  }
-
-  /** Клеймо сработало: не-босс гибнет, босс теряет `bossHpShare` максимального здоровья. */
-  private reapMarked(cell: CellIndex, bossHpShare: number): void {
-    const e = this.cards[cell];
-    if (!e || e.kind !== 'enemy') return;
-    if (this.enemies[e.defId].boss)
-      this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * bossHpShare)), true);
-    else this.killEnemy(cell);
-  }
-
-  // ------------------------------------------------------------------ расходники
 
   useItem(id: ConsumableId): TurnResult {
-    if (this.over || this.consumables[id] <= 0) return { ok: false, events: this.engine.flush() };
-    if (id === 'potion_heal') {
-      if (this.hp >= this.stats.maxHp) return { ok: false, events: this.engine.flush() };
-      this.consumables[id]--;
-      const heal = Math.min(this.healPotionAmount(), this.stats.maxHp - this.hp);
-      this.hp += heal;
-      this.emit({ type: 'heal', amount: heal, hp: this.hp, source: 'potion' });
-      if (this.stats.healShield > 0) {
-        this.shield += Math.round(this.stats.maxHp * this.stats.healShield);
-        this.emit({ type: 'shield', now: this.shield });
-      }
-    } else if (id === 'potion_regen') {
-      if (this.res >= this.stats.resMax && this.boost > 0)
-        return { ok: false, events: this.engine.flush() };
-      this.consumables[id]--;
-      this.res = this.stats.resMax;
-      this.boost = ConsumableBalance.regenBoostTurns;
-      this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
-      this.emit({ type: 'boost', turns: this.boost });
-    } else {
-      if (!this.lineageDef.artifacts) return { ok: false, events: this.engine.flush() };
-      const targets = this.enemyCells();
-      if (!targets.length) return { ok: false, events: this.engine.flush() };
-      this.consumables[id]--;
-      this.engine.resetVacated();
-      const dmg = this.artifactDamage();
-      this.emit({ type: 'artifact', cells: targets });
-      for (const t of targets) this.damageEnemy(t, dmg, false);
-      this.engine.refill();
-    }
-    return { ok: true, events: this.engine.flush() };
+    return this.parts.loot.useItem(id);
   }
 
-  /** Зелье лечит долю максимального здоровья — иначе на десятом этаже оно бесполезно. */
+  revive(): GameEvent[] {
+    return this.parts.flow.revive();
+  }
+
+  autoRevive(): GameEvent[] | null {
+    return this.parts.flow.autoRevive();
+  }
+
+  // ------------------------------------------------------------------ вопросы к бою
+
+  actionFor(cell: CellIndex): Action {
+    return this.parts.actions.actionFor(cell);
+  }
+
+  wouldKill(cell: CellIndex): boolean {
+    return this.parts.actions.wouldKill(cell);
+  }
+
+  perkReady(p: PerkDef): PerkReadiness {
+    return this.parts.perks.perkReady(p);
+  }
+
+  perkTargetOk(p: PerkDef, cell: CellIndex): boolean {
+    return this.parts.perks.perkTargetOk(p, cell);
+  }
+
+  perkCostOf(p: PerkDef): number {
+    return this.parts.perks.perkCostOf(p);
+  }
+
+  cooldownOf(p: PerkDef): number {
+    return this.parts.perks.cooldownOf(p);
+  }
+
+  currentDamage(): number {
+    return this.parts.damage.currentDamage();
+  }
+
+  strikeDamage(atk: number): number {
+    return this.parts.damage.strikeDamage(atk);
+  }
+
   healPotionAmount(): number {
-    return Math.max(
-      1,
-      Math.round(this.stats.maxHp * ConsumableBalance.healPotionPct * (1 + this.stats.potionPct)),
-    );
+    return this.parts.loot.healPotionAmount();
   }
 
   artifactDamage(): number {
-    return Math.max(1, Math.round(this.stats.damage * 2.5 * (1 + this.stats.artifactMul)));
+    return this.parts.loot.artifactDamage();
+  }
+
+  cornered(): boolean {
+    return this.parts.flow.cornered();
+  }
+
+  resourceMax(): number {
+    return this.state.stats.resMax;
   }
 
   /** Что уходит в следующую комнату забега. */
   carryOut(): BattleCarryStats {
-    return { hp: this.hp, res: this.res, revived: this.revived, selfRevived: this.selfRevived };
-  }
-
-  revive(): GameEvent[] {
-    this.over = null;
-    this.revived = true;
-    this.hp = Math.max(1, Math.ceil(this.stats.maxHp * CombatBalance.reviveHpRatio));
-    this.emit({ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' });
-    this.breakFree();
-    return this.engine.flush();
-  }
-
-  /** Талант «Возвращение» / «Последний шанс»: раз за забег встаём сами. */
-  autoRevive(): GameEvent[] | null {
-    if (this.reviveLeft <= 0 || this.stats.reviveHp <= 0) return null;
-    this.reviveLeft--;
-    this.selfRevived = true;
-    this.over = null;
-    this.hp = Math.max(1, Math.round(this.stats.maxHp * this.stats.reviveHp));
-    this.emit({ type: 'heal', amount: this.hp, hp: this.hp, source: 'revive' });
-    this.breakFree();
-    return this.engine.flush();
-  }
-
-  /**
-   * Поднявшись после растерзания, герой получает полную шкалу: иначе он встаёт в то же
-   * окружение без единого хода, и «Растерзание» срабатывает второй раз в том же кадре.
-   */
-  private breakFree(): void {
-    if (this.hasMove()) return;
-    this.res = this.stats.resMax;
-    this.emit({ type: 'resource', now: this.res, max: this.stats.resMax });
-  }
-
-  // ------------------------------------------------------------------ подбор карт
-
-  private collect(cell: CellIndex): void {
-    // мог ударить — но пошёл мимо: если новая клетка у кого-то под рукой, тот бьёт
-    this.exposed = this.canStrike();
-    const exit = this.cards[cell]?.kind === 'exit';
-    this.engine.moveHero(cell);
-    if (exit) {
-      this.engine.clear(cell);
-      this.finishRoom();
-      return;
-    }
-    this.take(cell);
-    // «Шаг сквозь эфир»: передышка за любой шаг на клетку без врага — пустую или с добычей
-    if (this.stats.stepHeal > 0) {
-      this.heal(Math.max(1, Math.round(this.stats.maxHp * this.stats.stepHeal)), 'perk');
-    }
-  }
-
-  private take(cell: CellIndex): void {
-    const card = this.cards[cell];
-    if (!card) return;
-    this.engine.discard(cell);
-    if (card.kind === 'gold') {
-      this.totals.gold = Gold.of(this.totals.gold + card.value);
-      this.emit({ type: 'gold', cell, amount: card.value });
-    } else if (card.kind === 'chest') {
-      this.openChest(cell, card.defId === 'chest_empty');
-    } else if (
-      card.kind === 'potion_heal' ||
-      card.kind === 'potion_regen' ||
-      card.kind === 'artifact'
-    ) {
-      this.consumables[card.kind]++;
-      this.emit({ type: 'pickup', cell, item: card.kind, count: this.consumables[card.kind] });
-    }
-  }
-
-  private rollConsumable(): ConsumableId {
-    const r = this.rng.next();
-    if (this.lineageDef.artifacts)
-      return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
-    return r < 0.55 ? 'potion_heal' : 'potion_regen';
-  }
-
-  private openChest(cell: CellIndex, empty = false): void {
-    const { rng, stats: s } = this;
-    const loot: Loot[] = [];
-    // пустой сундук снаружи не отличить: открыл — а там паутина
-    if (empty) {
-      this.emit({ type: 'chest', cell, loot, empty: true });
-      return;
-    }
-    const gold = this.factory.rollGold(10, 24);
-    loot.push({ kind: 'gold', amount: gold });
-    this.totals.gold = Gold.of(this.totals.gold + gold);
-    this.emit({ type: 'gold', cell, amount: gold });
-    let chance = LootBalance.chestItemChance + s.luck * 0.02;
-    for (let i = 0; i < 2 && rng.chance(chance); i++) {
-      const item = this.rollConsumable();
-      this.consumables[item]++;
-      loot.push({ kind: item, amount: 1 });
-      this.emit({ type: 'pickup', cell, item, count: this.consumables[item] });
-      chance = LootBalance.chestBonusItemChance;
-    }
-    this.emit({ type: 'chest', cell, loot });
-  }
-
-  // ------------------------------------------------------------------ конец хода
-
-  /**
-   * Комната закончена: герой шагнул на карту перехода. Всё, что осталось на поле, остаётся
-   * на поле — в этом и выбор: уйти сейчас или рискнуть и добрать добычу, пока лезут новые враги.
-   */
-  private finishRoom(): void {
-    if (this.over) return;
-    this.over = 'win';
-    this.emit({ type: 'win' });
-  }
-
-  /** Эффекты со временем: горение, яд, клеймо, призраки, лечение врагов. */
-  private tickStatuses(): void {
-    for (const i of Grid.CELLS) {
-      if (this.over) break;
-      const c = this.cards[i];
-      if (!c || c.kind !== 'enemy') continue;
-      if (c.burn > 0 && c.burnNew) c.burnNew = false;
-      else if (c.burn > 0) {
-        c.burn--;
-        this.emit({ type: 'status', cell: i, uid: c.uid, kind: 'burn', turns: c.burn });
-        if (this.damageEnemy(i, c.burnDmg, false)) continue;
-      }
-      const alive = this.cards[i];
-      if (!alive || alive.kind !== 'enemy') continue;
-      if (alive.poison > 0) {
-        alive.poison--;
-        this.emit({ type: 'status', cell: i, uid: alive.uid, kind: 'poison', turns: alive.poison });
-        if (this.damageEnemy(i, alive.poisonDmg, false)) continue;
-      }
-      const still = this.cards[i];
-      if (!still || still.kind !== 'enemy') continue;
-      if (still.mark > 0) {
-        still.mark--;
-        this.emit({ type: 'status', cell: i, uid: still.uid, kind: 'mark', turns: still.mark });
-        if (still.mark === 0) {
-          this.reapMarked(i, this.paramsOf('death_mark').bossHpShare);
-          continue;
-        }
-      }
-      const last = this.cards[i];
-      if (last?.kind === 'enemy') {
-        const def = this.enemies[last.defId];
-        if (def?.regen && last.hp < last.maxHp) {
-          last.hp = Math.min(last.maxHp, last.hp + Math.max(1, Math.round(last.maxHp * def.regen)));
-          this.emit({ type: 'hit', cell: i, amount: 0, crit: false, target: 'enemy', hp: last.hp });
-        }
-      }
-    }
-    // призраки бьют соседей крестом и тают
-    this.tickGhosts();
-    // яд на герое
-    if (this.playerPoison > 0 && !this.over) {
-      this.playerPoison--;
-      this.hurtPlayer(this.playerPoisonDmg, Grid.NO_CELL, true);
-    }
-  }
-
-  /**
-   * Может ли герой вообще хоть что-то сделать. Считаем и способности, и расходники:
-   * зелье восстановления вернёт ману, артефакт мага разнесёт окружение.
-   */
-  private hasMove(): boolean {
-    for (const c of Grid.CELLS) if (this.actionFor(c).kind !== 'none') return true;
-    const usable = (p: PerkDef): boolean => {
-      if (p.target === 'self' || p.target === undefined) return true;
-      for (const c of Grid.CELLS) if (this.perkTargetOk(p, c)) return true;
-      return false;
-    };
-    for (const p of this.stats.abilities) if (this.perkReady(p).ok && usable(p)) return true;
-    // расходники: зелье восстановления оживит способность, артефакт расчистит поле
-    const canRefill = this.consumables.potion_regen > 0 && this.stats.abilities.some(usable);
-    if (canRefill) return true;
-    if (this.consumables.artifact > 0 && this.lineageDef.artifacts) return true;
-    return false;
-  }
-
-  /**
-   * Может ли герой прямо сейчас ударить врага: рукой, выстрелом, ударом в спину,
-   * а маг — молнией, если на неё хватает маны и она не на перезарядке.
-   */
-  private canStrike(): boolean {
-    for (const c of Grid.CELLS) {
-      if (this.cards[c]?.kind !== 'enemy') continue;
-      const k = this.actionFor(c).kind;
-      if (k === 'melee' || k === 'ranged') return true;
-    }
-    for (const p of this.stats.abilities) {
-      if (p.ability !== 'lightning' || !this.perkReady(p).ok) continue;
-      for (const c of Grid.CELLS) if (this.perkTargetOk(p, c)) return true;
-    }
-    return false;
-  }
-
-  /** Зажат ли герой: жив, бой идёт, а хода нет ни одного. */
-  cornered(): boolean {
-    return !this.over && !this.armed && !this.hasMove();
-  }
-
-  /**
-   * «Растерзание». Ходить нечем — и карты вокруг больше не ждут: бьют по очереди,
-   * пока герой не падёт. Это не тупик, а расплата за пустую шкалу в окружении.
-   */
-  private swarm(): void {
-    const order = (): CellIndex[] => {
-      const cells: CellIndex[] = [];
-      for (const c of Grid.CELLS) if (this.cards[c]?.kind === 'enemy') cells.push(c);
-      return cells.sort(
-        (a, b) => Grid.dist(a, this.playerCell) - Grid.dist(b, this.playerCell) || a - b,
-      );
-    };
-    const cells = order();
-    if (!cells.length) return;
-    this.emit({ type: 'swarm', cells });
-    for (let sweep = 0; sweep < 8 && this.hp > 0; sweep++) {
-      for (const c of order()) {
-        if (this.hp <= 0) break;
-        const card = this.cards[c];
-        if (!card || card.kind !== 'enemy') continue;
-        this.emit({
-          type: 'attack',
-          from: c,
-          to: this.playerCell,
-          ranged: Grid.dist(c, this.playerCell) > 1,
-          by: 'enemy',
-        });
-        // Обычная защита работает, но уклонений и парирований тут нет: деваться некуда.
-        const dmg = Math.max(1, this.strikeDamage(card.atk));
-        this.hp = Math.max(0, this.hp - dmg);
-        this.totals.damageTaken += dmg;
-        this.emit({
-          type: 'hit',
-          cell: this.playerCell,
-          amount: dmg,
-          crit: false,
-          target: 'player',
-          hp: this.hp,
-        });
-      }
-    }
-    this.hp = 0;
-    this.over = 'lose';
-    this.emit({ type: 'lose' });
-  }
-
-  private finishTurn(): void {
-    this.acting = false;
-    this.armorWorn = false;
-    this.retaliate();
-    if (this.over) return;
-    this.tickStatuses();
-    this.engine.refill();
-    if (this.over) return;
-    this.totals.turns++;
-    if (this.killsRoom === this.lastKills) this.killStreak = 0;
-    this.lastKills = this.killsRoom;
-    if (this.defTurn > 0) this.defTurn--;
-    if (this.noCounter > 0) this.noCounter--;
-    if (this.reaping > 0) this.reaping--;
-    if (this.madness > 0) {
-      this.madness--;
-      if (this.madness === 0) {
-        const loss = Math.max(1, Math.round(this.hp * this.paramsOf('madness').hpCost));
-        this.hp = Math.max(1, this.hp - loss);
-        this.emit({
-          type: 'hit',
-          cell: this.playerCell,
-          amount: loss,
-          crit: false,
-          target: 'player',
-          hp: this.hp,
-        });
-      }
-    }
-    for (const id of Object.keys(this.cooldowns)) {
-      if (--this.cooldowns[id] <= 0) delete this.cooldowns[id];
-    }
-    const mul = this.boost > 0 ? ConsumableBalance.regenBoostMul : 1;
-    if (this.boost > 0) this.boost--;
-    if (this.res < this.stats.resMax) this.gain(this.stats.regen * mul);
-    // Шкала уже восполнилась — только теперь решаем, что ходить нечем.
-    if (this.cornered()) this.swarm();
-  }
-
-  private lastKills = 0;
-  /** Доспех уже снашивался на этом ходу. */
-  private armorWorn = false;
-  /** Оставшиеся ходы перезарядки по id способности. */
-  private cooldowns: Record<string, number> = {};
-
-  resourceMax(): number {
-    return this.stats.resMax;
-  }
-
-  // ------------------------------------------------------------------ откат времени
-
-  private takeSnapshot(): void {
-    if (!this.stats.perks.includes('magister_p3')) return;
-    this.snapshot = {
-      engine: this.engine.capture(),
-      hp: this.hp,
-      shield: this.shield,
-      res: this.res,
-      totals: JSON.stringify(this.totals),
-      consumables: JSON.stringify(this.consumables),
-      flags: JSON.stringify([
-        this.killsRoom,
-        this.killStreak,
-        this.noCounter,
-        this.madness,
-        this.reaping,
-        this.warCry,
-      ]),
-    };
-  }
-
-  private restoreSnapshot(): void {
-    const s = this.snapshot;
-    if (!s) return;
-    this.engine.restore(s.engine);
-    this.hp = s.hp;
-    this.shield = s.shield;
-    this.res = s.res;
-    this.totals = JSON.parse(s.totals) as BattleTotals;
-    this.consumables = JSON.parse(s.consumables) as Record<ConsumableId, number>;
-    const f = JSON.parse(s.flags) as number[];
-    [this.killsRoom, this.killStreak, this.noCounter, this.madness, this.reaping, this.warCry] = f;
-    this.snapshot = null;
-    this.over = null;
+    const s = this.state;
+    return { hp: s.hp, res: s.res, revived: s.revived, selfRevived: s.selfRevived };
   }
 }

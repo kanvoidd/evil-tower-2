@@ -974,9 +974,11 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     battle.playerCell = CellIndex.of(4);
     battle.hp = 100000;
     battle.res = 100;
-    const inner = battle as unknown as { perkGuard: number; afterPerk: (e: unknown[]) => void };
-    inner.afterPerk([]);
-    ok(inner.perkGuard === 0.5, `защита после способности не выше 50% (${inner.perkGuard})`);
+    battle.parts.perks.afterPerk();
+    ok(
+      battle.state.perkGuard === 0.5,
+      `защита после способности не выше 50% (${battle.state.perkGuard})`,
+    );
   }
 
   // «Раздвоение молнии»: второй разряд по той же цели, соседи не задеты
@@ -1305,7 +1307,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     {
       const pyro = surround('pyromancer');
       ok(!pyro.cornered(), 'пиромант: готовый огненный шар — не тупик');
-      (pyro as unknown as { cooldowns: Record<string, number> }).cooldowns.pyromancer_p2 = 3;
+      pyro.state.cooldowns.pyromancer_p2 = 3;
       ok(pyro.cornered(), 'пиромант: шар на перезарядке и пустая шкала — тупик');
     }
     // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
@@ -1420,7 +1422,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     // смерть непомеченного ничего не взрывает
     const hp2 = battle.cards[2] ? battle.cards[2]!.hp : 0;
     battle.res = 100;
-    (battle as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+    battle.state.cooldowns = {};
     battle.usePerk('mage_start');
     const r = battle.tap(CellIndex.of(7));
     ok(!r.events.some((e) => e.type === 'fx' && e.style === 'corpse'), 'непомеченный умирает тихо');
@@ -1467,7 +1469,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     // ещё два хода — и призрак исчезает
     for (let i = 0; i < 2; i++) {
       battle.res = 100;
-      (battle as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+      battle.state.cooldowns = {};
       battle.usePerk('mage_start');
       battle.tap(CellIndex.of(3));
     }
