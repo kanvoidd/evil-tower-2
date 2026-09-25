@@ -1,4 +1,6 @@
 import {
+  type AbilityId,
+  type AbilityParams,
   type ConsumableId,
   ELITE,
   type EnemyDef,
@@ -7,6 +9,7 @@ import {
   isHolyTarget,
   ITEM_BY_ID,
   type LineageDef,
+  PERK_BY_ABILITY,
   PERK_BY_ID,
   type PerkDef,
   type RoomDef,
@@ -285,7 +288,7 @@ export class RoomBattle implements IBattleSession {
     if (p.once && this.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
     if (this.cooldownOf(p) > 0) return { ok: false, reason: 'cooldown' };
     if (p.goldCost !== undefined) {
-      return this.totals.gold >= 5 ? { ok: true } : { ok: false, reason: 'gold' };
+      return this.totals.gold >= p.goldCost.min ? { ok: true } : { ok: false, reason: 'gold' };
     }
     // Уже действующее усиление нельзя навесить второй раз — кнопка гаснет,
     // иначе ход и ресурс уходят впустую.
@@ -425,7 +428,7 @@ export class RoomBattle implements IBattleSession {
     // +1: перезарядка тикает в конце того же хода, поэтому «кулдаун 1» = пропуск одного хода
     if (p.cooldown) this.cooldowns[p.id] = p.cooldown + 1;
     if (p.goldCost !== undefined) {
-      const pay = Math.max(5, Math.round(this.totals.gold * p.goldCost));
+      const pay = Math.max(p.goldCost.min, Math.round(this.totals.gold * p.goldCost.share));
       this.totals.gold = Gold.of(Math.max(0, this.totals.gold - pay));
       this.emit({ type: 'spend', amount: pay });
       return;
@@ -460,7 +463,10 @@ export class RoomBattle implements IBattleSession {
     if (s.rageDmg > 0 && this.hp <= this.stats.maxHp * 0.5) mul += s.rageDmg;
     if (s.killDmg > 0) mul += Math.min(0.3, s.killDmg * this.killsRoom);
     if (s.goldDmg > 0) mul += Math.min(0.3, s.goldDmg * Math.floor(this.totals.gold / 100));
-    if (this.stats.passives.has('carnage')) mul += Math.min(0.8, 0.2 * this.killStreak);
+    if (this.stats.passives.has('carnage')) {
+      const carnage = this.paramsOf('carnage');
+      mul += Math.min(carnage.cap, carnage.perKill * this.killStreak);
+    }
     if (s.defDmg > 0) d += Math.round(this.defenseNow() * s.defDmg);
     return Math.max(1, Math.round(d * mul));
   }
@@ -488,6 +494,14 @@ export class RoomBattle implements IBattleSession {
   private rollCritMul(): number {
     const { critMin, critMax } = this.stats;
     return critMin + this.rng.next() * (critMax - critMin);
+  }
+
+  /**
+   * Числа способности по её id — для пассивок и состояний, которые действуют дольше хода
+   * («Безумие», клеймо, призраки). У каждой способности одна запись в каталоге.
+   */
+  private paramsOf<A extends AbilityId>(ability: A): Readonly<AbilityParams[A]> {
+    return PERK_BY_ABILITY[ability].params;
   }
 
   /** Множитель силы способностей. */
@@ -574,7 +588,8 @@ export class RoomBattle implements IBattleSession {
     if (!killed && s.doubleStrike > 0 && this.rng.chance(Percent.toRatio(s.doubleStrike))) {
       killed = this.strike(cell, dmg, this.rollCrit(this.cards[cell], false));
     }
-    if (this.madness > 0) this.splashNeighbors(cell, Math.round(dmg * 0.6));
+    if (this.madness > 0)
+      this.splashNeighbors(cell, Math.round(dmg * this.paramsOf('madness').splash));
     // ответный удар больше не привязан к конкретной цели — его даёт общий ход врагов
     if (killed) this.stepInto(cell);
   }
@@ -608,11 +623,13 @@ export class RoomBattle implements IBattleSession {
     this.splitStrike(cell, dmg);
     if (crit && s.passives.has('hunter_thrill')) this.gain(s.rangedCost);
     if (killed) {
-      if (s.passives.has('cold_blood')) this.gain(3);
+      if (s.passives.has('cold_blood')) this.gain(this.paramsOf('cold_blood').resource);
       if (s.passives.has('shadow_dance')) this.shadowChain();
     } else if (target && s.passives.has('lethal_dose')) {
       const boss = !!this.enemies[target.defId]?.boss;
-      this.applyPoison(cell, Math.max(1, Math.round(target.maxHp * (boss ? 0.05 : 0.1))), 3);
+      const dose = this.paramsOf('lethal_dose');
+      const share = boss ? dose.bossPoison : dose.poison;
+      this.applyPoison(cell, Math.max(1, Math.round(target.maxHp * share)), dose.turns);
     }
   }
 
@@ -630,7 +647,8 @@ export class RoomBattle implements IBattleSession {
 
   /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
   private shadowChain(): void {
-    for (let i = 0; i < 2; i++) {
+    const { extraStrikes } = this.paramsOf('shadow_dance');
+    for (let i = 0; i < extraStrikes; i++) {
       let best = Grid.NO_CELL;
       let bestHp = Infinity;
       this.cards.forEach((c, idx) => {
@@ -732,7 +750,7 @@ export class RoomBattle implements IBattleSession {
     }
     // кукла вуду: половина урона расходится по остальным врагам
     if (enemy.link && dealt > 0) {
-      const share = Math.max(1, Math.round(dealt * 0.5));
+      const share = Math.max(1, Math.round(dealt * this.paramsOf('voodoo').share));
       for (const i of Grid.CELLS) {
         const other = this.cards[i];
         if (i !== cell && other?.kind === 'enemy') this.damageEnemy(i, share, false);
@@ -753,7 +771,7 @@ export class RoomBattle implements IBattleSession {
     this.emit({ type: 'kill', cell, uid: enemy.uid });
     this.engine.clear(cell);
     // «Призрачные слуги»: на месте заражённого встаёт призрак (не больше двух на поле)
-    if (enemy.haunt && this.ghostCount() < 2) this.raiseGhost(cell);
+    if (enemy.haunt && this.ghostCount() < this.paramsOf('ghosts').maxGhosts) this.raiseGhost(cell);
     else this.engine.vacate(cell);
     this.totals.kills++;
     this.killsRoom++;
@@ -798,7 +816,10 @@ export class RoomBattle implements IBattleSession {
     if (s.passives.has('chain_mark') && enemy.mark > 0) this.jumpMark(cell);
     // взрыв трупа: взрывается тот, кого пометили; соседи, помеченные тоже, рвутся цепью
     if (enemy.corpse) {
-      const blast = Math.max(1, Math.round(enemy.maxHp * this.pp(0.5)));
+      const blast = Math.max(
+        1,
+        Math.round(enemy.maxHp * this.pp(this.paramsOf('corpse_blast').blast)),
+      );
       this.emit({ type: 'fx', cells: [cell], style: 'corpse' });
       this.splashNeighbors(cell, blast);
     }
@@ -815,7 +836,7 @@ export class RoomBattle implements IBattleSession {
 
   /** Призрак встаёт на месте заражённого врага и три хода бьёт соседей. */
   private raiseGhost(cell: CellIndex): void {
-    this.engine.put(cell, this.factory.createGhost(3));
+    this.engine.put(cell, this.factory.createGhost(this.paramsOf('ghosts').turns));
   }
 
   /** Каждый призрак бьёт одного врага крестом (вверх, вниз, влево, вправо), потом тает на ход. */
@@ -829,7 +850,7 @@ export class RoomBattle implements IBattleSession {
         // добиваем слабейшего — так призрак чаще превращает удар в убийство
         const t = targets.reduce((a, b) => (this.cards[a]!.hp <= this.cards[b]!.hp ? a : b));
         this.emit({ type: 'fx', cells: [t], style: 'ghost', from: i });
-        this.damageEnemy(t, this.spellDamage(0.6), false);
+        this.damageEnemy(t, this.spellDamage(this.paramsOf('ghosts').dmg), false);
       }
       g.ttl = (g.ttl ?? 1) - 1;
       if (g.ttl <= 0 && this.cards[i] === g) {
@@ -889,7 +910,7 @@ export class RoomBattle implements IBattleSession {
     }
     if (best < 0) return;
     const c = this.cards[best]!;
-    c.mark = 3;
+    c.mark = this.paramsOf('chain_mark').turns;
     this.emit({ type: 'status', cell: best, uid: c.uid, kind: 'mark', turns: c.mark });
   }
 
@@ -1086,7 +1107,7 @@ export class RoomBattle implements IBattleSession {
     this.hp -= dmg;
     this.totals.damageTaken += dmg;
     // «Ярость» берсерка: боль превращается в выносливость
-    if (s.passives.has('rage')) this.gain(Math.floor(dmg / 2));
+    if (s.passives.has('rage')) this.gain(Math.floor(dmg / this.paramsOf('rage').hpPerResource));
     this.emit({
       type: 'hit',
       cell: this.playerCell,
@@ -1124,7 +1145,7 @@ export class RoomBattle implements IBattleSession {
       this.totals.gold = Gold.of(Math.round(this.totals.gold * (1 - price.goldShare)));
     if (shock) {
       this.emit({ type: 'fx', cells: this.enemyCells(), style: 'quake' });
-      const blast = Math.max(1, dmg * 2);
+      const blast = Math.max(1, dmg * this.paramsOf('never_give_up').shockMul);
       for (const c of this.enemyCells()) this.damageEnemy(c, blast, false);
     }
     return true;
@@ -1166,7 +1187,7 @@ export class RoomBattle implements IBattleSession {
       // ---------------- воин
       case 'power_strike': {
         const enemy = target!;
-        let dmg = this.spellDamage(2);
+        let dmg = this.spellDamage(p.params.dmg);
         const crit = this.rollCrit(enemy, false);
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
@@ -1188,9 +1209,9 @@ export class RoomBattle implements IBattleSession {
             Grid.row(c) === Grid.row(this.playerCell) || Grid.col(c) === Grid.col(this.playerCell),
         );
         this.emit({ type: 'fx', cells: hit, style: 'quake' });
-        const dmg = this.spellDamage(0.6);
+        const dmg = this.spellDamage(p.params.dmg);
         for (const c of hit) {
-          this.applyStun(c);
+          this.applyStun(c, p.params.stun);
           this.damageEnemy(c, dmg, false);
         }
         break;
@@ -1198,12 +1219,12 @@ export class RoomBattle implements IBattleSession {
       // ---------------- рыцарь
       case 'shield_bash': {
         const behind = this.behindCell(this.playerCell, cell);
-        const dmg = this.spellDamage(0.9);
+        const dmg = this.spellDamage(p.params.dmg);
         this.emit({ type: 'fx', cells: [cell], style: 'quake' });
-        this.applyStun(cell);
+        this.applyStun(cell, p.params.stun);
         if (behind < 0) {
           // у края поля удар о стену вдвое сильнее
-          this.damageEnemy(cell, dmg * 2, false);
+          this.damageEnemy(cell, dmg * p.params.wallMul, false);
         } else {
           this.damageEnemy(cell, dmg, false);
           if (this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, dmg, false);
@@ -1212,7 +1233,7 @@ export class RoomBattle implements IBattleSession {
         break;
       }
       case 'war_cry': {
-        this.warCry = Math.min(0.75, this.warCry + this.pp(0.4, 0.75));
+        this.warCry = Math.min(p.params.cap, this.warCry + this.pp(p.params.weaken, p.params.cap));
         this.emit({ type: 'fx', cells: enemies, style: 'banner' });
         for (const c of enemies) {
           const e = this.cards[c]!;
@@ -1235,19 +1256,19 @@ export class RoomBattle implements IBattleSession {
           Grid.neighbors(this.playerCell).find((n) => !this.cards[n]) ??
           Grid.neighbors(this.playerCell)[0];
         if (free !== best) this.engine.swap(best, free);
-        this.applyStun(free, 2);
+        this.applyStun(free, p.params.stun);
         break;
       }
       // ---------------- берсерк
       case 'whirlwind': {
         const near = Grid.neighbors(this.playerCell).filter((c) => this.cards[c]?.kind === 'enemy');
         this.emit({ type: 'fx', cells: near, style: 'blades' });
-        const dmg = this.spellDamage(0.7);
+        const dmg = this.spellDamage(p.params.dmg);
         for (const c of near) this.damageEnemy(c, dmg, this.rollCrit(this.cards[c], false), true);
         break;
       }
       case 'madness': {
-        this.madness = 3;
+        this.madness = p.params.turns;
         this.emit({ type: 'fx', cells: enemies, style: 'blades' });
         break;
       }
@@ -1255,7 +1276,7 @@ export class RoomBattle implements IBattleSession {
       case 'holy_wrath': {
         const enemy = target!;
         const holy = isHolyTarget(this.enemies[enemy.defId].tag);
-        let dmg = this.spellDamage(holy ? 3 : 1.5);
+        let dmg = this.spellDamage(holy ? p.params.holyDmg : p.params.dmg);
         const crit = this.rollCrit(enemy, false);
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         this.emit({ type: 'fx', cells: [cell], style: 'holy' });
@@ -1270,12 +1291,12 @@ export class RoomBattle implements IBattleSession {
         for (const c of hit) {
           const e = this.cards[c]!;
           const holy = isHolyTarget(this.enemies[e.defId].tag);
-          this.damageEnemy(c, this.spellDamage(holy ? 2 : 1), false);
+          this.damageEnemy(c, this.spellDamage(holy ? p.params.holyDmg : p.params.dmg), false);
         }
         break;
       }
       case 'verdict': {
-        const limit = this.spellDamage(1.2);
+        const limit = this.spellDamage(p.params.limit);
         this.emit({ type: 'fx', cells: enemies, style: 'holy' });
         for (const c of enemies) {
           const e = this.cards[c];
@@ -1289,8 +1310,8 @@ export class RoomBattle implements IBattleSession {
           const e = this.cards[c];
           if (!e) continue;
           const holy = isHolyTarget(this.enemies[e.defId].tag);
-          this.applyStun(c, 2);
-          this.damageEnemy(c, this.spellDamage(holy ? 4 : 2), false);
+          this.applyStun(c, p.params.stun);
+          this.damageEnemy(c, this.spellDamage(holy ? p.params.holyDmg : p.params.dmg), false);
         }
         break;
       }
@@ -1307,7 +1328,7 @@ export class RoomBattle implements IBattleSession {
           style: 'bolt',
         });
         const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(2.5 * (1 + this.stats.lightningPower));
+        let dmg = this.spellDamage(p.params.dmg * (1 + this.stats.lightningPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         const killed = this.strike(cell, dmg, crit);
         // «Раздвоение молнии»: второй разряд бьёт ту же цель, а не соседа
@@ -1321,7 +1342,7 @@ export class RoomBattle implements IBattleSession {
       case 'magic_shot': {
         this.emit({ type: 'fx', cells: [cell], style: 'arcane' });
         const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(1.5 * (1 + this.stats.shotPower));
+        let dmg = this.spellDamage(p.params.dmg * (1 + this.stats.shotPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
         this.strike(cell, dmg, crit);
         break;
@@ -1330,14 +1351,18 @@ export class RoomBattle implements IBattleSession {
         const chain: CellIndex[] = [cell];
         const seen = new Set<CellIndex>([cell]);
         for (const n of Grid.neighbors(cell)) {
-          if (this.cards[n]?.kind === 'enemy' && !seen.has(n) && chain.length < 3) {
+          if (
+            this.cards[n]?.kind === 'enemy' &&
+            !seen.has(n) &&
+            chain.length < p.params.falloff.length
+          ) {
             chain.push(n);
             seen.add(n);
           }
         }
         this.emit({ type: 'fx', cells: chain, style: 'chain' });
         const power = 1 + this.stats.chainPower;
-        const mul = [1, 0.75, 0.5];
+        const mul = p.params.falloff;
         chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i] * power), false));
         break;
       }
@@ -1391,14 +1416,19 @@ export class RoomBattle implements IBattleSession {
       case 'dead_harvest': {
         this.emit({ type: 'fx', cells: enemies, style: 'soul' });
         const bonus = this.stats.soulBonus;
-        this.stats.soulBonus = Ratio.of(bonus + 1);
+        this.stats.soulBonus = Ratio.of(bonus + p.params.soulBonus);
         for (const c of enemies) {
           const e = this.cards[c];
           if (!e) continue;
           const boss = this.enemies[e.defId].boss;
           this.damageEnemy(
             c,
-            Math.max(1, Math.round(e.hp * this.pp(boss ? 0.25 : 0.5, 0.9))),
+            Math.max(
+              1,
+              Math.round(
+                e.hp * this.pp(boss ? p.params.bossHpShare : p.params.hpShare, p.params.cap),
+              ),
+            ),
             false,
           );
         }
@@ -1408,17 +1438,17 @@ export class RoomBattle implements IBattleSession {
       // ---------------- пиромант
       case 'ignite': {
         this.emit({ type: 'fx', cells: [cell], style: 'fire' });
-        this.applyBurn(cell, this.spellDamage(0.3), 3);
+        this.applyBurn(cell, this.spellDamage(p.params.burn), p.params.turns);
         break;
       }
       case 'fireball': {
         const near = Grid.neighbors(cell).filter((c) => this.cards[c]?.kind === 'enemy');
         this.emit({ type: 'fx', cells: [cell, ...near], style: 'explosion' });
-        const burn = this.spellDamage(0.25);
-        this.applyBurn(cell, burn, 3);
-        for (const c of near) this.applyBurn(c, burn, 3);
-        this.strike(cell, this.spellDamage(1.2), false);
-        for (const c of near) this.damageEnemy(c, this.spellDamage(0.7), false);
+        const burn = this.spellDamage(p.params.burn);
+        this.applyBurn(cell, burn, p.params.turns);
+        for (const c of near) this.applyBurn(c, burn, p.params.turns);
+        this.strike(cell, this.spellDamage(p.params.dmg), false);
+        for (const c of near) this.damageEnemy(c, this.spellDamage(p.params.splash), false);
         break;
       }
       case 'detonate': {
@@ -1427,23 +1457,24 @@ export class RoomBattle implements IBattleSession {
         for (const c of burning) {
           const e = this.cards[c];
           if (!e) continue;
-          const blast = Math.max(1, e.burnDmg * 2);
-          this.splashNeighbors(c, Math.max(1, e.burnDmg));
+          const blast = Math.max(1, e.burnDmg * p.params.blastMul);
+          this.splashNeighbors(c, Math.max(1, e.burnDmg * p.params.splashMul));
           this.damageEnemy(c, blast, false);
         }
         break;
       }
       case 'inferno': {
         this.emit({ type: 'fx', cells: enemies, style: 'fire' });
-        const burn = this.spellDamage(0.4);
-        for (const c of enemies) this.applyBurn(c, burn, 5);
+        const burn = this.spellDamage(p.params.burn);
+        for (const c of enemies) this.applyBurn(c, burn, p.params.turns);
         break;
       }
       // ---------------- лучник
       case 'ricochet': {
         const chain = [cell];
         for (const n of Grid.neighbors(cell)) {
-          if (this.cards[n]?.kind === 'enemy' && chain.length < 3) chain.push(n);
+          if (this.cards[n]?.kind === 'enemy' && chain.length < p.params.falloff.length)
+            chain.push(n);
         }
         this.emit({
           type: 'attack',
@@ -1453,7 +1484,7 @@ export class RoomBattle implements IBattleSession {
           by: 'player',
           style: 'shot',
         });
-        const mul = [1, 0.5, 0.25];
+        const mul = p.params.falloff;
         chain.forEach((c, i) =>
           this.strike(c, this.spellDamage(mul[i]), i === 0 && this.rollCrit(this.cards[c], true)),
         );
@@ -1461,8 +1492,8 @@ export class RoomBattle implements IBattleSession {
       }
       case 'falcon_hunt': {
         this.emit({ type: 'fx', cells: [cell], style: 'arrows' });
-        this.applyStun(cell);
-        this.strike(cell, this.spellDamage(1.2), this.rollCrit(target, true));
+        this.applyStun(cell, p.params.stun);
+        this.strike(cell, this.spellDamage(p.params.dmg), this.rollCrit(target, true));
         break;
       }
       case 'falcon_courier': {
@@ -1479,31 +1510,39 @@ export class RoomBattle implements IBattleSession {
           by: 'player',
           style: 'shot',
         });
-        const killed = this.strike(cell, this.spellDamage(1), this.rollCrit(target, true));
+        const killed = this.strike(
+          cell,
+          this.spellDamage(p.params.dmg),
+          this.rollCrit(target, true),
+        );
         let second = cell;
         if (killed) {
           second = this.nearestEnemy(this.playerCell);
           if (second < 0) break;
         }
-        this.strike(second, this.spellDamage(1), this.rollCrit(this.cards[second], true));
+        this.strike(
+          second,
+          this.spellDamage(p.params.dmg),
+          this.rollCrit(this.cards[second], true),
+        );
         break;
       }
       case 'arrow_rain': {
         if (!enemies.length) break;
         this.emit({ type: 'fx', cells: enemies, style: 'arrows' });
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < p.params.arrows; i++) {
           const live = this.enemyCells();
           if (!live.length) break;
           const c = live[this.rng.int(0, live.length - 1)];
-          this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true));
+          this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
         }
         break;
       }
       case 'starfall': {
         this.emit({ type: 'fx', cells: enemies, style: 'arrows' });
-        for (let i = 0; i < 3; i++) {
+        for (let i = 0; i < p.params.waves; i++) {
           for (const c of this.enemyCells()) {
-            this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true));
+            this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
           }
         }
         break;
@@ -1522,7 +1561,9 @@ export class RoomBattle implements IBattleSession {
           by: 'player',
           style: 'shot',
         });
-        line.forEach((c, i) => this.strike(c, this.spellDamage(Math.pow(0.8, i)), i === 0));
+        line.forEach((c, i) =>
+          this.strike(c, this.spellDamage(Math.pow(p.params.stepMul, i)), i === 0),
+        );
         break;
       }
       case 'armor_piercing': {
@@ -1535,8 +1576,8 @@ export class RoomBattle implements IBattleSession {
           by: 'player',
           style: 'shot',
         });
-        const bonus = Math.round(e.maxHp * this.pp(0.25, 0.6));
-        this.strike(cell, this.spellDamage(1) + bonus, this.rollCrit(e, true));
+        const bonus = Math.round(e.maxHp * this.pp(p.params.hpShare, p.params.cap));
+        this.strike(cell, this.spellDamage(p.params.dmg) + bonus, this.rollCrit(e, true));
         break;
       }
       case 'one_shot': {
@@ -1552,8 +1593,9 @@ export class RoomBattle implements IBattleSession {
           const e = this.cards[c];
           if (!e) continue;
           if (this.enemies[e.defId].boss) {
-            this.damageEnemy(c, Math.max(1, Math.round(e.maxHp * this.pp(0.4, 0.8))), true);
-          } else if (kills < 3) {
+            const share = this.pp(p.params.bossHpShare, p.params.cap);
+            this.damageEnemy(c, Math.max(1, Math.round(e.maxHp * share)), true);
+          } else if (kills < p.params.kills) {
             this.killEnemy(c);
             kills++;
           }
@@ -1572,25 +1614,25 @@ export class RoomBattle implements IBattleSession {
       }
       case 'sentence': {
         const e = target!;
-        e.vuln = Math.max(e.vuln, this.pp(0.5, 1.5));
+        e.vuln = Math.max(e.vuln, this.pp(p.params.vuln, p.params.cap));
         this.emit({ type: 'status', cell, uid: e.uid, kind: 'vuln', turns: 99 });
         break;
       }
       // ---------------- тёмный ассасин
       case 'death_mark': {
         const e = target!;
-        e.mark = 3;
+        e.mark = p.params.turns;
         this.emit({ type: 'status', cell, uid: e.uid, kind: 'mark', turns: e.mark });
         break;
       }
       case 'shadow_reap': {
         const marked = enemies.filter((c) => (this.cards[c]?.mark ?? 0) > 0);
         this.emit({ type: 'fx', cells: marked, style: 'dark' });
-        for (const c of marked) this.reapMarked(c);
+        for (const c of marked) this.reapMarked(c, p.params.bossHpShare);
         break;
       }
       case 'reaper': {
-        this.reaping = 3;
+        this.reaping = p.params.turns;
         this.emit({ type: 'fx', cells: enemies, style: 'dark' });
         break;
       }
@@ -1598,22 +1640,22 @@ export class RoomBattle implements IBattleSession {
       case 'shuriken_fan': {
         const list = [...enemies]
           .sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b))
-          .slice(0, 4);
+          .slice(0, p.params.targets);
         this.emit({ type: 'fx', cells: list, style: 'blades' });
         for (const c of list)
-          this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true));
+          this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
         break;
       }
       case 'smoke_screen': {
-        this.noCounter = 2;
+        this.noCounter = p.params.turns;
         this.emit({ type: 'fx', cells: [this.playerCell], style: 'smoke' });
         break;
       }
       case 'wind_shadow': {
         this.emit({ type: 'fx', cells: enemies, style: 'blades' });
         for (const c of this.enemyCells()) {
-          if (this.strike(c, this.spellDamage(0.8), false)) continue;
-          let dmg = this.spellDamage(0.8);
+          if (this.strike(c, this.spellDamage(p.params.dmg), false)) continue;
+          let dmg = this.spellDamage(p.params.dmg);
           dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
           this.strike(c, dmg, true);
         }
@@ -1643,11 +1685,12 @@ export class RoomBattle implements IBattleSession {
     return best;
   }
 
-  private reapMarked(cell: CellIndex): void {
+  /** Клеймо сработало: не-босс гибнет, босс теряет `bossHpShare` максимального здоровья. */
+  private reapMarked(cell: CellIndex, bossHpShare: number): void {
     const e = this.cards[cell];
     if (!e || e.kind !== 'enemy') return;
     if (this.enemies[e.defId].boss)
-      this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * 0.3)), true);
+      this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * bossHpShare)), true);
     else this.killEnemy(cell);
   }
 
@@ -1840,7 +1883,7 @@ export class RoomBattle implements IBattleSession {
         still.mark--;
         this.emit({ type: 'status', cell: i, uid: still.uid, kind: 'mark', turns: still.mark });
         if (still.mark === 0) {
-          this.reapMarked(i);
+          this.reapMarked(i, this.paramsOf('death_mark').bossHpShare);
           continue;
         }
       }
@@ -1966,7 +2009,7 @@ export class RoomBattle implements IBattleSession {
     if (this.madness > 0) {
       this.madness--;
       if (this.madness === 0) {
-        const loss = Math.max(1, Math.round(this.hp * 0.2));
+        const loss = Math.max(1, Math.round(this.hp * this.paramsOf('madness').hpCost));
         this.hp = Math.max(1, this.hp - loss);
         this.emit({
           type: 'hit',

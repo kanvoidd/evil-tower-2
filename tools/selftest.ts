@@ -40,6 +40,7 @@ import type { AbilityId } from '../src/domain/catalog/perks';
 import {
   FULL_BAR,
   hasButton,
+  PERK_BY_ABILITY,
   PERK_BY_ID,
   perkOf,
   PERKS,
@@ -198,6 +199,12 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
+// у каждой способности одна запись в каталоге: по ней бой берёт числа пассивок и состояний
+ok(
+  new Set(PERKS.map((p) => p.ability)).size === PERKS.length &&
+    PERKS.every((p) => PERK_BY_ABILITY[p.ability] === p),
+  'у каждой способности одна запись в каталоге',
+);
 const STYLES = new Set<string>(VFX_STYLES);
 for (const p of PERKS) {
   ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
@@ -205,6 +212,12 @@ for (const p of PERKS) {
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
   if (p.cost === FULL_BAR)
     ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
+  // числа способности — положительные: множители, ходы, штуки
+  const nums = Object.values(p.params as Record<string, number | readonly number[]>).flat();
+  ok(
+    nums.every((n) => Number.isFinite(n) && n > 0),
+    `${p.id}: числа способности положительные (${nums.join(', ')})`,
+  );
 }
 // базовое действие осталось у лучника (выстрел) и наёмника (удар в спину);
 // воин бьёт рукой, а маг вообще не бьёт — только молнией по кнопке

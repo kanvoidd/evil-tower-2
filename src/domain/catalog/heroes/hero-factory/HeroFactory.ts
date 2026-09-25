@@ -1,7 +1,9 @@
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import type { ClassDefinition } from '../../classes/interfaces/ClassDefinition';
 import type { ClassId } from '../../classes/interfaces/ClassId';
-import type { PerkDef } from '../../perks/interfaces/PerkDef';
+import type { AbilityId } from '../../perks/interfaces/AbilityId';
+import type { AbilityParams } from '../../perks/interfaces/AbilityParams';
+import type { PerkDef, PerkDefOf } from '../../perks/interfaces/PerkDef';
 import type { PerkSlot } from '../../perks/interfaces/PerkSlot';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import type { TalentFx } from '../../talents/interfaces/TalentFx';
@@ -9,7 +11,7 @@ import type { TalentPath } from '../../talents/interfaces/TalentPath';
 import type { LineageDef } from '../interfaces/LineageDef';
 import type { LineageId } from '../interfaces/LineageId';
 import type { Stats } from '../interfaces/Stats';
-import type { PerkSpec } from './interfaces/PerkSpec';
+import type { PerkSpecOf } from './interfaces/PerkSpec';
 import type { TalentSeed } from './interfaces/TalentSeed';
 import type { TalentTier } from './interfaces/TalentTier';
 
@@ -87,12 +89,17 @@ export abstract class HeroFactory {
     return { id, lineage: this.lineage, stage, parent, mods };
   }
 
-  protected perk(classId: ClassId, slot: PerkSlot, o: PerkSpec): PerkDef {
+  protected perk<A extends AbilityId>(
+    classId: ClassId,
+    slot: PerkSlot,
+    o: PerkSpecOf<A>,
+  ): PerkDefOf<A> {
     return {
       id: `${classId}_${slot}`,
       classId,
       slot,
       ability: o.ability,
+      params: (o.params ?? {}) as AbilityParams[A],
       icon: `perk_${classId}_${slot}`,
       name: { ru: o.ru, en: o.en },
       desc: { ru: o.dru, en: o.den },

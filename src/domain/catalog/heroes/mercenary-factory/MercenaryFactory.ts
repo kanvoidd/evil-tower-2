@@ -1,3 +1,4 @@
+import { Gold, Ratio, Turns } from '../../../shared';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -48,7 +49,7 @@ export class MercenaryFactory extends HeroFactory {
       this.perk('mercenary', 'p2', {
         ability: 'bribe',
         vfx: 'smoke',
-        goldCost: 0.25,
+        goldCost: { share: Ratio.of(0.25), min: Gold.of(5) },
         target: 'enemy',
         ru: 'Подкуп',
         en: 'Bribe',
@@ -57,6 +58,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('mercenary', 'p3', {
         ability: 'cold_blood',
+        params: { resource: 3 },
         vfx: 'smoke',
         passive: true,
         ru: 'Хладнокровие',
@@ -67,6 +69,7 @@ export class MercenaryFactory extends HeroFactory {
 
       this.perk('assassin', 'start', {
         ability: 'shadow_dance',
+        params: { extraStrikes: 2 },
         vfx: 'smoke',
         passive: true,
         ru: 'Танец теней',
@@ -76,6 +79,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('assassin', 'p2', {
         ability: 'sentence',
+        params: { vuln: Ratio.of(0.5), cap: Ratio.of(1.5) },
         vfx: 'mark',
         cost: 2,
         target: 'enemy',
@@ -86,6 +90,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('assassin', 'p3', {
         ability: 'lethal_dose',
+        params: { poison: Ratio.of(0.1), bossPoison: Ratio.of(0.05), turns: Turns.of(3) },
         vfx: 'dark',
         passive: true,
         ru: 'Смертельная доза',
@@ -96,6 +101,7 @@ export class MercenaryFactory extends HeroFactory {
 
       this.perk('darkassassin', 'start', {
         ability: 'death_mark',
+        params: { turns: Turns.of(3), bossHpShare: Ratio.of(0.3) },
         vfx: 'mark',
         cost: 3,
         target: 'enemy',
@@ -106,6 +112,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('darkassassin', 'p2', {
         ability: 'chain_mark',
+        params: { turns: Turns.of(3) },
         vfx: 'mark',
         passive: true,
         ru: 'Цепное клеймо',
@@ -115,6 +122,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('darkassassin', 'p3', {
         ability: 'shadow_reap',
+        params: { bossHpShare: Ratio.of(0.3) },
         vfx: 'dark',
         cost: 5,
         target: 'self',
@@ -125,6 +133,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('darkassassin', 'legend', {
         ability: 'reaper',
+        params: { turns: Turns.of(3) },
         vfx: 'dark',
         cost: FULL_BAR,
         target: 'self',
@@ -137,6 +146,7 @@ export class MercenaryFactory extends HeroFactory {
 
       this.perk('ninja', 'start', {
         ability: 'shuriken_fan',
+        params: { targets: 4, dmg: Ratio.of(0.6) },
         vfx: 'blades',
         cost: 3,
         target: 'self',
@@ -156,6 +166,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('ninja', 'p3', {
         ability: 'smoke_screen',
+        params: { turns: Turns.of(2) },
         vfx: 'smoke',
         cost: 4,
         target: 'self',
@@ -166,6 +177,7 @@ export class MercenaryFactory extends HeroFactory {
       }),
       this.perk('ninja', 'legend', {
         ability: 'wind_shadow',
+        params: { dmg: Ratio.of(0.8) },
         vfx: 'blades',
         cost: FULL_BAR,
         target: 'self',

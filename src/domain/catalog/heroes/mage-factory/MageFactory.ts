@@ -1,3 +1,4 @@
+import { Ratio, Turns } from '../../../shared';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -39,6 +40,7 @@ export class MageFactory extends HeroFactory {
     return [
       this.perk('mage', 'start', {
         ability: 'lightning',
+        params: { dmg: Ratio.of(2.5) },
         vfx: 'bolt',
         cost: 3,
         target: 'adjacent',
@@ -49,6 +51,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('mage', 'p2', {
         ability: 'magic_shot',
+        params: { dmg: Ratio.of(1.5) },
         vfx: 'arcane',
         cost: 6,
         target: 'line',
@@ -60,6 +63,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('mage', 'p3', {
         ability: 'chain_lightning',
+        params: { falloff: [Ratio.of(1), Ratio.of(0.75), Ratio.of(0.5)] },
         vfx: 'chain',
         cost: 5,
         target: 'enemy',
@@ -106,6 +110,7 @@ export class MageFactory extends HeroFactory {
 
       this.perk('necromancer', 'start', {
         ability: 'corpse_blast',
+        params: { blast: Ratio.of(0.5) },
         vfx: 'corpse',
         cost: 3,
         target: 'enemy',
@@ -117,6 +122,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('necromancer', 'p2', {
         ability: 'ghosts',
+        params: { turns: Turns.of(3), dmg: Ratio.of(0.6), maxGhosts: 2 },
         vfx: 'ghost',
         cost: 3,
         target: 'enemy',
@@ -128,6 +134,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('necromancer', 'p3', {
         ability: 'voodoo',
+        params: { share: Ratio.of(0.5) },
         vfx: 'voodoo',
         cost: 5,
         target: 'enemy',
@@ -139,6 +146,12 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('necromancer', 'legend', {
         ability: 'dead_harvest',
+        params: {
+          hpShare: Ratio.of(0.5),
+          bossHpShare: Ratio.of(0.25),
+          cap: Ratio.of(0.9),
+          soulBonus: Ratio.of(1),
+        },
         vfx: 'harvest',
         cost: FULL_BAR,
         target: 'self',
@@ -151,6 +164,7 @@ export class MageFactory extends HeroFactory {
 
       this.perk('pyromancer', 'start', {
         ability: 'ignite',
+        params: { burn: Ratio.of(0.3), turns: Turns.of(3) },
         vfx: 'ignite',
         cost: 2,
         target: 'enemy',
@@ -162,6 +176,12 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('pyromancer', 'p2', {
         ability: 'fireball',
+        params: {
+          dmg: Ratio.of(1.2),
+          splash: Ratio.of(0.7),
+          burn: Ratio.of(0.25),
+          turns: Turns.of(3),
+        },
         vfx: 'fireball',
         cost: 0,
         target: 'enemy',
@@ -173,6 +193,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('pyromancer', 'p3', {
         ability: 'detonate',
+        params: { blastMul: Ratio.of(2), splashMul: Ratio.of(1) },
         vfx: 'detonate',
         cost: 5,
         target: 'self',
@@ -184,6 +205,7 @@ export class MageFactory extends HeroFactory {
       }),
       this.perk('pyromancer', 'legend', {
         ability: 'inferno',
+        params: { burn: Ratio.of(0.4), turns: Turns.of(5) },
         vfx: 'inferno',
         cost: FULL_BAR,
         target: 'self',

@@ -1,3 +1,4 @@
+import { Ratio, Turns } from '../../../shared';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -35,6 +36,7 @@ export class WarriorFactory extends HeroFactory {
     return [
       this.perk('warrior', 'start', {
         ability: 'power_strike',
+        params: { dmg: Ratio.of(2) },
         vfx: 'slam',
         cost: 3,
         target: 'adjacent',
@@ -45,6 +47,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('warrior', 'p2', {
         ability: 'earthquake',
+        params: { dmg: Ratio.of(0.6), stun: Turns.of(1) },
         vfx: 'quake',
         cost: 6,
         target: 'self',
@@ -55,6 +58,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('warrior', 'p3', {
         ability: 'never_give_up',
+        params: { shockMul: 2 },
         vfx: 'quake',
         passive: true,
         ru: 'Не сдамся',
@@ -65,6 +69,7 @@ export class WarriorFactory extends HeroFactory {
 
       this.perk('knight', 'start', {
         ability: 'shield_bash',
+        params: { dmg: Ratio.of(0.9), wallMul: 2, stun: Turns.of(1) },
         vfx: 'slam',
         cost: 3,
         target: 'adjacent',
@@ -75,6 +80,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('knight', 'p2', {
         ability: 'war_cry',
+        params: { weaken: Ratio.of(0.4), cap: Ratio.of(0.75) },
         vfx: 'banner',
         cost: 5,
         target: 'self',
@@ -85,6 +91,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('knight', 'p3', {
         ability: 'duel',
+        params: { stun: Turns.of(2) },
         vfx: 'swap',
         cost: 4,
         target: 'self',
@@ -96,6 +103,7 @@ export class WarriorFactory extends HeroFactory {
 
       this.perk('berserk', 'start', {
         ability: 'whirlwind',
+        params: { dmg: Ratio.of(0.7) },
         vfx: 'blades',
         cost: 4,
         target: 'self',
@@ -106,6 +114,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('berserk', 'p2', {
         ability: 'rage',
+        params: { hpPerResource: 2 },
         vfx: 'slam',
         passive: true,
         ru: 'Ярость',
@@ -115,6 +124,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('berserk', 'p3', {
         ability: 'carnage',
+        params: { perKill: Ratio.of(0.2), cap: Ratio.of(0.8) },
         vfx: 'blades',
         passive: true,
         ru: 'Резня',
@@ -124,6 +134,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('berserk', 'legend', {
         ability: 'madness',
+        params: { turns: Turns.of(3), splash: Ratio.of(0.6), hpCost: Ratio.of(0.2) },
         vfx: 'blades',
         cost: FULL_BAR,
         target: 'self',
@@ -136,6 +147,7 @@ export class WarriorFactory extends HeroFactory {
 
       this.perk('paladin', 'start', {
         ability: 'holy_wrath',
+        params: { dmg: Ratio.of(1.5), holyDmg: Ratio.of(3) },
         vfx: 'holy',
         cost: 3,
         target: 'adjacent',
@@ -146,6 +158,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('paladin', 'p2', {
         ability: 'justice_beam',
+        params: { dmg: Ratio.of(1), holyDmg: Ratio.of(2) },
         vfx: 'beam',
         cost: 5,
         target: 'enemy',
@@ -156,6 +169,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('paladin', 'p3', {
         ability: 'verdict',
+        params: { limit: Ratio.of(1.2) },
         vfx: 'holy',
         cost: 6,
         target: 'self',
@@ -166,6 +180,7 @@ export class WarriorFactory extends HeroFactory {
       }),
       this.perk('paladin', 'legend', {
         ability: 'heavens_wrath',
+        params: { dmg: Ratio.of(2), holyDmg: Ratio.of(4), stun: Turns.of(2) },
         vfx: 'holy',
         cost: FULL_BAR,
         target: 'self',

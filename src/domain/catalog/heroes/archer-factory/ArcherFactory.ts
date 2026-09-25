@@ -1,3 +1,4 @@
+import { Ratio, Turns } from '../../../shared';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
@@ -55,6 +56,7 @@ export class ArcherFactory extends HeroFactory {
       }),
       this.perk('archer', 'p3', {
         ability: 'ricochet',
+        params: { falloff: [Ratio.of(1), Ratio.of(0.5), Ratio.of(0.25)] },
         vfx: 'shot',
         cost: 3,
         target: 'enemy',
@@ -66,6 +68,7 @@ export class ArcherFactory extends HeroFactory {
 
       this.perk('hawkeye', 'start', {
         ability: 'falcon_hunt',
+        params: { dmg: Ratio.of(1.2), stun: Turns.of(1) },
         vfx: 'arrows',
         cost: 3,
         target: 'enemy',
@@ -96,6 +99,7 @@ export class ArcherFactory extends HeroFactory {
 
       this.perk('arrowgod', 'start', {
         ability: 'double_shot',
+        params: { dmg: Ratio.of(1) },
         vfx: 'shot',
         cost: 3,
         target: 'enemy',
@@ -115,6 +119,7 @@ export class ArcherFactory extends HeroFactory {
       }),
       this.perk('arrowgod', 'p3', {
         ability: 'arrow_rain',
+        params: { arrows: 5, dmg: Ratio.of(0.6) },
         vfx: 'arrows',
         cost: 4,
         target: 'self',
@@ -125,6 +130,7 @@ export class ArcherFactory extends HeroFactory {
       }),
       this.perk('arrowgod', 'legend', {
         ability: 'starfall',
+        params: { waves: 3, dmg: Ratio.of(0.6) },
         vfx: 'arrows',
         cost: FULL_BAR,
         target: 'self',
@@ -137,6 +143,7 @@ export class ArcherFactory extends HeroFactory {
 
       this.perk('sniper', 'start', {
         ability: 'rail_shot',
+        params: { stepMul: Ratio.of(0.8) },
         vfx: 'shot',
         cost: 3,
         target: 'enemy',
@@ -147,6 +154,7 @@ export class ArcherFactory extends HeroFactory {
       }),
       this.perk('sniper', 'p2', {
         ability: 'armor_piercing',
+        params: { dmg: Ratio.of(1), hpShare: Ratio.of(0.25), cap: Ratio.of(0.6) },
         vfx: 'shot',
         cost: 3,
         target: 'enemy',
@@ -166,6 +174,7 @@ export class ArcherFactory extends HeroFactory {
       }),
       this.perk('sniper', 'legend', {
         ability: 'one_shot',
+        params: { kills: 3, bossHpShare: Ratio.of(0.4), cap: Ratio.of(0.8) },
         vfx: 'beam',
         cost: FULL_BAR,
         target: 'enemy',

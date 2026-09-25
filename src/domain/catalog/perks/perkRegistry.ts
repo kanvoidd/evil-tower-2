@@ -1,6 +1,7 @@
 import type { ClassId } from '../classes/interfaces/ClassId';
 import { HERO_FACTORIES } from '../heroes/heroRegistry';
-import type { PerkDef } from './interfaces/PerkDef';
+import type { AbilityId } from './interfaces/AbilityId';
+import type { PerkDef, PerkDefOf } from './interfaces/PerkDef';
 import type { PerkSlot } from './interfaces/PerkSlot';
 
 /**
@@ -9,6 +10,11 @@ import type { PerkSlot } from './interfaces/PerkSlot';
 export const PERKS: PerkDef[] = HERO_FACTORIES.flatMap((f) => f.createPerks());
 
 export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map((p) => [p.id, p]));
+
+/** Перк по id способности: у каждой способности одна запись в каталоге (проверяет selftest). */
+export const PERK_BY_ABILITY = Object.fromEntries(PERKS.map((p) => [p.ability, p])) as {
+  readonly [A in AbilityId]: PerkDefOf<A>;
+};
 
 export const perkId = (classId: ClassId, slot: PerkSlot): string => `${classId}_${slot}`;
 

@@ -105,6 +105,7 @@
 | линейка (воин, маг, лучник, наёмник) | `LineageId`, `LineageDef`, `HeroFactory` | каталог |
 | класс, ступень класса | `ClassId`, `ClassDefinition`, `stage` | каталог |
 | способность (перк), пассивка | `PerkDef`, `AbilityId`, `PerkSlot`, `PerkDef.passive` | каталог |
+| числа способности (урон, ходы, доли) | `PerkDef.params` (`AbilityParams`), цена золотом — `GoldCost` | каталог |
 | талант, ярус, путь (урон / здоровье / защита) | `TalentDef`, `tier`, `TalentPath` | каталог |
 | вещь (оружие, броня), её ступень | `ItemDef`, `ItemTier`, `WEAPONS`, `ARMORS` | каталог |
 | расходник (зелья, артефакт) | `ConsumableId`, `ConsumableDef` | каталог |
