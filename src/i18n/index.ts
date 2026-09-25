@@ -3,10 +3,11 @@ import {
   type AbilityDef,
   type EnemyDef,
   type ItemDef,
+  maxRank,
+  powerAt,
   type TalentDef,
-  type TalentFx,
-  talentValue,
-  talentValue2,
+  type TalentEffect,
+  valueAt,
 } from '../domain/catalog';
 import type { Trait } from '../domain/progression';
 import type { AchievementDef } from '../domain/rewards';
@@ -40,9 +41,14 @@ export const achievementName = (a: AchievementDef): string => t(`ach.${a.id}.nam
 export const achievementDesc = (a: AchievementDef): string =>
   t(`ach.${a.id}.desc` as TKey, { target: a.target, floor: a.floor ?? '' });
 
-/** Строка эффекта таланта на конкретном ранге («+18% к урону»). Пара «шанс / сила» — через `v2`. */
-export const talentEffect = (fx: TalentFx, v: number, v2 = 0): string =>
-  t(`tal.${fx}` as TKey, { v, v2 });
+/** Строка эффекта таланта на ранге («+18% к урону»); у пары — `{chance}` и `{power}`. */
+export const talentEffect = (e: TalentEffect, rank: number): string =>
+  t(
+    `tal.${e.fx}` as TKey,
+    e.kind === 'chance'
+      ? { chance: valueAt(e, rank), power: powerAt(e, rank) }
+      : { v: valueAt(e, rank) },
+  );
 
 /**
  * Описание таланта в панели: что даёт сейчас и что даст следующий ранг.
@@ -50,13 +56,10 @@ export const talentEffect = (fx: TalentFx, v: number, v2 = 0): string =>
  */
 export const talentDesc = (def: TalentDef, rank: number): string => {
   const lines: string[] = [];
-  if (rank > 0)
-    lines.push(
-      `${t('skill.now')}: ${talentEffect(def.fx, talentValue(def, rank), talentValue2(def, rank))}`,
-    );
-  if (rank < def.v.length) {
+  if (rank > 0) lines.push(`${t('skill.now')}: ${talentEffect(def.effect, rank)}`);
+  if (rank < maxRank(def.effect)) {
     const label = rank > 0 ? t('skill.next') : t('skill.rank_one');
-    lines.push(`${label}: ${talentEffect(def.fx, def.v[rank], def.v2?.[rank] ?? 0)}`);
+    lines.push(`${label}: ${talentEffect(def.effect, rank + 1)}`);
   }
   return lines.join('\n');
 };

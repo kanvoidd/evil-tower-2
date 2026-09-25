@@ -5,7 +5,7 @@ import {
   PERK_BY_ID,
   type PerkDef,
   type ResourceKind,
-  type TalentDef,
+  type TalentPlace,
 } from '../../domain/catalog';
 import {
   type BuyResult,
@@ -102,7 +102,7 @@ export class SkillTreeQuery {
     return n.kind === 'class' && canCancelMetamorphosis(this.tree, this.save, n.classId!);
   }
 
-  talent(n: TreeNode): TalentDef {
+  talent(n: TreeNode): TalentPlace {
     return talentOfNode(n);
   }
 

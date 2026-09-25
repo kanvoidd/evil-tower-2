@@ -79,7 +79,7 @@ export const ui: Record<keyof typeof ru, string> = {
   'path.guard': 'Path of Defence',
 
   'tal.boltEcho':
-    'Lightning Bolt has a {v}% chance to strike the same target again for {v2}% damage',
+    'Lightning Bolt has a {chance}% chance to strike the same target again for {power}% damage',
   'tal.lightningPower': '+{v}% Lightning Bolt power',
   'tal.shotPower': '+{v}% Arcane Shot power',
   'tal.chainPower': '+{v}% Chain Lightning power',
@@ -144,7 +144,7 @@ export const ui: Record<keyof typeof ru, string> = {
   'tal.abilityShield': 'After an ability you gain a shield for {v}% of maximum health',
   'tal.killBlast': 'A slain enemy bursts: neighbours take {v}% of its maximum health',
   'tal.basicSplit':
-    'Your main attack has a {v}% chance to also strike another enemy for {v2}% damage',
+    'Your main attack has a {chance}% chance to also strike another enemy for {power}% damage',
   'tal.perkCostDown': 'Abilities cost {v} less (but not below 2)',
   'tal.stepHeal': 'Stepping onto a cell without an enemy heals {v}% of maximum health',
   'tal.manaShield': '{v}% of incoming damage is absorbed by your resource',

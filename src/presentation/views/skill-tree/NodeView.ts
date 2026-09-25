@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { SYNERGY_FX, TALENT_BY_ID, type TalentPath } from '../../../domain/catalog';
+import { isSynergy, TALENT_PLACE_BY_ID, type TalentPath } from '../../../domain/catalog';
 import type { NodeState, TreeNode } from '../../../domain/progression';
 import { icon, plateTexture, txt } from '../../components';
 import { HEX, pathHex } from '../../theme';
@@ -80,7 +80,9 @@ export class NodeView {
 
   /** Значок таланта: у синергий — молния (они меняют способности), у остальных — символ пути. */
   static talentIcon(n: TreeNode): string {
-    return SYNERGY_FX.has(TALENT_BY_ID[n.talentId!].fx) ? 'svg_bolt' : NodeView.PATH_ICON[n.path!];
+    return isSynergy(TALENT_PLACE_BY_ID[n.talentId!].talent.effect)
+      ? 'svg_bolt'
+      : NodeView.PATH_ICON[n.path!];
   }
 
   /** Состояние узла: закрытые приглушены, купленные светятся; у таланта — рамка максимума и ранги. */

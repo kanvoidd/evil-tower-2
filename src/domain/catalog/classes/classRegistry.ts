@@ -2,7 +2,7 @@ import { HEROES, LINEAGES } from '../heroes/heroRegistry';
 import type { LineageId } from '../heroes/interfaces/LineageId';
 import type { Stats } from '../heroes/interfaces/Stats';
 import { PERKS } from '../perks/perkRegistry';
-import { TALENTS } from '../talents/talentRegistry';
+import { placesOfClass } from '../talents/talentRegistry';
 import type { ClassDef } from './interfaces/ClassDef';
 import type { ClassDefinition } from './interfaces/ClassDefinition';
 import type { ClassId } from './interfaces/ClassId';
@@ -52,7 +52,7 @@ export const CLASS_DEFINITIONS = Object.fromEntries(
         parent: c.parent,
         baseStats: withBonuses(lineage.base, c.bonuses),
         abilities: PERKS.filter((p) => p.classId === c.id),
-        talents: TALENTS.filter((t) => t.classId === c.id),
+        talents: placesOfClass(c.id),
         next: CLASS_LIST.filter((x) => x.parent === c.id).map((x) => x.id),
       },
     ];

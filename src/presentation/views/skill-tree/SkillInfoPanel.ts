@@ -195,9 +195,9 @@ export class SkillInfoPanel {
       const def = q.talent(n);
       const rank = q.rank(n);
       return {
-        title: talentName(def),
+        title: talentName(def.talent),
         sub: `${t('skill.tier_label', { n: n.tier!, path: t(`path.${n.path}` as TKey) })} · ${t('skill.rank', { n: rank, max: q.maxRank(n) })}`,
-        desc: talentDesc(def, rank),
+        desc: talentDesc(def.talent, rank),
         tex: `tal_${n.path}`,
         iconKey: NodeView.talentIcon(n),
       };

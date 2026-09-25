@@ -7,6 +7,6 @@ import type { LineageDef } from './LineageDef';
  */
 export interface HeroContent {
   readonly lineage: LineageDef;
-  /** Классы в порядке развития: базовый, второй, два финальных. */
+  /** Классы в порядке развития: базовый, второй, два финальных — с перками и деревьями талантов. */
   readonly classes: readonly ClassDef[];
 }

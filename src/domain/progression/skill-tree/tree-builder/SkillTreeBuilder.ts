@@ -129,7 +129,7 @@ export class SkillTreeBuilder {
           path,
           tier,
           step,
-          ranks: maxRank(t),
+          ranks: maxRank(t.talent.effect),
           parents: [prev],
         });
         this.edges.push([prev, id]);

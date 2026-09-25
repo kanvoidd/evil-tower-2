@@ -1,19 +1,11 @@
-import type { ClassId } from '../../classes/interfaces/ClassId';
-import type { TalentFx } from './TalentFx';
-import type { TalentPath } from './TalentPath';
-import type { TalentTierNumber } from './TalentTierNumber';
+import type { TalentEffect } from './TalentEffect';
+import type { TalentId } from './TalentId';
 
+/**
+ * Талант — что он даёт, без места в дереве: переставленный талант уносит эффект и название.
+ * Записывается помощником `talent(id, эффект)` в дереве своего класса (`talents/<класс>.ts`).
+ */
 export interface TalentDef {
-  /** `warrior/a1-2` — класс, путь (a/v/g), ярус и место в цепочке. */
-  id: string;
-  classId: ClassId;
-  path: TalentPath;
-  tier: TalentTierNumber;
-  /** Место в цепочке яруса, начиная с нуля. */
-  step: number;
-  fx: TalentFx;
-  /** Суммарное значение эффекта на каждом ранге. Длина массива = число рангов. */
-  v: number[];
-  /** Второе значение ранга для эффектов из пары «шанс / сила» (например, раздвоение молнии). */
-  v2?: number[];
+  readonly id: TalentId;
+  readonly effect: TalentEffect;
 }

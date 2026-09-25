@@ -1,7 +1,7 @@
 import type { LineageDef } from '../../heroes/interfaces/LineageDef';
 import type { Stats } from '../../heroes/interfaces/Stats';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
-import type { TalentDef } from '../../talents/interfaces/TalentDef';
+import type { TalentPlace } from '../../talents/interfaces/TalentPlace';
 import type { ClassId } from './ClassId';
 
 /**
@@ -19,8 +19,8 @@ export interface ClassDefinition {
   readonly baseStats: Readonly<Stats>;
   /** Способности класса по слотам: стартовая, вторая, третья, легендарная. */
   readonly abilities: readonly PerkDef[];
-  /** Таланты дерева класса. */
-  readonly talents: readonly TalentDef[];
+  /** Таланты дерева класса на своих местах. */
+  readonly talents: readonly TalentPlace[];
   /** Классы, в которые ведёт метаморфоза (у финальных — никуда). */
   readonly next: readonly ClassId[];
 }

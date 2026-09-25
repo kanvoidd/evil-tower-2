@@ -2,6 +2,7 @@ import type { AbilityDef } from '../../abilities/interfaces/AbilityDef';
 import type { LineageId } from '../../heroes/interfaces/LineageId';
 import type { Stats } from '../../heroes/interfaces/Stats';
 import type { PerkSlot } from '../../perks/interfaces/PerkSlot';
+import type { TalentTree } from '../../talents/interfaces/TalentTree';
 import type { ClassId } from './ClassId';
 
 /** Определение класса: файл `heroes/<линейка>/classes/<класс>.ts`. */
@@ -19,4 +20,6 @@ export interface ClassDef {
    * классом), вторая, третья и легендарная (только у финальных классов).
    */
   readonly perks: Readonly<Partial<Record<PerkSlot, AbilityDef>>>;
+  /** Дерево талантов класса — `heroes/<линейка>/talents/<класс>.ts`. */
+  readonly talents: TalentTree;
 }

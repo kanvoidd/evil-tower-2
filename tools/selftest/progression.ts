@@ -5,7 +5,7 @@ import { type AbilityBehaviorId, hasButton } from '../../src/domain/catalog/abil
 import { CLASS_DEFINITIONS, CLASSES } from '../../src/domain/catalog/classes';
 import { LINEAGE_ORDER, LINEAGES } from '../../src/domain/catalog/heroes';
 import { perksOfClass } from '../../src/domain/catalog/perks';
-import { maxRank, TALENTS, talentsOfClass } from '../../src/domain/catalog/talents';
+import { maxRank, placesOfClass, TALENT_PLACE_BY_ID } from '../../src/domain/catalog/talents';
 import { ATTACK_STRATEGIES, SpellAttack } from '../../src/domain/combat/attack';
 import type { AutoSkillSave } from '../../src/domain/progression';
 import {
@@ -87,7 +87,7 @@ for (const lin of LINEAGE_ORDER) {
   const t1 = longest[0];
   applyBuy(tree, ls, t1);
   ok(
-    maxRank(TALENTS.find((t) => t.id === t1.talentId!)!) === 1 ||
+    maxRank(TALENT_PLACE_BY_ID[t1.talentId!].talent.effect) === 1 ||
       nodeState(tree, ls, t1) === 'partial',
     `${lin}: талант частично прокачан`,
   );
@@ -448,7 +448,7 @@ for (const lin of LINEAGE_ORDER) {
         JSON.stringify(perksOfClass(id).map((p) => p.id)),
       `${id}: способности класса по слотам`,
     );
-    ok(def.talents.length === talentsOfClass(id).length, `${id}: таланты класса`);
+    ok(def.talents.length === placesOfClass(id).length, `${id}: таланты класса`);
     const children = (Object.keys(CLASSES) as ClassId[]).filter((c) => CLASSES[c].parent === id);
     ok(
       JSON.stringify([...def.next].sort()) === JSON.stringify(children.sort()),

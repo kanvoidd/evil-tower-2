@@ -14,13 +14,15 @@ import { ITEMS } from '../../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../../src/domain/catalog/levels';
 import { PERK_BY_ABILITY, perkOf, PERKS, perksOfClass } from '../../src/domain/catalog/perks';
 import {
+  isSynergy,
   maxRank,
   PATH_ORDER,
-  SYNERGY_FX,
+  placesOfClass,
+  placesOfTier,
+  TALENT_PLACES,
   talentChain,
+  type TalentEffect,
   TALENTS,
-  talentsOfClass,
-  talentsOfTier,
 } from '../../src/domain/catalog/talents';
 import { ABILITY_BEHAVIORS, FX_STYLES } from '../../src/domain/combat';
 import { classTraits, type TraitId } from '../../src/domain/progression/traits/traits';
@@ -32,6 +34,10 @@ import { ru } from '../../src/i18n/ru';
 import { abilityIcon, contentArtKeys } from '../../src/presentation/textures/artKeys';
 import { ABILITY_FX } from '../../src/presentation/theme/abilityFx';
 import { ok } from './harness';
+
+/** Значения эффекта таланта по рангам: у пары «шанс / сила» — шансы. */
+const rankValues = (e: TalentEffect): readonly number[] =>
+  e.kind === 'chance' ? e.chance : e.perRank;
 
 // ---------------------------------------------------------------- данные перков и талантов
 for (const cls of Object.keys(CLASSES) as ClassId[]) {
@@ -45,14 +51,14 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   const buttons = perks.filter((p) => hasButton(p.ability)).length;
   ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4 на класс)`);
 
-  const talents = talentsOfClass(cls);
+  const talents = placesOfClass(cls);
   ok(
     talents.length >= 15 && talents.length <= 16,
     `${cls}: талантов ${talents.length}, ожидалось 15–16`,
   );
   let variedTiers = 0;
   for (const tier of [1, 2, 3] as const) {
-    const list = talentsOfTier(cls, tier);
+    const list = placesOfTier(cls, tier);
     ok(
       list.length >= 5 && list.length <= 6,
       `${cls}: на ярусе ${tier} пять-шесть талантов (${list.length})`,
@@ -78,40 +84,40 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   }
   // прокачка идёт «вразнобой»: хотя бы на двух ярусах из трёх цепочки разной длины
   ok(variedTiers >= 2, `${cls}: цепочки разной длины минимум на двух ярусах (${variedTiers})`);
-  const ranks = talents.reduce((a, t) => a + maxRank(t), 0);
+  const ranks = talents.reduce((a, t) => a + maxRank(t.talent.effect), 0);
   ok(ranks >= 30 && ranks <= 50, `${cls}: суммарно рангов ${ranks} (ожидалось 30–50)`);
-  for (const t of talents) {
-    ok(t.v.length >= 1 && t.v.length <= 5, `${t.id}: рангов ${t.v.length}`);
+  for (const { talent: t } of talents) {
+    const v = rankValues(t.effect);
+    ok(v.length >= 1 && v.length <= 5, `${t.id}: рангов ${v.length}`);
     // значения суммарные, значит строго возрастают
     ok(
-      t.v.every((v, i) => i === 0 || v > t.v[i - 1]),
-      `${t.id}: значения рангов возрастают (${t.v.join('/')})`,
+      v.every((x, i) => i === 0 || x > v[i - 1]),
+      `${t.id}: значения рангов возрастают (${v.join('/')})`,
     );
-    ok(`tal.${t.fx}` in ru && `tal.${t.fx}` in en, `перевод эффекта таланта tal.${t.fx}`);
+    if (t.effect.kind === 'chance')
+      ok(t.effect.power.length === v.length, `${t.id}: у каждого ранга есть и шанс, и сила`);
+    const fx = t.effect.fx;
+    ok(`tal.${fx}` in ru && `tal.${fx}` in en, `перевод эффекта таланта tal.${fx}`);
   }
 }
+ok(
+  new Set(TALENT_PLACES.map((t) => t.id)).size === TALENT_PLACES.length,
+  'места талантов уникальны',
+);
 ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id талантов уникальны');
 // таланты-синергии: прокачка между способностями усиливает сами способности
 {
-  const fx = (cls: ClassId, f: string): boolean => talentsOfClass(cls).some((t) => t.fx === f);
+  const fx = (cls: ClassId, f: string): boolean =>
+    placesOfClass(cls).some((t) => t.talent.effect.fx === f);
   ok(fx('pyromancer', 'abilityIgnite'), 'пиромант: талант «любая способность поджигает»');
   ok(fx('necromancer', 'killBlast'), 'некромант: талант «взрыв трупа»');
-  for (const f of SYNERGY_FX)
-    ok(
-      TALENTS.some((t) => t.fx === f),
-      `синергия ${f} встречается в дереве`,
-    );
   const withSyn = (Object.keys(CLASSES) as ClassId[]).filter((c) =>
-    talentsOfClass(c).some((t) => SYNERGY_FX.has(t.fx)),
+    placesOfClass(c).some((t) => isSynergy(t.talent.effect)),
   );
   ok(withSyn.length === 16, `у каждого класса есть талант-синергия (${withSyn.length})`);
   // у каждого класса есть талант на запас здоровья: иначе живучесть держится только на броне
-  for (const c of Object.keys(CLASSES) as ClassId[]) {
-    ok(
-      talentsOfClass(c).some((t) => t.fx === 'hpPct'),
-      `${c}: в дереве есть запас здоровья`,
-    );
-  }
+  for (const c of Object.keys(CLASSES) as ClassId[])
+    ok(fx(c, 'hpPct'), `${c}: в дереве есть запас здоровья`);
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
 // у каждой механики с кнопкой — класс в реестре боя; пассивки и базовые действия работают в правилах боя

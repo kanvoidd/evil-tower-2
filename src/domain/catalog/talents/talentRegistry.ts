@@ -1,35 +1,53 @@
 import type { ClassId } from '../classes/interfaces/ClassId';
-import { HERO_FACTORIES } from '../heroes/heroRegistry';
+import { HEROES } from '../heroes/heroRegistry';
 import type { TalentDef } from './interfaces/TalentDef';
 import type { TalentPath } from './interfaces/TalentPath';
+import type { TalentPlace } from './interfaces/TalentPlace';
+import type { TalentTierNumber } from './interfaces/TalentTierNumber';
+import { PATH_ORDER } from './pathOrder';
+
+/** Буква пути в позиционном id места (`mage/a1-2`) — из сохранений, менять нельзя. */
+const PATH_LETTER: Readonly<Record<TalentPath, string>> = {
+  attack: 'a',
+  vitality: 'v',
+  guard: 'g',
+};
 
 /**
- * Таланты выпускают фабрики героев (src/domain/catalog/heroes) — здесь только реестр.
+ * Места талантов в деревьях всех классов — из `ClassDef.talents`: по классам, ярусам, путям
+ * (`PATH_ORDER`) и месту в цепочке. Сами таланты — в `heroes/<линейка>/talents/<класс>.ts`.
  */
-export const TALENTS: TalentDef[] = HERO_FACTORIES.flatMap((f) => f.createTalents());
-
-export const TALENT_BY_ID: Record<string, TalentDef> = Object.fromEntries(
-  TALENTS.map((t) => [t.id, t]),
+export const TALENT_PLACES: readonly TalentPlace[] = HEROES.flatMap((h) => h.classes).flatMap(
+  (c) => {
+    const out: TalentPlace[] = [];
+    c.talents.forEach((tierDef, ti) => {
+      const tier = (ti + 1) as TalentTierNumber;
+      for (const path of PATH_ORDER) {
+        tierDef[path].forEach((talent, step) => {
+          const id = `${c.id}/${PATH_LETTER[path]}${tier}-${step + 1}`;
+          out.push({ id, classId: c.id, path, tier, step, talent });
+        });
+      }
+    });
+    return out;
+  },
 );
 
-export const talentsOfClass = (classId: ClassId): TalentDef[] =>
-  TALENTS.filter((t) => t.classId === classId);
+export const TALENT_PLACE_BY_ID: Readonly<Record<string, TalentPlace>> = Object.fromEntries(
+  TALENT_PLACES.map((t) => [t.id, t]),
+);
 
-export const talentsOfTier = (classId: ClassId, tier: number): TalentDef[] =>
-  TALENTS.filter((t) => t.classId === classId && t.tier === tier);
+/** Таланты игры — по одному на место дерева. */
+export const TALENTS: readonly TalentDef[] = TALENT_PLACES.map((p) => p.talent);
+
+export const placesOfClass = (classId: ClassId): TalentPlace[] =>
+  TALENT_PLACES.filter((t) => t.classId === classId);
+
+export const placesOfTier = (classId: ClassId, tier: number): TalentPlace[] =>
+  TALENT_PLACES.filter((t) => t.classId === classId && t.tier === tier);
 
 /** Цепочка одного пути на ярусе, по порядку. */
-export const talentChain = (classId: ClassId, tier: number, path: TalentPath): TalentDef[] =>
-  talentsOfTier(classId, tier)
+export const talentChain = (classId: ClassId, tier: number, path: TalentPath): TalentPlace[] =>
+  placesOfTier(classId, tier)
     .filter((t) => t.path === path)
     .sort((a, b) => a.step - b.step);
-
-export const maxRank = (t: TalentDef): number => t.v.length;
-
-/** Значение эффекта на купленном ранге (0 — талант не изучен). */
-export const talentValue = (t: TalentDef, rank: number): number =>
-  rank <= 0 ? 0 : t.v[Math.min(rank, t.v.length) - 1];
-
-/** Второе значение ранга — для эффектов вида «шанс / сила». */
-export const talentValue2 = (t: TalentDef, rank: number): number =>
-  rank <= 0 || !t.v2 ? 0 : t.v2[Math.min(rank, t.v2.length) - 1];

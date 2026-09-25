@@ -8,12 +8,12 @@ import {
   type ClassId,
   PERK_BY_ID,
   perkId,
+  placesOfClass,
+  powerAt,
   SLOT_ORDER,
-  TALENT_BY_ID,
-  type TalentDef,
-  talentsOfClass,
-  talentValue,
-  talentValue2,
+  TALENT_PLACE_BY_ID,
+  type TalentPlace,
+  valueAt,
 } from '../../catalog';
 import { Souls } from '../../shared';
 import { SOUL_PRICING } from '../soul-prices/soulPricing';
@@ -26,7 +26,7 @@ import type { TreeNode } from './interfaces/TreeNode';
 
 // ------------------------------------------------------------------ состояние узлов
 
-export const talentOfNode = (n: TreeNode): TalentDef => TALENT_BY_ID[n.talentId!];
+export const talentOfNode = (n: TreeNode): TalentPlace => TALENT_PLACE_BY_ID[n.talentId!];
 
 export const perkIdOfNode = (n: TreeNode): string => perkId(n.owner, n.slot!);
 
@@ -169,16 +169,16 @@ export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
     if (n.kind !== 'talent') continue;
     const rank = rankOf(s, n.id);
     if (rank <= 0) continue;
-    const def = talentOfNode(n);
-    out[def.fx] = (out[def.fx] ?? 0) + talentValue(def, rank);
+    const { effect } = talentOfNode(n).talent;
+    out[effect.fx] = (out[effect.fx] ?? 0) + valueAt(effect, rank);
   }
   return out;
 };
 
 /**
- * Второе значение эффектов-пар («шанс / сила»): у «Раздвоения молнии» в `v` лежит шанс,
- * а в `v2` — доля урона по второму врагу. Берём максимум, а не сумму: это одна и та же
- * механика, и складывать силу от двух классов линейки было бы неверно.
+ * Сила эффектов-пар «шанс / сила» (у «Раздвоения молнии» — доля урона второго разряда).
+ * Берём максимум, а не сумму: это одна и та же механика, и складывать силу от двух классов
+ * линейки было бы неверно. Шансы пар складываются в `talentBonuses`.
  */
 export const talentBonuses2 = (tree: Tree, s: LineageSave): TalentBonus => {
   const out: TalentBonus = {};
@@ -186,9 +186,9 @@ export const talentBonuses2 = (tree: Tree, s: LineageSave): TalentBonus => {
     if (n.kind !== 'talent') continue;
     const rank = rankOf(s, n.id);
     if (rank <= 0) continue;
-    const def = talentOfNode(n);
-    const v2 = talentValue2(def, rank);
-    if (v2 > 0) out[def.fx] = Math.max(out[def.fx] ?? 0, v2);
+    const { effect } = talentOfNode(n).talent;
+    const power = powerAt(effect, rank);
+    if (power > 0) out[effect.fx] = Math.max(out[effect.fx] ?? 0, power);
   }
   return out;
 };
@@ -229,4 +229,4 @@ export const cheapestAvailable = (tree: Tree, s: LineageSave): Souls => {
 };
 
 /** Таланты класса — для панели дерева. */
-export const classTalents = talentsOfClass;
+export const classTalents = placesOfClass;

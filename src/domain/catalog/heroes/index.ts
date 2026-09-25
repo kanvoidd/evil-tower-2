@@ -1,5 +1,4 @@
-export type { HeroFactory } from './hero-factory/HeroFactory';
-export { HERO_FACTORIES, HEROES, LINEAGE_ORDER, LINEAGES } from './heroRegistry';
+export { HEROES, LINEAGE_ORDER, LINEAGES } from './heroRegistry';
 export type { AttackStyleId } from './interfaces/AttackStyleId';
 export type { HeroContent } from './interfaces/HeroContent';
 export type { LineageDef } from './interfaces/LineageDef';
