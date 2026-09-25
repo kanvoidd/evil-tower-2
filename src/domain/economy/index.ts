@@ -1,2 +1,5 @@
-/** Экономика: золото, души, вещи и их починка — публичный API области (docs/DOMAIN.md). */
-export * from './repair/repairRatio';
+/** Экономика: кошелёк, лавка и починка — публичный API области (docs/DOMAIN.md). */
+export * from './balance';
+export * from './repair';
+export * from './shop';
+export * from './wallet';

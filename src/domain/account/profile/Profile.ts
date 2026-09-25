@@ -4,13 +4,12 @@ import {
   type ConsumableId,
   CONSUMABLES,
   type EquipmentSave,
-  ITEM_BY_ID,
   type ItemDef,
   LINEAGE_ORDER,
   type LineageId,
 } from '../../catalog';
 import { type AutoUseSave, DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
-import { REPAIR_RATIO } from '../../economy';
+import { REPAIR_PRICING, ShopRules, Wallet } from '../../economy';
 import {
   applyBuy,
   type AutoSkillPlan,
@@ -277,16 +276,21 @@ export class Profile {
     return this.doc.heroes[lin]?.best ?? 0;
   }
 
+  /** Кошелёк активного героя. */
+  private get wallet(): Wallet {
+    return new Wallet(this.heroSave);
+  }
+
   get gold(): Gold {
-    return this.heroSave.gold;
+    return this.wallet.gold;
   }
 
   get souls(): Souls {
-    return this.heroSave.souls;
+    return this.wallet.souls;
   }
 
   addGold(n: Gold, track = true): void {
-    this.heroSave.gold = Gold.of(this.heroSave.gold + n);
+    this.wallet.addGold(n);
     if (track && n > 0) this.doc.stats.goldEarned += n;
     this.walletChanged.emit();
     this.checkAchievements();
@@ -294,7 +298,7 @@ export class Profile {
   }
 
   addSouls(n: Souls, track = true): void {
-    this.heroSave.souls = Souls.of(this.heroSave.souls + n);
+    this.wallet.addSouls(n);
     if (track && n > 0) this.doc.stats.soulsEarned += n;
     this.walletChanged.emit();
     this.checkAchievements();
@@ -302,16 +306,14 @@ export class Profile {
   }
 
   spendGold(n: Gold): boolean {
-    if (this.heroSave.gold < n) return false;
-    this.heroSave.gold = Gold.of(this.heroSave.gold - n);
+    if (!this.wallet.spendGold(n)) return false;
     this.walletChanged.emit();
     this.touch();
     return true;
   }
 
   spendSouls(n: Souls): boolean {
-    if (this.heroSave.souls < n) return false;
-    this.heroSave.souls = Souls.of(this.heroSave.souls - n);
+    if (!this.wallet.spendSouls(n)) return false;
     this.walletChanged.emit();
     this.touch();
     return true;
@@ -384,23 +386,15 @@ export class Profile {
   }
 
   repairCost(item: ItemDef): Gold {
-    const e = this.equipped(item.slot);
-    if (!e || e.id !== item.id) return Gold.of(0);
-    const missing = 1 - e.durability / item.durability;
-    return Gold.of(Math.ceil(item.price * REPAIR_RATIO * missing));
+    return REPAIR_PRICING.repairCost(item, this.equipped(item.slot));
   }
 
   buyItem(item: ItemDef): ItemPurchase {
     const cur = this.equipped(item.slot);
-    if (cur && cur.id === item.id) {
-      if (cur.durability >= item.durability) return 'full';
-      const cost = this.repairCost(item);
-      if (!this.spendGold(cost)) return 'gold';
-      cur.durability = item.durability;
-      this.touch();
-      return 'repaired';
-    }
-    if (cur && ITEM_BY_ID[cur.id].tier >= item.tier) return 'weaker';
+    const action = ShopRules.itemAction(item, cur);
+    if (action === 'equipped') return 'full';
+    if (action === 'weaker') return 'weaker';
+    if (action === 'repair') return this.repair(item, cur!);
     if (!this.spendGold(item.price)) return 'gold';
     const save: EquipmentSave = { id: item.id, durability: item.durability };
     if (item.slot === 'weapon') this.doc.weapon[this.activeLineage] = save;
@@ -409,11 +403,18 @@ export class Profile {
     return 'bought';
   }
 
+  private repair(item: ItemDef, worn: EquipmentSave): ItemPurchase {
+    if (!this.spendGold(this.repairCost(item))) return 'gold';
+    worn.durability = item.durability;
+    this.touch();
+    return 'repaired';
+  }
+
   /** Лавка не продаёт сверх предела; 'max' — уже полный запас. */
   buyConsumable(id: ConsumableId, count = 1): ConsumablePurchase {
     const def = CONSUMABLES[id];
     if (!def.sold) return 'gold';
-    if (def.max !== undefined && this.heroSave.consumables[id] + count > def.max) return 'max';
+    if (!ShopRules.canStock(def, this.heroSave.consumables[id], count)) return 'max';
     if (!this.spendGold(Gold.of(def.price * count))) return 'gold';
     this.heroSave.consumables[id] += count;
     this.touch();
