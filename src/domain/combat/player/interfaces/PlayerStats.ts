@@ -1,6 +1,12 @@
 import type { AbilityId, ClassId, LineageId, PerkDef, ResourceKind } from '../../../catalog';
 import type { Percent, Ratio } from '../../../shared';
 import type { IAttackStrategy } from '../../attack/interfaces/IAttackStrategy';
+import type {
+  IDamageReduction,
+  IDefenseModifier,
+  IHeroDamageModifier,
+  ITargetDamageModifier,
+} from '../../damage';
 
 /**
  * Герой глазами боя: характеристики, способности и стиль атаки. Собирает их прогресс героя
@@ -40,14 +46,7 @@ export interface PlayerStats {
   execute: Ratio;
   pierce: Ratio;
   doubleStrike: Percent;
-  lowHpDmg: Ratio;
-  fullHpDmg: Ratio;
-  bossDmg: Ratio;
   ignite: Ratio;
-  killDmg: Ratio;
-  rageDmg: Ratio;
-  goldDmg: Ratio;
-  defDmg: Ratio;
   everyThird: boolean;
   roomCrit: boolean;
   lifesteal: Ratio;
@@ -76,8 +75,6 @@ export interface PlayerStats {
   chainPower: Ratio;
 
   // ---- таланты пути здоровья
-  lowHpDr: Ratio;
-  bigHitCut: Ratio;
   startShieldPct: Ratio;
   potionPct: Ratio;
   cheatDeath: number;
@@ -91,20 +88,21 @@ export interface PlayerStats {
   // ---- таланты пути защиты
   block: Percent;
   thorns: Ratio;
-  weaken: Ratio;
-  firstHitDown: Ratio;
   dotDr: Ratio;
-  bossDr: Ratio;
-  magicDr: Ratio;
-  killDefTurn: Ratio;
-  killDefStack: Ratio;
   roomGuard: Ratio;
   counterBuff: Ratio;
-  highHpDef: Ratio;
-  resDef: Ratio;
   perkDef: Ratio;
-  scarDef: Ratio;
   manaShield: Ratio;
+
+  // ---- надбавки и снижения: их выдаёт прогресс героя, бой применяет по порядку
+  /** Надбавки к урону героя (множитель и база). */
+  damageMods: readonly IHeroDamageModifier[];
+  /** Надбавки к урону по конкретному врагу. */
+  targetMods: readonly ITargetDamageModifier[];
+  /** Надбавки к защите. */
+  defenseMods: readonly IDefenseModifier[];
+  /** Снижения входящего удара. */
+  reductions: readonly IDamageReduction[];
 
   perks: string[];
   /** Способности с кнопкой на поле боя (в порядке слотов). */

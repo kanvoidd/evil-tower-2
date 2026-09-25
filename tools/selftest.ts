@@ -32,7 +32,7 @@ import { Profile } from '../src/domain/account/profile';
 import type { ClassId, LineageId, TalentPath } from '../src/domain/catalog';
 import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/catalog/classes';
 import { CONSUMABLES } from '../src/domain/catalog/consumables';
-import { ENEMY_LIST } from '../src/domain/catalog/enemies';
+import { ENEMY_LIST, type EnemyDef } from '../src/domain/catalog/enemies';
 import { FLOORS } from '../src/domain/catalog/floors';
 import { LINEAGE_ORDER, LINEAGES } from '../src/domain/catalog/heroes';
 import { ITEMS } from '../src/domain/catalog/items';
@@ -66,6 +66,30 @@ import {
   worthArtifact,
 } from '../src/domain/combat/auto-use/autoUse';
 import { Card } from '../src/domain/combat/card';
+import {
+  ArmorToDamage,
+  BigHitReduction,
+  BossBonus,
+  BossReduction,
+  CarnageBonus,
+  FirstHitReduction,
+  FullHpBonus,
+  GoldBonus,
+  type HeroView,
+  HighHpDefense,
+  type IHeroDamageModifier,
+  type IncomingHit,
+  KillBonus,
+  KillStackDefense,
+  KillTurnDefense,
+  LowHpBonus,
+  LowHpReduction,
+  MagicReduction,
+  RageBonus,
+  ResourceDefense,
+  ScarDefense,
+  WoundedEnemyReduction,
+} from '../src/domain/combat/damage';
 import { Grid } from '../src/domain/combat/engine';
 import {
   type BattleCarryStats,
@@ -517,6 +541,146 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       price('archer').goldShare === 0,
     'воин и лучник спасаются даром',
   );
+}
+
+// ---------------------------------------------------------------- надбавки урона, защиты и снижения удара
+// каждое правило отдельно, на маленьких числах: что прибавляет и когда молчит
+{
+  const hero = (o: Partial<HeroView> = {}): HeroView => ({
+    hp: 100,
+    maxHp: 100,
+    res: 10,
+    resMax: 10,
+    killsRoom: 0,
+    killStreak: 0,
+    gold: Gold.of(0),
+    killDefenseActive: false,
+    defense: () => 0,
+    ...o,
+  });
+  const mul = (m: IHeroDamageModifier, h: HeroView): number => {
+    const acc = { base: 10, mul: 1 };
+    m.apply(acc, h);
+    return Math.round(acc.base * acc.mul * 100) / 100;
+  };
+  const r = Ratio.of;
+  ok(mul(new RageBonus(r(0.3)), hero({ hp: 50 })) === 13, 'RageBonus: при половине здоровья +30%');
+  ok(mul(new RageBonus(r(0.3)), hero({ hp: 51 })) === 10, 'RageBonus: выше половины молчит');
+  ok(mul(new KillBonus(r(0.1)), hero({ killsRoom: 2 })) === 12, 'KillBonus: +10% за убийство');
+  ok(mul(new KillBonus(r(0.1)), hero({ killsRoom: 9 })) === 13, 'KillBonus: не больше +30%');
+  ok(
+    mul(new GoldBonus(r(0.05)), hero({ gold: Gold.of(250) })) === 11,
+    'GoldBonus: +5% за 100 золота',
+  );
+  ok(mul(new GoldBonus(r(0.05)), hero({ gold: Gold.of(1e4) })) === 13, 'GoldBonus: не больше +30%');
+  ok(
+    mul(new CarnageBonus(r(0.2), r(0.8)), hero({ killStreak: 3 })) === 16,
+    'CarnageBonus: серия копится',
+  );
+  ok(
+    mul(new CarnageBonus(r(0.2), r(0.8)), hero({ killStreak: 9 })) === 18,
+    'CarnageBonus: до предела',
+  );
+  ok(
+    mul(new ArmorToDamage(r(0.5)), hero({ defense: () => 7 })) === 14,
+    'ArmorToDamage: половина защиты в базу',
+  );
+
+  const foe = (o: Partial<Card> = {}): Card =>
+    ({ hp: 100, maxHp: 100, swings: 0, hits: 0, ...o }) as Card;
+  const boss = { boss: true, magic: true } as EnemyDef;
+  ok(new FullHpBonus(r(0.25)).bonus(foe(), undefined) === 0.25, 'FullHpBonus: по целому врагу');
+  ok(
+    new FullHpBonus(r(0.25)).bonus(foe({ hp: 99 }), undefined) === 0,
+    'FullHpBonus: по раненому молчит',
+  );
+  ok(
+    new LowHpBonus(r(0.5)).bonus(foe({ hp: 30 }), undefined) === 0.5,
+    'LowHpBonus: 30% здоровья и ниже',
+  );
+  ok(
+    new LowHpBonus(r(0.5)).bonus(foe({ hp: 31 }), undefined) === 0,
+    'LowHpBonus: выше порога молчит',
+  );
+  ok(
+    new BossBonus(r(0.4)).bonus(foe(), boss) === 0.4 &&
+      new BossBonus(r(0.4)).bonus(foe(), undefined) === 0,
+    'BossBonus: только по боссу',
+  );
+
+  ok(
+    new HighHpDefense(r(0.2)).apply(10, hero({ hp: 80 })) === 12,
+    'HighHpDefense: больше 70% здоровья',
+  );
+  ok(
+    new HighHpDefense(r(0.2)).apply(10, hero({ hp: 70 })) === 10,
+    'HighHpDefense: на пороге молчит',
+  );
+  ok(
+    new ResourceDefense(r(0.3)).apply(10, hero({ res: 6 })) === 13,
+    'ResourceDefense: шкала больше половины',
+  );
+  ok(
+    new ResourceDefense(r(0.3)).apply(10, hero({ res: 5 })) === 10,
+    'ResourceDefense: половина — молчит',
+  );
+  ok(
+    new ScarDefense(r(0.1)).apply(10, hero({ hp: 55 })) === 12,
+    'ScarDefense: +10% за каждые 20% потерь',
+  );
+  ok(
+    new KillStackDefense(r(0.05)).apply(10, hero({ killsRoom: 3 })) === 12,
+    'KillStackDefense: копится с округлением',
+  );
+  ok(
+    new KillStackDefense(r(0.05)).apply(10, hero({ killsRoom: 10 })) === 12,
+    'KillStackDefense: не больше +20%',
+  );
+  ok(
+    new KillTurnDefense(r(0.5)).apply(10, hero({ killDefenseActive: true })) === 15,
+    'KillTurnDefense: ход после убийства',
+  );
+  ok(new KillTurnDefense(r(0.5)).apply(10, hero()) === 10, 'KillTurnDefense: без убийства молчит');
+
+  const hit = (o: Partial<IncomingHit> = {}): IncomingHit => ({
+    enemy: null,
+    def: null,
+    hero: hero(),
+    ...o,
+  });
+  ok(
+    new FirstHitReduction(r(0.5)).apply(10, hit({ enemy: foe() })) === 5,
+    'FirstHitReduction: первый удар врага',
+  );
+  ok(
+    new FirstHitReduction(r(0.5)).apply(10, hit({ enemy: foe({ swings: 1 }) })) === 10,
+    'FirstHitReduction: второй — полный',
+  );
+  ok(
+    new WoundedEnemyReduction(r(0.2)).apply(10, hit({ enemy: foe({ hits: 1 }) })) === 8,
+    'WoundedEnemyReduction: раненый враг слабее',
+  );
+  ok(
+    new MagicReduction(r(0.3)).apply(10, hit({ def: boss })) === 7,
+    'MagicReduction: удар мага слабее',
+  );
+  ok(
+    new BossReduction(r(0.1)).apply(10, hit({ def: boss })) === 9,
+    'BossReduction: удар босса слабее',
+  );
+  ok(
+    new LowHpReduction(r(0.5)).apply(10, hit({ hero: hero({ hp: 40 }) })) === 5,
+    'LowHpReduction: 40% здоровья и ниже',
+  );
+  ok(
+    new LowHpReduction(r(0.5)).apply(10, hit({ hero: hero({ hp: 41 }) })) === 10,
+    'LowHpReduction: выше порога молчит',
+  );
+  ok(
+    new BigHitReduction(r(0.5)).apply(50, hit()) === 25,
+    'BigHitReduction: удар больше 40% здоровья',
+  );
+  ok(new BigHitReduction(r(0.5)).apply(40, hit()) === 40, 'BigHitReduction: 40% — полный');
 }
 
 // ---------------------------------------------------------------- способности в бою

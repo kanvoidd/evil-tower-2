@@ -20,6 +20,7 @@ import { CellIndex, Gold, Percent, Ratio, type Rng, Souls } from '../../shared';
 import { CombatBalance, ConsumableBalance, LootBalance } from '../balance';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
+import type { HeroView } from '../damage';
 import { Grid } from '../engine/grid/Grid';
 import type { IEngine } from '../engine/interfaces/IEngine';
 import type { GameEvent, Loot } from '../events';
@@ -103,6 +104,8 @@ export class RoomBattle implements IBattleSession {
   private snapshot: BattleSnapshot | null = null;
 
   private readonly rng: Rng;
+  /** Герой глазами правил урона и защиты — живые значения этого боя. */
+  private readonly hero: HeroView;
   private readonly engine: IEngine;
   private readonly factory: CardFactory;
   private readonly enemies: Readonly<Record<string, EnemyDef>>;
@@ -137,6 +140,38 @@ export class RoomBattle implements IBattleSession {
     this.engine.deck.push(...deck.cards);
     this.quota = deck.quota;
     this.bossLeft = deck.boss;
+    this.hero = this.heroView();
+  }
+
+  private heroView(): HeroView {
+    const battle = this;
+    return {
+      get hp() {
+        return battle.hp;
+      },
+      get maxHp() {
+        return battle.stats.maxHp;
+      },
+      get res() {
+        return battle.res;
+      },
+      get resMax() {
+        return battle.stats.resMax;
+      },
+      get killsRoom() {
+        return battle.killsRoom;
+      },
+      get killStreak() {
+        return battle.killStreak;
+      },
+      get gold() {
+        return battle.totals.gold;
+      },
+      get killDefenseActive() {
+        return battle.defTurn > 0;
+      },
+      defense: () => battle.defenseNow(),
+    };
   }
 
   get lineage() {
@@ -457,28 +492,16 @@ export class RoomBattle implements IBattleSession {
 
   /** Урон героя с учётом временных надбавок (резня, ярость, золото, удар щитом). */
   currentDamage(): number {
-    const s = this.stats;
-    let d = s.damage;
-    let mul = 1;
-    if (s.rageDmg > 0 && this.hp <= this.stats.maxHp * 0.5) mul += s.rageDmg;
-    if (s.killDmg > 0) mul += Math.min(0.3, s.killDmg * this.killsRoom);
-    if (s.goldDmg > 0) mul += Math.min(0.3, s.goldDmg * Math.floor(this.totals.gold / 100));
-    if (this.stats.passives.has('carnage')) {
-      const carnage = this.paramsOf('carnage');
-      mul += Math.min(carnage.cap, carnage.perKill * this.killStreak);
-    }
-    if (s.defDmg > 0) d += Math.round(this.defenseNow() * s.defDmg);
-    return Math.max(1, Math.round(d * mul));
+    const acc = { base: this.stats.damage, mul: 1 };
+    for (const m of this.stats.damageMods) m.apply(acc, this.hero);
+    return Math.max(1, Math.round(acc.base * acc.mul));
   }
 
   /** Надбавки, зависящие от цели. */
   private contextDamage(dmg: number, enemy: Card): number {
-    const s = this.stats;
     const def = this.enemies[enemy.defId];
     let mul = 1;
-    if (s.fullHpDmg > 0 && enemy.hp >= enemy.maxHp) mul += s.fullHpDmg;
-    if (s.lowHpDmg > 0 && enemy.hp <= enemy.maxHp * 0.3) mul += s.lowHpDmg;
-    if (s.bossDmg > 0 && def?.boss) mul += s.bossDmg;
+    for (const m of this.stats.targetMods) mul += m.bonus(enemy, def);
     return Math.max(1, Math.round(dmg * mul));
   }
 
@@ -803,7 +826,7 @@ export class RoomBattle implements IBattleSession {
       this.hp += add;
       this.emit({ type: 'heal', amount: add, hp: this.hp, source: 'perk' });
     }
-    if (s.killDefTurn > 0) this.defTurn = Math.max(this.defTurn, 1);
+    this.defTurn = Math.max(this.defTurn, 1);
     // «Взрыв плоти»: любое убийство разлетается осколками по соседям
     if (s.killBlast > 0) {
       const blast = Math.max(1, Math.round(enemy.maxHp * s.killBlast));
@@ -923,18 +946,8 @@ export class RoomBattle implements IBattleSession {
   // ------------------------------------------------------------------ ответный удар врага
 
   private defenseNow(): number {
-    const s = this.stats;
-    let def = s.defense;
-    if (s.highHpDef > 0 && this.hp > this.stats.maxHp * 0.7)
-      def = Math.round(def * (1 + s.highHpDef));
-    if (s.resDef > 0 && this.res > this.stats.resMax * 0.5) def = Math.round(def * (1 + s.resDef));
-    if (s.scarDef > 0) {
-      const lost = Math.floor((1 - this.hp / this.stats.maxHp) / 0.2);
-      def = Math.round(def * (1 + s.scarDef * lost));
-    }
-    if (s.killDefStack > 0)
-      def = Math.round(def * (1 + Math.min(0.2, s.killDefStack * this.killsRoom)));
-    if (this.defTurn > 0) def = Math.round(def * (1 + s.killDefTurn));
+    let def = this.stats.defense;
+    for (const m of this.stats.defenseMods) def = m.apply(def, this.hero);
     return def;
   }
 
@@ -944,15 +957,9 @@ export class RoomBattle implements IBattleSession {
   }
 
   private reduce(atk: number, enemy: Card | null): number {
-    const s = this.stats;
-    const def = enemy ? this.enemies[enemy.defId] : null;
+    const hit = { enemy, def: enemy ? this.enemies[enemy.defId] : null, hero: this.hero };
     let dmg = atk;
-    if (enemy && enemy.swings === 0 && s.firstHitDown > 0) dmg *= 1 - s.firstHitDown;
-    if (enemy && enemy.hits > 0 && s.weaken > 0) dmg *= 1 - s.weaken;
-    if (def?.magic && s.magicDr > 0) dmg *= 1 - s.magicDr;
-    if (def?.boss && s.bossDr > 0) dmg *= 1 - s.bossDr;
-    if (s.lowHpDr > 0 && this.hp <= this.stats.maxHp * 0.4) dmg *= 1 - s.lowHpDr;
-    if (s.bigHitCut > 0 && dmg > this.stats.maxHp * 0.4) dmg *= 1 - s.bigHitCut;
+    for (const r of this.stats.reductions) dmg = r.apply(dmg, hit);
     const armor = this.defenseNow();
     const floor = Math.ceil(dmg * (1 - CombatBalance.maxDefenseReduction));
     return Math.max(1, Math.round(Math.max(floor, dmg - armor)));

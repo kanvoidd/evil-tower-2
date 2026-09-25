@@ -11,6 +11,7 @@ import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat
 import { Percent, Ratio } from '../../shared';
 import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
+import { StatModifiers } from './stat-modifiers/StatModifiers';
 
 export interface Loadout {
   classId: ClassId;
@@ -41,6 +42,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const perks = activePerkIds(tree, l.lineage, l.classId);
   const perkDefs = perks.map((p) => PERK_BY_ID[p]).filter(Boolean);
   const basicPerk = perkDefs.find((p) => p.basic);
+  const passives = new Set(perkDefs.filter((p) => p.passive).map((p) => p.ability));
 
   // ---- экипировка
   const w = usable(l.weapon);
@@ -78,14 +80,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     execute: asRatio(g('execute')),
     pierce: Ratio.of(Math.min(1, asRatio(g('pierce')))),
     doubleStrike: Percent.of(g('doubleStrike')),
-    lowHpDmg: asRatio(g('lowHpDmg')),
-    fullHpDmg: asRatio(g('fullHpDmg')),
-    bossDmg: asRatio(g('bossDmg')),
     ignite: asRatio(g('ignite')),
-    killDmg: asRatio(g('killDmg')),
-    rageDmg: asRatio(g('rageDmg')),
-    goldDmg: asRatio(g('goldDmg')),
-    defDmg: asRatio(g('defDmg')),
     everyThird: g('everyThird') > 0,
     roomCrit: g('roomCrit') > 0,
     lifesteal: Ratio.of(0),
@@ -109,8 +104,6 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     chainPower: asRatio(g('chainPower')),
     perkCostDown: g('perkCostDown'),
 
-    lowHpDr: asRatio(g('lowHpDr')),
-    bigHitCut: asRatio(g('bigHitCut')),
     startShieldPct: asRatio(g('startShield')),
     potionPct: asRatio(g('potionPct')),
     cheatDeath: g('cheatDeath'),
@@ -123,24 +116,20 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
 
     block: Percent.of(Math.min(CAPS.block, g('block'))),
     thorns: asRatio(g('thorns')),
-    weaken: asRatio(g('weaken')),
-    firstHitDown: asRatio(g('firstHitDown')),
     dotDr: asRatio(g('dotDr')),
-    bossDr: asRatio(g('bossDr')),
-    magicDr: asRatio(g('magicDr')),
-    killDefTurn: asRatio(g('killDefTurn')),
-    killDefStack: asRatio(g('killDefStack')),
     roomGuard: asRatio(g('roomGuard')),
     counterBuff: asRatio(g('counterBuff')),
-    highHpDef: asRatio(g('highHpDef')),
-    resDef: asRatio(g('resDef')),
     perkDef: asRatio(g('perkDef')),
-    scarDef: asRatio(g('scarDef')),
     manaShield: asRatio(g('manaShield')),
+
+    damageMods: StatModifiers.damage(g, passives),
+    targetMods: StatModifiers.target(g),
+    defenseMods: StatModifiers.defense(g),
+    reductions: StatModifiers.reductions(g),
 
     perks,
     abilities: perkDefs.filter(hasButton),
-    passives: new Set(perkDefs.filter((p) => p.passive).map((p) => p.ability)),
+    passives,
   };
 
   // «Мгновенное исполнение»: первая способность в комнате бесплатна — учитывается в RoomBattle.
