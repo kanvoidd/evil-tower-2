@@ -73,7 +73,7 @@ export class GameScene extends Phaser.Scene {
       battle.hp,
       battle.playerCell,
     );
-    const player = new GameEventPlayer(battle, board, animations, hud, sound, clock);
+    const player = new GameEventPlayer({ battle, board, anims: animations, hud, sound, clock });
 
     const controller = new GameController({
       battle,

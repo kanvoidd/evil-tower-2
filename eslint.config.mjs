@@ -32,7 +32,6 @@ const warnings = {
  */
 const legacyComplexity = {
   'src/infrastructure/store/ProfileStore.ts': 'G3',
-  'src/presentation/animations/GameEventPlayer.ts': 'F2',
   'src/presentation/components/pan-controller/PanController.ts': 'F3',
   'src/presentation/components/plate-button/PlateButton.ts': 'F3',
   'src/presentation/components/text/Text.ts': 'F3',
