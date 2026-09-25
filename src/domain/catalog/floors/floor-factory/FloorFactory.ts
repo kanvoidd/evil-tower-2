@@ -1,11 +1,10 @@
-import { Gold, Souls } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import type { EnemyRole } from '../../enemies/interfaces/EnemyRole';
 import type { EnemyTag } from '../../enemies/interfaces/EnemyTag';
 import type { EnemyTraits } from '../../enemies/interfaces/EnemyTraits';
 import type { RoomDef } from '../../levels/interfaces/RoomDef';
-import type { FloorTune } from './interfaces/FloorTune';
-import type { RoleScale } from './interfaces/RoleScale';
+import { FLOOR_SCALING } from '../scaling/floorScaling';
+import type { IFloorScaling } from '../scaling/interfaces/IFloorScaling';
 import type { RoomShape } from './interfaces/RoomShape';
 
 /**
@@ -19,60 +18,11 @@ import type { RoomShape } from './interfaces/RoomShape';
  * Реестры `ENEMY_LIST` и `ROOMS` собираются из списка фабрик только через этот абстрактный
  * интерфейс: новый этаж — это новая фабрика в `FLOOR_FACTORIES`.
  *
- * Числа врагов не пишутся руками: у врага есть роль, а сила считается по кривой этажа.
- * Так баланс правится двумя-тремя константами, а не полусотней строк.
+ * Числа врагов не пишутся руками: у врага есть роль, а сила и добыча по роли и этажу, как и
+ * награды комнат, — у масштабирования башни (`IFloorScaling`, кривая `FloorCurveScaling`).
  */
 export abstract class FloorFactory {
   static readonly ROOMS_PER_FLOOR = 5;
-
-  /**
-   * Множители этажа. Подобраны так, чтобы на любом этаже обычный враг умирал с 2–3 ударов,
-   * а герой держал 10–14 ответных ударов: здоровье врагов растёт чуть быстрее урона героя,
-   * а их атака — быстрее запаса здоровья героя, поэтому поздние этажи ощутимо опаснее ранних.
-   *
-   * Золото и опыт душ разведены: золото копится медленнее (под восемь ступеней экипировки),
-   * души — быстрее (под дерево талантов, которое и есть долгая цель).
-   */
-  private static readonly FLOOR_HP = 1.66;
-  private static readonly FLOOR_ATK = 1.7;
-  private static readonly FLOOR_GOLD = 1.48;
-  private static readonly FLOOR_SOULS = 1.7;
-
-  /**
-   * Доля награды в забеге. Каждый забег заново проходит нижние этажи и заново получает за них
-   * добычу и бонус комнаты, поэтому полная ставка «одна комната — одна награда» раскручивала
-   * героя за шесть-семь забегов. С этой долей прокачка идёт ступенями: забег приносит на
-   * несколько комнат дальше, а не сразу на этаж.
-   */
-  private static readonly RUN_REWARD = 0.7;
-
-  /** Сила обычного врага первого этажа — точка отсчёта для всей кривой. */
-  private static readonly BASE = { hp: 7, atk: 3, gold: 3, souls: 4 };
-
-  private static readonly ROLE: Record<EnemyRole, RoleScale> = {
-    weak: { hp: 0.55, atk: 0.7, val: 0.6 },
-    normal: { hp: 1, atk: 1, val: 1 },
-    tough: { hp: 1.9, atk: 1.2, val: 1.75 },
-    elite: { hp: 3.2, atk: 1.55, val: 3.4 },
-    boss: { hp: 8.5, atk: 2, val: 20 },
-  };
-
-  /**
-   * Поправки на концах кривой — единственные места, где она намеренно не гладкая.
-   *
-   * Низ: первые этажи мягче расчётных. Ход врагов бьёт сразу всеми соседями, и на голом герое
-   * с двумя десятками здоровья ровная кривая превращает обучение в мясорубку.
-   *
-   * Верх: к девятому этажу герой получает финальный класс и восьмую ступень снаряжения —
-   * скачок силы такой, что без наценки последний этаж становится прогулкой.
-   */
-  private static readonly FLOOR_TUNE: Record<number, FloorTune> = {
-    1: { hp: 0.8, atk: 0.6 },
-    2: { hp: 0.9, atk: 0.78 },
-    3: { hp: 1, atk: 0.9 },
-    9: { hp: 1.08, atk: 1.06 },
-    10: { hp: 1.55, atk: 1.46 },
-  };
 
   /**
    * Разброс содержимого по номеру комнаты на этаже: чем дальше, тем гуще. Комнаты короткие —
@@ -87,6 +37,9 @@ export abstract class FloorFactory {
     { count: [4, 6], gold: [3, 4], chests: [1, 2], heal: [1, 1], regen: [0, 1] },
     { count: [3, 5], gold: [3, 4], chests: [1, 2], heal: [1, 1], regen: [0, 1] },
   ];
+
+  /** Рост силы и наград от этажа к этажу. */
+  protected readonly scaling: IFloorScaling = FLOOR_SCALING;
 
   /** Номер этажа, с единицы. */
   abstract readonly floor: number;
@@ -113,33 +66,20 @@ export abstract class FloorFactory {
   }
 
   protected enemy(id: string, role: EnemyRole, tag: EnemyTag, traits: EnemyTraits = {}): EnemyDef {
-    const F = FloorFactory;
-    const r = F.ROLE[role];
-    const tune = this.tune();
-    const round = (v: number): number =>
-      v >= 100 ? Math.round(v / 5) * 5 : Math.max(1, Math.round(v));
+    const n = this.scaling.enemy(this.floor, role);
     return {
       id,
       floor: this.floor,
       role,
       tag,
-      hp: round(F.BASE.hp * r.hp * this.growth(F.FLOOR_HP) * tune.hp),
-      atk: round(F.BASE.atk * r.atk * this.growth(F.FLOOR_ATK) * tune.atk),
-      gold: round(F.BASE.gold * r.val * this.growth(F.FLOOR_GOLD) * F.RUN_REWARD),
-      souls: round(F.BASE.souls * r.val * this.growth(F.FLOOR_SOULS) * F.RUN_REWARD),
+      hp: n.hp,
+      atk: n.atk,
+      gold: n.gold,
+      souls: n.souls,
       boss: role === 'boss',
       icon: `enemy_${id}`,
       ...traits,
     };
-  }
-
-  /** Рост величины к этому этажу: множитель в степени (этаж − 1). */
-  private growth(m: number): number {
-    return Math.pow(m, this.floor - 1);
-  }
-
-  private tune(): FloorTune {
-    return FloorFactory.FLOOR_TUNE[this.floor] ?? { hp: 1, atk: 1 };
   }
 
   /** Пул комнаты: враги своего этажа плюс крепкие с предыдущего. */
@@ -154,9 +94,6 @@ export abstract class FloorFactory {
     const F = FloorFactory;
     const s = F.SHAPE[index - 1];
     const boss = index === F.ROOMS_PER_FLOOR;
-    const stepGold = 1 + 0.3 * (index - 1);
-    const gold = this.growth(F.FLOOR_GOLD);
-    const souls = this.growth(F.FLOOR_SOULS);
     return {
       id: `${this.floor}-${index}`,
       floor: this.floor,
@@ -168,9 +105,7 @@ export abstract class FloorFactory {
       chests: s.chests,
       heal: s.heal,
       regen: s.regen,
-      goldScale: Math.round(gold * stepGold * F.RUN_REWARD * 100) / 100,
-      clearGold: Gold.of(Math.round(24 * stepGold * (boss ? 2.6 : 1) * gold * F.RUN_REWARD)),
-      clearSouls: Souls.of(Math.round(22 * stepGold * (boss ? 3 : 1) * souls * F.RUN_REWARD)),
+      ...this.scaling.room(this.floor, index, boss),
     };
   }
 }

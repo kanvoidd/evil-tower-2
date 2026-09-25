@@ -33,7 +33,7 @@ import type { ClassId, LineageId, TalentPath } from '../src/domain/catalog';
 import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/catalog/classes';
 import { CONSUMABLES } from '../src/domain/catalog/consumables';
 import { ENEMY_LIST, type EnemyDef } from '../src/domain/catalog/enemies';
-import { FLOORS } from '../src/domain/catalog/floors';
+import { FLOOR_SCALING, FloorCurveScaling, FLOORS } from '../src/domain/catalog/floors';
 import { LINEAGE_ORDER, LINEAGES } from '../src/domain/catalog/heroes';
 import { ITEMS } from '../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../src/domain/catalog/levels';
@@ -302,6 +302,49 @@ for (let f = 2; f <= FLOORS; f++) {
   ok(
     cur.hp > prev.hp && cur.atk >= prev.atk && cur.souls > prev.souls,
     `этаж ${f}: враги сильнее и дороже предыдущих`,
+  );
+}
+// масштабирование этажа: фабрики берут числа у него, кривая растёт и округляет как обещано
+for (const e of ENEMY_LIST) {
+  const n = FLOOR_SCALING.enemy(e.floor, e.role);
+  ok(
+    e.hp === n.hp && e.atk === n.atk && e.gold === n.gold && e.souls === n.souls,
+    `${e.id}: сила и добыча — по масштабированию этажа`,
+  );
+}
+for (const r of ROOMS) {
+  const n = FLOOR_SCALING.room(r.floor, r.index, r.boss);
+  ok(
+    r.goldScale === n.goldScale && r.clearGold === n.clearGold && r.clearSouls === n.clearSouls,
+    `${r.id}: награды комнаты — по масштабированию этажа`,
+  );
+}
+{
+  const curve = new FloorCurveScaling();
+  for (let f = 1; f <= FLOORS; f++) {
+    for (const role of ['weak', 'normal', 'tough', 'elite', 'boss'] as const) {
+      const n = curve.enemy(f, role);
+      ok(
+        Object.values(n).every((v) => v >= 1 && (v < 100 || v % 5 === 0)),
+        `этаж ${f}, ${role}: числа не меньше 1, от сотни — кратны пяти`,
+      );
+    }
+    const first = curve.room(f, 1, false);
+    const last = curve.room(f, ROOMS_PER_FLOOR - 1, false);
+    const boss = curve.room(f, ROOMS_PER_FLOOR, true);
+    ok(
+      last.clearGold > first.clearGold && last.goldScale > first.goldScale,
+      `этаж ${f}: дальние комнаты платят больше`,
+    );
+    ok(
+      boss.clearGold > last.clearGold && boss.clearSouls > last.clearSouls,
+      `этаж ${f}: комната босса платит больше обычной`,
+    );
+  }
+  ok(
+    curve.room(2, 1, false).clearSouls > curve.room(1, 1, false).clearSouls &&
+      curve.enemy(2, 'boss').gold > curve.enemy(1, 'boss').gold,
+    'награды растут от этажа к этажу',
   );
 }
 // каждый заход собирается заново

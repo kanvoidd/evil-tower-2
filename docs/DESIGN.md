@@ -124,7 +124,7 @@
 - **Этаж 10** — «Вершина башни» с наценкой `FLOOR_TUNE`: стена, которую берёт почти полностью прокачанный герой.
 - Последний, полный забег идёт около 45–60 минут; ранние — 5–20 минут.
 
-Воин остался самым простым классом, лучник и наёмник — самыми долгими, маг — самым требовательным: мана восстанавливается по 1 за ход, каждый удар стоит маны, а заклинания подчинены перезарядкам — без зелий восстановления маг выдыхается к середине забега. Балансировать: кривые `FLOOR_*` и `FLOOR_TUNE` в `src/domain/catalog/floors/floor-factory/FloorFactory.ts`, рецепты комнат в фабриках этажей, цены в `src/domain/catalog/weapons/`, `src/domain/catalog/armor/`, `src/domain/progression/balance/` (`SoulPriceBalance`) и `src/domain/rewards/`, затем `npm run selftest` и `npm run sim`.
+Воин остался самым простым классом, лучник и наёмник — самыми долгими, маг — самым требовательным: мана восстанавливается по 1 за ход, каждый удар стоит маны, а заклинания подчинены перезарядкам — без зелий восстановления маг выдыхается к середине забега. Балансировать: кривые `FLOOR_*`, `FLOOR_TUNE` и награды комнат в `src/domain/catalog/floors/scaling/floor-curve/FloorCurveScaling.ts`, разброс содержимого комнат (`SHAPE`) в `src/domain/catalog/floors/floor-factory/FloorFactory.ts`, рецепты комнат в фабриках этажей, цены в `src/domain/catalog/weapons/`, `src/domain/catalog/armor/`, `src/domain/progression/balance/` (`SoulPriceBalance`) и `src/domain/rewards/`, затем `npm run selftest` и `npm run sim`.
 
 ## 4. Метрики, за которыми стоит следить после релиза
 
