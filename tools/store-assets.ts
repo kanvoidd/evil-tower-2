@@ -4,7 +4,7 @@
  * Запуск: npm run store
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { ENEMY_ART, Grid, HEROES, type Draw } from '../src/ui/PixelArt';
+import { ENEMY_ART, Grid, HEROES, type Draw } from '../src/presentation/textures/PixelArt';
 
 const FONT: Record<string, string[]> = {
   E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],

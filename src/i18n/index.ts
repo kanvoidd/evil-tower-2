@@ -1,8 +1,8 @@
-import type { Lang } from '../types';
-import type { PerkDef } from '../data/perks';
-import type { TalentDef, TalentFx } from '../data/talents';
-import { talentValue, talentValue2 } from '../data/talents';
-import type { Trait } from '../logic/traits';
+import type { Lang } from '../domain/types';
+import type { PerkDef } from '../domain/data/perks';
+import type { TalentDef, TalentFx } from '../domain/data/talents';
+import { talentValue, talentValue2 } from '../domain/data/talents';
+import type { Trait } from '../domain/logic/traits';
 import { ru, type TKey } from './ru';
 import { en } from './en';
 

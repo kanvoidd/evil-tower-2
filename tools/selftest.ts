@@ -1,27 +1,60 @@
 /** Самопроверка логики: npm run selftest */
-import { CLASSES, classesOfLineage } from '../src/data/classes';
-import { LINEAGE_ORDER } from '../src/data/heroes';
-import { ENEMY_LIST } from '../src/data/enemies';
-import { MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/data/levels';
-import { FLOORS } from '../src/data/floors';
-import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/data/perks';
-import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/data/talents';
-import { perkCost, talentRankCost } from '../src/data/economy';
+import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/data/classes';
+import { LINEAGE_ORDER, LINEAGES } from '../src/domain/data/heroes';
+import { ENEMY_LIST } from '../src/domain/data/enemies';
+import { MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/domain/data/levels';
+import { FLOORS } from '../src/domain/data/floors';
+import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/domain/data/perks';
+import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/domain/data/talents';
+import { DAILY_REWARDS, GIFT_REWARD, perkCost, talentRankCost } from '../src/domain/data/economy';
+import { CONSUMABLES } from '../src/domain/data/consumables';
 import {
   activePerkIds, applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, canInvest, costOf, currentClassOf,
   isClassOwned, isPurchasable, newLineageSave, nodeState, openedClasses, rankOf, talentBonuses, TREES, type TreeNode,
-} from '../src/logic/skillTree';
-import { buildPlayerStats, CAPS } from '../src/logic/stats';
-import { makeRng } from '../src/logic/rng';
-import { RunFactory, type Run, type RunCarryStats } from '../src/logic/run';
-import { Card } from '../src/game-data/card';
-import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/logic/autoUse';
-import { branchOf, inferBranch, planAutoSkill } from '../src/logic/autoSkill';
-import { classTraits, type TraitId } from '../src/logic/traits';
-import { GAMEPLAY } from '../src/config';
+} from '../src/domain/logic/skillTree';
+import { buildPlayerStats, CAPS } from '../src/domain/logic/stats';
+import { makeRng } from '../src/domain/logic/rng';
+import { RunFactory, type Run, type RunCarryStats } from '../src/domain/logic/run';
+import { Card } from '../src/domain/game-data/card';
+import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/domain/logic/autoUse';
+import { branchOf, inferBranch, planAutoSkill } from '../src/domain/logic/autoSkill';
+import { classTraits, type TraitId } from '../src/domain/logic/traits';
+import { GAMEPLAY } from '../src/domain/gameplay';
+import { Profile } from '../src/domain/logic/profile';
+import { HeroClassState, SpellAttack } from '../src/domain/logic/hero';
 import { ru } from '../src/i18n/ru';
 import { en } from '../src/i18n/en';
-import type { AutoSkillSave, ClassId, TalentPath } from '../src/types';
+import type { AutoSkillSave, ClassId, Lang, LineageId, TalentPath } from '../src/domain/types';
+import type { AbilityId } from '../src/domain/data/perks';
+import { AD_POLICY } from '../src/application/ads/adPolicy';
+import { AdService } from '../src/application/ads/AdService';
+import { ClassSelectController } from '../src/application/class-select/ClassSelectController';
+import { ClassSelection } from '../src/application/class-select/ClassSelection';
+import type { ClassSelectMode } from '../src/application/class-select/interfaces/ClassSelectMode';
+import { EnterHub } from '../src/application/hub/EnterHub';
+import { GetHubState } from '../src/application/hub/GetHubState';
+import { HubController } from '../src/application/hub/HubController';
+import type { HubMenu } from '../src/application/hub/interfaces/HubMenu';
+import type { HubOrigin } from '../src/application/hub/interfaces/HubOrigin';
+import type { IClock, IPlatform } from '../src/application/ports';
+import { ClaimDailyReward } from '../src/application/rewards/ClaimDailyReward';
+import { ClaimTowerGift } from '../src/application/rewards/ClaimTowerGift';
+import type { RewardChoice } from '../src/application/rewards/interfaces/RewardChoice';
+import { AudioSettings } from '../src/application/settings/AudioSettings';
+import { LanguageSettings } from '../src/application/settings/LanguageSettings';
+import { SettingsController } from '../src/application/settings/SettingsController';
+import { BuyConsumable } from '../src/application/shop/BuyConsumable';
+import { BuyItem } from '../src/application/shop/BuyItem';
+import type { IShopView } from '../src/application/shop/interfaces/IShopView';
+import { ShopCatalog } from '../src/application/shop/ShopCatalog';
+import { ShopController } from '../src/application/shop/ShopController';
+import { AutoSkill } from '../src/application/skill-tree/AutoSkill';
+import { BuySkill } from '../src/application/skill-tree/BuySkill';
+import { CancelMetamorphosis } from '../src/application/skill-tree/CancelMetamorphosis';
+import type { ISkillTreeView } from '../src/application/skill-tree/interfaces/ISkillTreeView';
+import { Metamorphose } from '../src/application/skill-tree/Metamorphose';
+import { SkillTreeController } from '../src/application/skill-tree/SkillTreeController';
+import { SkillTreeQuery } from '../src/application/skill-tree/SkillTreeQuery';
 
 let failed = 0;
 const ok = (cond: boolean, msg: string): void => {
@@ -243,9 +276,24 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   ok(m.resMax > w.resMax && m.resMax > a.resMax && m.resMax > c.resMax, 'маг: самый большой запас ресурса');
   ok(a.crit > w.crit && a.crit > m.crit && a.crit > c.crit, 'лучник: самый высокий шанс крита');
   ok(Math.abs(c.goldBonus - 0.2) < 1e-9, 'наёмник: +20% золота');
-  ok(!m.melee && w.melee && a.melee && c.melee, 'маг вообще не бьёт рукой, остальные бьют');
-  ok(m.ranged === 'none' && a.ranged === 'skip' && c.ranged === 'any' && w.ranged === 'none', 'базовые действия линеек');
-  ok(c.rangedCrit && !a.rangedCrit, 'гарантированный крит только у удара в спину');
+  ok(!m.attack.melee && w.attack.melee && a.attack.melee && c.attack.melee, 'маг вообще не бьёт рукой, остальные бьют');
+  ok(m.attack.mode === 'none' && a.attack.mode === 'skip' && c.attack.mode === 'any' && w.attack.mode === 'none', 'базовые действия линеек');
+  ok(c.attack.guaranteedCrit && !a.attack.guaranteedCrit, 'гарантированный крит только у удара в спину');
+  ok(LINEAGE_ORDER.every((lin) => start(lin).attack.constructor === LINEAGES[lin].attack.constructor), 'стиль боя героя — стратегия его линейки');
+
+  // досягаемость базового действия (поле 0 1 2 / 3 4 5 / 6 7 8)
+  const reach = (lin: LineageId, from: number, to: number, passives: AbilityId[] = []): boolean =>
+    LINEAGES[lin].attack.reaches(from, to, new Set(passives));
+  ok(reach('archer', 0, 2) && reach('archer', 1, 7) && !reach('archer', 0, 4) && !reach('archer', 0, 8), 'лучник: выстрел через карту по прямой');
+  ok(reach('archer', 0, 4, ['diagonal']) && reach('archer', 0, 1, ['eagle_eye']), 'лучник: «Косой прицел» — диагонали, «Орлиный глаз» — соседи');
+  ok(reach('mercenary', 0, 8) && reach('mercenary', 4, 2), 'удар в спину достаёт любую клетку');
+  ok(!reach('warrior', 0, 2) && !reach('mage', 0, 2) && !reach('mage', 0, 4, ['diagonal']), 'воин и маг вдаль не бьют');
+
+  // цена спасения от смерти
+  const price = (lin: LineageId) => LINEAGES[lin].cheatDeathPrice;
+  ok(price('mage').drainsResource && price('mage').goldShare === 0, 'маг платит за спасение всей маной');
+  ok(!price('mercenary').drainsResource && Math.abs(price('mercenary').goldShare - 0.2) < 1e-9, 'наёмник откупается пятой частью золота');
+  ok(!price('warrior').drainsResource && price('warrior').goldShare === 0 && !price('archer').drainsResource && price('archer').goldShare === 0, 'воин и лучник спасаются даром');
 }
 
 // ---------------------------------------------------------------- способности в бою
@@ -567,7 +615,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
-      if (!stats.melee) continue;
+      if (!stats.attack.melee) continue;
       const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(17) });
       run.start();
       run.cards.fill(null);
@@ -1068,6 +1116,64 @@ ok(Object.keys(ru).every((k) => k in en), 'английский словарь �
 ok(Object.keys(en).every((k) => k in ru), 'в английском словаре нет лишних ключей');
 for (const cls of classesOfLineage('warrior')) ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
 
+// ---------------------------------------------------------------- определения классов и герой
+{
+  for (const id of Object.keys(CLASSES) as ClassId[]) {
+    const def = CLASS_DEFINITIONS[id];
+    const cls = CLASSES[id];
+    ok(!!def && def.lineage.id === cls.lineage && def.stage === cls.stage && def.parent === cls.parent, `${id}: определение класса совпадает с классом фабрики`);
+    const base = def.lineage.base;
+    ok((Object.keys(base) as Array<keyof typeof base>).every((k) => def.baseStats[k] === base[k] + (cls.mods[k] ?? 0)), `${id}: база класса = база линейки + бонусы класса`);
+    ok(JSON.stringify(def.abilities.map((p) => p.id)) === JSON.stringify(perksOfClass(id).map((p) => p.id)), `${id}: способности класса по слотам`);
+    ok(def.talents.length === talentsOfClass(id).length, `${id}: таланты класса`);
+    const children = (Object.keys(CLASSES) as ClassId[]).filter((c) => CLASSES[c].parent === id);
+    ok(JSON.stringify([...def.next].sort()) === JSON.stringify(children.sort()), `${id}: метаморфоза ведёт в дочерние классы (${def.next.join(',')})`);
+  }
+
+  // жизненный цикл: маг → магистр → пиромант, тот же экземпляр героя; отмена — назад к магистру
+  const profile = new Profile(Profile.freshData('ru', 0), () => 0);
+  profile.unlockLineage('mage');
+  profile.setActiveClass('mage');
+  const hero = profile.activeHero;
+  const tree = hero.tree;
+  const buyOwn = (owner: ClassId): void => {
+    for (let guard = 0; guard < 400; guard++) {
+      const next = tree.nodes.find((n) => n.owner === owner && n.kind !== 'class' && isPurchasable(n) && canInvest(tree, hero.save, n));
+      if (!next) return;
+      applyBuy(tree, hero.save, next);
+    }
+  };
+  ok(hero.classId === 'mage' && profile.activeClass === 'mage', 'герой начинает базовым классом');
+  ok(!hero.canMetamorphose('magister', 1e9).ok, 'метаморфоза закрыта, пока ярус не пройден');
+  ok(!hero.canMetamorphose('pyromancer', 1e9).ok, 'через ступень не перепрыгнуть');
+  buyOwn('mage');
+  ok(hero.canMetamorphose('magister', 1e9).ok, 'после третьего яруса открыта метаморфоза в магистра');
+  ok(!hero.canMetamorphose('magister', 0).ok, 'без душ метаморфоза не покупается');
+  hero.metamorphose('magister');
+  ok(profile.activeHero === hero, 'после метаморфозы — тот же экземпляр героя');
+  ok(hero.classId === 'magister' && profile.activeClass === 'magister', 'герой стал магистром');
+  ok(hero.combatStats(null, null).abilities.some((p) => p.id === 'mage_start'), 'молния мага осталась у магистра');
+  let threw = false;
+  try {
+    hero.metamorphose('necromancer');
+  } catch {
+    threw = true;
+  }
+  ok(threw, 'финальный класс закрыт, пока ярус магистра не пройден');
+  buyOwn('magister');
+  hero.metamorphose('pyromancer');
+  ok(hero.classId === 'pyromancer' && hero.classState.next.length === 0, 'пиромант — финальный класс');
+  ok(hero.classState === HeroClassState.of('pyromancer'), 'состояние класса одно на класс');
+  ok(hero.classState.attack instanceof SpellAttack && !hero.classState.attack.melee, 'пиромант атакует как маг — только заклинаниями');
+  ok(hero.classState.getAbilities() === CLASS_DEFINITIONS.pyromancer.abilities, 'способности состояния — из определения класса');
+  ok(!hero.canMetamorphose('necromancer', 1e9).ok, 'соседний финальный класс закрыт');
+  ok(hero.canCancelMetamorphosis, 'метаморфозу в финальный класс можно отменить');
+  const back = hero.cancelMetamorphosis();
+  ok(back.to === 'magister' && back.refund > 0 && hero.classId === 'magister', `отмена вернула магистра (возврат ${back.refund})`);
+  ok(profile.activeHero === hero, 'после отмены — всё тот же герой');
+  ok(!hero.canCancelMetamorphosis, 'метаморфозу в магистра не отменить');
+}
+
 // ---------------------------------------------------------------- фазз-тест поля боя
 const dist = (a: number, b: number): number => Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
 let runs = 0;
@@ -1133,6 +1239,291 @@ for (const lin of LINEAGE_ORDER) {
     }
   }
 }
+// ---------------------------------------------------------------- приложение: потоки экранов без Phaser
+{
+  /** Подставная платформа: записывает вызовы; видео с наградой досматривается, если `rewarded`. */
+  const fakePlatform = (rewarded: boolean): { platform: IPlatform; calls: string[] } => {
+    const calls: string[] = [];
+    const platform: IPlatform = {
+      ready: () => void calls.push('ready'),
+      gameplayStart: () => void calls.push('start'),
+      gameplayStop: () => void calls.push('stop'),
+      showRewarded: async () => (calls.push('rewarded'), rewarded),
+      showInterstitial: async () => (calls.push('interstitial'), true),
+      submitScore: async () => undefined,
+      setStats: async () => undefined,
+    };
+    return { platform, calls };
+  };
+  const clock: IClock = { delay: () => Promise.resolve() };
+  /** Дать отработать обещаниям потока (окна, реклама). */
+  const settle = (): Promise<void> => new Promise((done) => setTimeout(done, 0));
+  const heroProfile = (lin: LineageId): Profile => {
+    const p = new Profile(Profile.freshData('ru', 0), () => 0);
+    p.unlockLineage(lin);
+    p.setActiveClass(lin);
+    return p;
+  };
+
+  // хаб: вход, награды с рекламой, уход один раз, награда дня при возвращении из боя
+  {
+    const hubFor = (p: Profile, rewarded: boolean, choice: () => RewardChoice) => {
+      const { platform, calls } = fakePlatform(rewarded);
+      const ads = new AdService(platform, p, () => 0);
+      const log: string[] = [];
+      const opened: Array<HubMenu | 'play'> = [];
+      let asked = 0;
+      const hub = new HubController({
+        profile: p,
+        state: new GetHubState(p, new ShopCatalog(p)),
+        daily: new ClaimDailyReward(p, ads),
+        gift: new ClaimTowerGift(p, ads),
+        view: { autoSkilled: (n) => void log.push(`auto:${n}`), rewarded: () => void log.push('reward'), showRewards: () => undefined },
+        dialogs: { daily: async () => (asked++, choice()), gift: async () => (asked++, choice()) },
+        navigator: { open: (m) => void opened.push(m), play: () => void opened.push('play') },
+        clock,
+      });
+      return { hub, calls, log, opened, platform, asked: () => asked };
+    };
+    const p = heroProfile('warrior');
+    let choice: RewardChoice = 'double';
+    const h = hubFor(p, true, () => choice);
+    const entry = new EnterHub(p, h.platform).execute();
+    ok(h.calls[0] === 'ready' && entry.autoSkillBuys === 0, 'хаб: вход сообщает платформе о готовности');
+    h.hub.execute({ type: 'daily' });
+    await settle();
+    ok(p.gold === DAILY_REWARDS[0].gold! * 2 && !p.dailyStatus().available && h.log.includes('reward'), 'хаб: награда дня за досмотренное видео — вдвое');
+    choice = 'single';
+    const gold1 = p.gold;
+    h.hub.execute({ type: 'gift' });
+    await settle();
+    ok(p.gold - gold1 === GIFT_REWARD.gold && !p.giftReady() && h.calls.filter((c) => c === 'rewarded').length === 1,
+      'хаб: «Дар башни» без видео — обычный, реклама не показывается');
+    h.hub.execute({ type: 'open', menu: 'levels' });
+    h.hub.execute({ type: 'play' });
+    h.hub.execute({ type: 'open', menu: 'shop' });
+    ok(h.opened.join() === 'levels', 'хаб: пока идёт уход в меню, остальные нажатия не считаются');
+
+    const back = (from: HubOrigin | undefined) => {
+      const q = heroProfile('warrior');
+      q.markTutorial('skill');
+      const r = hubFor(q, false, () => 'double');
+      return { q, r, done: r.hub.start({ autoSkillBuys: 3 }, from) };
+    };
+    const fromGame = back('game');
+    await fromGame.done;
+    await settle();
+    ok(fromGame.r.log[0] === 'auto:3' && fromGame.r.asked() === 1 && fromGame.q.gold === DAILY_REWARDS[0].gold,
+      'хаб: из боя — итог автопрокачки и награда дня (видео не досмотрено — обычная)');
+    const fromMenu = back('shop');
+    await fromMenu.done;
+    ok(fromMenu.r.asked() === 0 && fromMenu.q.dailyStatus().available, 'хаб: из меню награду дня сам не предлагает');
+  }
+
+  // лавка: покупка, повтор, починка, «слабее надетого», предел зелий, нехватка золота
+  {
+    const p = heroProfile('warrior');
+    p.addGold(20000, false);
+    const log: string[] = [];
+    let closes = 0;
+    const view: IShopView = {
+      itemBought: (it, repaired) => void log.push(`${repaired ? 'repaired' : 'bought'}:${it.id}`),
+      consumableBought: () => void log.push('potion'),
+      noGold: () => void log.push('gold'),
+      stackFull: (def) => void log.push(`full:${def.id}`),
+      denied: () => void log.push('denied'),
+    };
+    const shop = new ShopController({ buyItem: new BuyItem(p), buyConsumable: new BuyConsumable(p), view, navigator: { close: () => void closes++ } });
+    const catalog = new ShopCatalog(p);
+    const [w1, w2] = catalog.items('weapon').map((o) => o.item);
+    ok(catalog.items('weapon').every((o) => o.item.lineage === 'warrior') && catalog.items('weapon')[0].action === 'buy', 'лавка: оружие — только линейки героя');
+    shop.execute({ type: 'buy-item', item: w1 });
+    ok(log.at(-1) === `bought:${w1.id}` && catalog.items('weapon')[0].action === 'equipped', 'лавка: купленная вещь надета');
+    shop.execute({ type: 'buy-item', item: w1 });
+    ok(log.at(-1) === 'denied', 'лавка: целую надетую вещь второй раз не продаём');
+    p.equipped('weapon')!.durability = 1;
+    const repair = catalog.items('weapon')[0];
+    const gold0 = p.gold;
+    shop.execute({ type: 'buy-item', item: w1 });
+    ok(repair.action === 'repair' && log.at(-1) === `repaired:${w1.id}` && gold0 - p.gold === repair.price, 'лавка: починка стоит столько, сколько обещано');
+    shop.execute({ type: 'buy-item', item: w2 });
+    ok(catalog.items('weapon')[0].action === 'weaker', 'лавка: вещь слабее надетой больше не нужна');
+    shop.execute({ type: 'buy-item', item: w1 });
+    ok(log.at(-1) === 'denied', 'лавка: вещь слабее надетой не продаём');
+    for (let i = 0; i < 10; i++) shop.execute({ type: 'buy-consumable', id: 'potion_heal' });
+    ok(p.heroSave.consumables.potion_heal === CONSUMABLES.potion_heal.max && log.at(-1) === 'full:potion_heal', 'лавка: зелья — не больше предела запаса');
+    shop.execute({ type: 'close' });
+    shop.execute({ type: 'close' });
+    ok(closes === 1, 'лавка: закрывается один раз');
+    ok(new ShopCatalog(p).hasAffordableUpgrade(), 'лавка: при золоте на следующую ступень значок «есть что купить» есть');
+    const poor = heroProfile('warrior');
+    const poorLog: string[] = [];
+    new ShopController({
+      buyItem: new BuyItem(poor), buyConsumable: new BuyConsumable(poor),
+      view: { ...view, noGold: () => void poorLog.push('gold') }, navigator: { close: () => undefined },
+    }).execute({ type: 'buy-item', item: w1 });
+    ok(poorLog[0] === 'gold' && !poor.equipped('weapon') && !new ShopCatalog(poor).hasAffordableUpgrade(), 'лавка: без золота не купить, значка нет');
+  }
+
+  // дерево навыков: первая покупка, метаморфоза с подтверждением, отказ от финального класса, автопрокачка
+  {
+    const log: string[] = [];
+    const view: ISkillTreeView = {
+      refused: (r) => void log.push(`refused:${r}`),
+      learned: (n) => void log.push(`learned:${n.id}`),
+      metamorphosisCancelled: (to) => void log.push(`cancelled:${to}`),
+      autoBought: (plan) => void log.push(`auto:${plan.buys.length}`),
+      autoToggled: (on) => void log.push(`toggle:${on}`),
+    };
+    let confirm = false;
+    let closes = 0;
+    const treeFor = (p: Profile) => {
+      const query = new SkillTreeQuery(p);
+      const ctl = new SkillTreeController({
+        query, buySkill: new BuySkill(p), metamorphose: new Metamorphose(p), cancelMetamorphosis: new CancelMetamorphosis(p),
+        autoSkill: new AutoSkill(p), view,
+        dialogs: { confirmMetamorphosis: async () => confirm, confirmCancel: async () => confirm },
+        navigator: { close: () => void closes++, switchClass: () => undefined },
+        clock,
+      });
+      return { query, ctl };
+    };
+    const p = heroProfile('mage');
+    p.addSouls(1e7, false);
+    const { query, ctl } = treeFor(p);
+    const tree = query.tree;
+    const first = query.tutorialTarget()!;
+    ctl.execute({ type: 'buy', node: first });
+    ok(log.at(-1) === `learned:${first.id}` && p.tutorial.skill && query.tutorialTarget() === null, 'дерево: первая покупка завершает обучение');
+    /** Проходит ярус класса `owner` командами дерева, пока не откроется метаморфоза в `to`. */
+    const passTier = (owner: ClassId, to: ClassId): boolean => {
+      for (let i = 0; i < 200 && !query.check(tree.classNode[to]).ok; i++) {
+        const n = tree.nodes.find((x) => x.kind !== 'class' && x.owner === owner && query.check(x).ok);
+        if (!n) break;
+        ctl.execute({ type: 'buy', node: n });
+      }
+      return query.check(tree.classNode[to]).ok;
+    };
+    ok(passTier('mage', 'magister'), 'дерево: покупки мага открывают метаморфозу в магистра');
+    ctl.execute({ type: 'buy', node: tree.classNode.magister });
+    await settle();
+    ok(p.activeClass === 'mage', 'дерево: без подтверждения метаморфозы нет');
+    confirm = true;
+    ctl.execute({ type: 'buy', node: tree.classNode.magister });
+    await settle();
+    ok(p.activeClass === 'magister' && p.data.stats.metamorphoses === 1 && log.at(-1) === `learned:${tree.classNode.magister.id}`,
+      'дерево: метаморфоза в магистра — с подтверждением и в счётчике');
+    ok(passTier('magister', 'pyromancer'), 'дерево: ярус магистра открывает финальные классы');
+    ctl.execute({ type: 'buy', node: tree.classNode.pyromancer });
+    await settle();
+    const souls0 = p.souls;
+    ok(p.activeClass === 'pyromancer', 'дерево: метаморфоза в пироманта');
+    ctl.execute({ type: 'cancel-metamorphosis' });
+    await settle();
+    ok(p.activeClass === 'magister' && p.souls > souls0 && log.at(-1) === 'cancelled:magister', 'дерево: отказ от пироманта возвращает магистра и часть душ');
+    ctl.execute({ type: 'toggle-auto' });
+    ok(log.includes('toggle:true') && p.autoSkillCfg().on, 'дерево: автопрокачка включается');
+    ctl.execute({ type: 'toggle-auto' });
+    ok(log.at(-1) === 'toggle:false' && !p.autoSkillCfg().on, 'дерево: автопрокачка выключается');
+    ctl.execute({ type: 'close' });
+    ctl.execute({ type: 'close' });
+    ok(closes === 1, 'дерево: закрывается один раз');
+    const poor = heroProfile('mage');
+    const pt = treeFor(poor);
+    const target = pt.query.tree.nodes.find((n) => n.kind !== 'class' && pt.query.state(n) === 'available')!;
+    pt.ctl.execute({ type: 'buy', node: target });
+    ok(log.at(-1) === 'refused:souls' && !poor.tutorial.skill, 'дерево: без душ не купить');
+  }
+
+  // выбор героя: первый запуск, открытие за золото, смена героя, кошелёк у каждого свой
+  {
+    const p = new Profile(Profile.freshData('ru', 0), () => 0);
+    const log: string[] = [];
+    let games = 0;
+    let backs = 0;
+    const { platform, calls } = fakePlatform(false);
+    const selectFor = (mode: ClassSelectMode) => {
+      const selection = new ClassSelection(p, mode);
+      const ctl = new ClassSelectController({
+        selection, platform,
+        view: {
+          started: () => void log.push('started'), unlocked: (c) => void log.push(`unlocked:${c}`),
+          noGold: () => void log.push('gold'), switched: () => void log.push('switched'),
+        },
+        dialogs: { confirmSwitch: async () => true },
+        navigator: { startGame: () => void games++, back: () => void backs++ },
+      });
+      return { selection, ctl };
+    };
+    const first = selectFor('first');
+    first.ctl.start();
+    ok(p.isFirstRun && calls.includes('ready') && first.selection.choices().every((c) => c.opened && c.action === 'start'), 'выбор героя: в первый запуск доступны все герои');
+    first.ctl.execute({ type: 'choose', classId: 'archer' });
+    await settle();
+    ok(p.activeClass === 'archer' && !p.isFirstRun && games === 1 && log.at(-1) === 'started', 'выбор героя: первый выбор открывает героя и ведёт в забег');
+    const sw = selectFor('switch');
+    ok(sw.selection.choice('archer').action === 'current' && sw.selection.choice('mage').action === 'unlock', 'выбор героя: текущий герой отмечен, закрытые — за золото');
+    sw.ctl.execute({ type: 'choose', classId: 'mage' });
+    await settle();
+    ok(log.at(-1) === 'gold' && !p.isLineageUnlocked('mage'), 'выбор героя: без золота героя не открыть');
+    p.addGold(GAMEPLAY.classUnlockCost + 100, false);
+    sw.ctl.execute({ type: 'choose', classId: 'mage' });
+    await settle();
+    ok(log.at(-1) === 'unlocked:mage' && p.activeClass === 'archer' && p.gold === 100 && sw.selection.choice('mage').action === 'pick',
+      'выбор героя: открытие стоит своё и героя не меняет');
+    sw.ctl.execute({ type: 'choose', classId: 'mage' });
+    await settle();
+    ok(p.activeClass === 'mage' && backs === 1 && log.at(-1) === 'switched', 'выбор героя: смена героя — с подтверждением');
+    ok(p.gold === 0 && p.heroSaveOf('archer').gold === 100, 'выбор героя: у каждого героя свой кошелёк');
+  }
+
+  // настройки: кнопка звука, ползунок громкости, язык
+  {
+    const p = heroProfile('warrior');
+    const out: string[] = [];
+    const audio = new AudioSettings(p, { setVolume: (v) => void out.push(`vol:${v}`), setMuted: (m) => void out.push(`mute:${m}`) });
+    const applied: Lang[] = [];
+    const shown: Array<[number, boolean]> = [];
+    let reloads = 0;
+    const ctl = new SettingsController({
+      audio,
+      language: new LanguageSettings(p, { apply: (l) => void applied.push(l) }),
+      view: { showVolume: (v, silent) => void shown.push([v, silent]) },
+      navigator: { close: () => undefined, reload: () => void reloads++ },
+    });
+    ok(audio.toggleMuted() && p.muted && out.at(-1) === 'mute:true', 'настройки: кнопка звука выключает звук и помнит выбор');
+    ctl.execute({ type: 'volume', value: 0.4 });
+    ok(p.volume === 0.4 && !p.muted && shown.at(-1)?.[1] === false && out.includes('vol:0.4'), 'настройки: ползунок громкости снимает «без звука»');
+    ctl.execute({ type: 'volume', value: 0 });
+    ok(shown.at(-1)?.[1] === true, 'настройки: на нулевой громкости звука нет');
+    ctl.execute({ type: 'language', lang: 'ru' });
+    ok(reloads === 0 && applied.length === 0, 'настройки: тот же язык ничего не меняет');
+    ctl.execute({ type: 'language', lang: 'en' });
+    ok(reloads === 1 && p.lang === 'en' && applied.join() === 'en', 'настройки: новый язык сохраняется, применяется и пересобирает экран');
+  }
+
+  // реклама: полноэкранная — не в первых комнатах и не чаще кулдауна, видео с наградой — пауза игры
+  {
+    const p = heroProfile('warrior');
+    const { platform, calls } = fakePlatform(true);
+    let now = 1_000_000;
+    const ads = new AdService(platform, p, () => now);
+    const shown = (): number => calls.filter((c) => c === 'interstitial').length;
+    await ads.interstitial();
+    ok(shown() === 0, 'реклама: полноэкранной нет в первых комнатах');
+    p.bump('roomsCleared', AD_POLICY.firstAdAfterRooms);
+    await ads.interstitial();
+    ok(shown() === 1 && p.lastInterstitial === now, 'реклама: после нескольких комнат — показана и запомнена');
+    now += AD_POLICY.interstitialCooldownMs - 1;
+    await ads.interstitial();
+    ok(shown() === 1, 'реклама: не чаще собственного кулдауна');
+    now += 1;
+    await ads.interstitial();
+    ok(shown() === 2, 'реклама: после кулдауна — снова');
+    ok((await ads.rewarded()) && calls.includes('stop'), 'реклама: видео с наградой ставит игру на паузу');
+  }
+}
+
 ok(autoPicks > 20, `автоприменение срабатывает в фазз-тесте (${autoPicks})`);
 ok(perkUses > 200, `способности применяются в фазз-тесте (${perkUses})`);
 console.log(`Прогонов боя: ${runs} (автоприменений: ${autoPicks}, способностей: ${perkUses}). ${failed ? `ОШИБОК: ${failed}` : 'Все проверки пройдены.'}`);
