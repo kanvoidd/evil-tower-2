@@ -3,7 +3,7 @@ import type { ISoundPlayer, SfxName } from '../../application/ports';
 import { CONSUMABLES } from '../../domain/catalog/consumables';
 import { PERK_BY_ID } from '../../domain/catalog/perks';
 import type { GameEvent } from '../../domain/combat/events';
-import type { IRunState } from '../../domain/combat/room-battle';
+import type { IBattleState } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { perkName, t, type TKey } from '../../i18n';
 import { BoardLayout } from '../board/BoardLayout';
@@ -19,7 +19,7 @@ type Ev<K extends GameEvent['type']> = Extract<GameEvent, { type: K }>;
  * Проигрыватель событий боя. Бой ничего не рисует сам: он отдаёт журнал событий, а этот класс
  * по порядку показывает каждое — анимацией, звуком, всплывающей подписью и обновлением панелей.
  *
- *   Run → GameEvent[] → GameEventPlayer → Animations / BoardView / HUD
+ *   RoomBattle → GameEvent[] → GameEventPlayer → Animations / BoardView / HUD
  *
  * Состояние боя проигрыватель только читает — например, чтобы показать, что героя уже добивают.
  */
@@ -40,7 +40,7 @@ export class GameEventPlayer implements IAnimationPlayer {
   private alive = true;
 
   constructor(
-    private readonly run: IRunState,
+    private readonly battle: IBattleState,
     private readonly board: BoardView,
     private readonly anims: Animations,
     private readonly hud: IBattleHud,
@@ -136,7 +136,7 @@ export class GameEventPlayer implements IAnimationPlayer {
   }
 
   private async attack(ev: Ev<'attack'>): Promise<void> {
-    if (this.run.over === 'lose' && ev.by === 'enemy') {
+    if (this.battle.over === 'lose' && ev.by === 'enemy') {
       const v = this.board.viewAt(ev.from);
       if (v) this.anims.attack.melee.rush(v, this.board.playerPoint());
       await this.clock.delay(70);
@@ -160,7 +160,7 @@ export class GameEventPlayer implements IAnimationPlayer {
     this.sound.play(ev.target === 'player' ? 'hurt' : ev.crit ? 'crit' : 'hit');
     if (!v) return;
     if (ev.target === 'player') {
-      this.board.setPlayerHp(ev.hp, this.run.stats.maxHp);
+      this.board.setPlayerHp(ev.hp, this.battle.stats.maxHp);
       this.anims.flash.shake(140, 0.006);
     } else {
       v.hp?.setText(String(ev.hp));
@@ -233,7 +233,7 @@ export class GameEventPlayer implements IAnimationPlayer {
   }
 
   private heal(ev: Ev<'heal'>): void {
-    this.board.setPlayerHp(ev.hp, this.run.stats.maxHp);
+    this.board.setPlayerHp(ev.hp, this.battle.stats.maxHp);
     const p = this.board.playerPoint();
     this.anims.text.show(p.x, p.y - 30, `+${ev.amount}`, HEX.good, 36);
     if (ev.source === 'potion' || ev.source === 'revive') this.sound.play('potion');
@@ -268,7 +268,7 @@ export class GameEventPlayer implements IAnimationPlayer {
     const p = this.board.playerPoint();
     this.anims.text.show(p.x, p.y - 100, t('game.broken'), HEX.bad, 28);
     this.hud.refresh();
-    this.board.setPlayerDamage(this.run.stats.damage);
+    this.board.setPlayerDamage(this.battle.stats.damage);
   }
 
   private perk(ev: Ev<'perk'>): void {
@@ -279,7 +279,7 @@ export class GameEventPlayer implements IAnimationPlayer {
   /** Способность заряжена или снята с заряда: кнопки и подсветка целей на поле. */
   private armed(): void {
     this.hud.refreshAbilities();
-    this.board.showTargets(this.run);
+    this.board.showTargets(this.battle);
   }
 
   private spend(ev: Ev<'spend'>): void {
@@ -291,7 +291,7 @@ export class GameEventPlayer implements IAnimationPlayer {
 
   private status(ev: Ev<'status'>): void {
     const v = this.board.view(ev.uid);
-    const card = this.run.cards[ev.cell];
+    const card = this.battle.cards[ev.cell];
     if (v && card) this.board.showStatuses(v, card);
   }
 
@@ -330,7 +330,7 @@ export class GameEventPlayer implements IAnimationPlayer {
 
   private async rewind(): Promise<void> {
     this.sound.play('burst');
-    this.board.rebuild(this.run.cards, this.run.playerCell);
+    this.board.rebuild(this.battle.cards, this.battle.playerCell);
     this.hud.note(t('game.rewind'), HEX.soul, 28);
     await this.clock.delay(200);
   }

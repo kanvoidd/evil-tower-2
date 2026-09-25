@@ -3,7 +3,7 @@ import { PERK_BY_ID, type PerkDef } from '../../domain/catalog/perks';
 import { pickAutoUse } from '../../domain/combat/auto-use/autoUse';
 import { Grid } from '../../domain/combat/engine/grid/Grid';
 import type { GameEvent } from '../../domain/combat/events';
-import type { IRunSession } from '../../domain/combat/room-battle';
+import type { IBattleSession } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { GameCommandHandler } from './GameCommandHandler';
 import type { CellRejection } from './interfaces/CellRejection';
@@ -15,15 +15,15 @@ import type { RunEndReason } from './interfaces/RunEndReason';
  * Поток боя в комнате: принять команду игрока, дать бою её разыграть, показать события,
  * разобрать итог хода — победа, гибель, автоприменение, обучение — и довести забег до конца.
  *
- *   GameScene → GameController → GameCommandHandler → Run → Engine
+ *   GameScene → GameController → GameCommandHandler → RoomBattle → Engine
  *                              → IAnimationPlayer / IGameRenderer / IGameDialogs
  *
- * Правил боя контроллер не знает (их решает `Run`), Phaser не знает (он за интерфейсами),
+ * Правил боя контроллер не знает (их решает `RoomBattle`), Phaser не знает (он за интерфейсами),
  * а всё, что забег оставляет в профиле, пишет `TowerRun`.
  */
 export class GameController {
   /** Бой в комнате — открыт для чтения (отладка, проверки). */
-  readonly run: IRunSession;
+  readonly battle: IBattleSession;
   private readonly commands: GameCommandHandler;
   private busy = false;
   private alive = true;
@@ -33,15 +33,15 @@ export class GameController {
   private hintStage = 0;
 
   constructor(private readonly d: GameControllerDeps) {
-    this.run = d.run;
-    this.commands = new GameCommandHandler(d.run);
+    this.battle = d.battle;
+    this.commands = new GameCommandHandler(d.battle);
     d.input.onCommand((cmd) => this.execute(cmd));
   }
 
   /** Вход в комнату: на поле ложатся первые карты. */
   start(): void {
     this.d.platform.gameplayStart();
-    void this.turn(this.run.start(), false, true);
+    void this.turn(this.battle.start(), false, true);
   }
 
   /** Сцена закрылась: недоигранное не продолжаем. */
@@ -75,7 +75,7 @@ export class GameController {
   }
 
   private get idle(): boolean {
-    return !this.busy && !this.finished && !this.run.over;
+    return !this.busy && !this.finished && !this.battle.over;
   }
 
   // ------------------------------------------------------------------ команды
@@ -90,8 +90,10 @@ export class GameController {
     this.d.profile.markTutorial('perk');
     this.d.view.clearHand();
     // «заряжено»: ход не потрачен, ждём выбора цели
-    if (this.run.armed || res.events.every((e) => e.type === 'armed')) {
-      this.d.view.armed(this.run.armed ? (this.run.armed.target === 'two' ? 'two' : 'one') : null);
+    if (this.battle.armed || res.events.every((e) => e.type === 'armed')) {
+      this.d.view.armed(
+        this.battle.armed ? (this.battle.armed.target === 'two' ? 'two' : 'one') : null,
+      );
       return;
     }
     void this.turn(res.events);
@@ -99,7 +101,7 @@ export class GameController {
 
   private onCell(cell: number): void {
     if (!this.idle) return;
-    const wasArmed = this.run.armed;
+    const wasArmed = this.battle.armed;
     const res = this.commands.execute({ type: 'select-cell', cell });
     if (!res.ok) {
       this.d.view.rejectCell(cell, wasArmed ? 'target' : (res.reason as CellRejection));
@@ -107,7 +109,7 @@ export class GameController {
     }
     this.d.view.clearHand();
     // первое из двух касаний «Перестановки»: ход ещё не сделан
-    if (this.run.armed) {
+    if (this.battle.armed) {
       this.d.view.firstOfTwo();
       return;
     }
@@ -118,14 +120,14 @@ export class GameController {
     if (!this.idle) return;
     // расходник чужой линейки (артефакт не у мага) не применяется вовсе
     const lineage = CONSUMABLES[id].lineage;
-    if (lineage && lineage !== this.run.lineage) {
+    if (lineage && lineage !== this.battle.lineage) {
       if (!auto) this.d.view.deny();
       return;
     }
     const res = this.commands.execute({ type: 'use-item', itemId: id });
     if (!res.ok) {
       if (!auto)
-        this.d.view.rejectItem(id === 'potion_heal' && this.run.hp >= this.run.stats.maxHp);
+        this.d.view.rejectItem(id === 'potion_heal' && this.battle.hp >= this.battle.stats.maxHp);
       return;
     }
     if (auto) this.d.view.autoUsed(id);
@@ -135,12 +137,12 @@ export class GameController {
 
   /** Автоприменение: после хода (с короткой паузой, чтобы игрок успел заметить) применяет то, что действительно нужно. */
   private tryAutoUse(): boolean {
-    const id = pickAutoUse(this.run, this.d.autoUse.config);
+    const id = pickAutoUse(this.battle, this.d.autoUse.config);
     if (!id) return false;
     this.busy = true;
     void this.d.clock.delay(320).then(() => {
       this.busy = false;
-      if (!this.alive || this.finished || this.run.over) return;
+      if (!this.alive || this.finished || this.battle.over) return;
       this.execute({ type: 'use-item', itemId: id, auto: true });
     });
     return true;
@@ -161,13 +163,13 @@ export class GameController {
   private afterTurn(skipAuto: boolean): void {
     if (!this.alive) return;
     this.d.view.refresh();
-    if (this.run.over === 'win') {
+    if (this.battle.over === 'win') {
       void this.finish('win');
       return;
     }
-    if (this.run.over === 'lose') {
+    if (this.battle.over === 'lose') {
       // талант «Возвращение» / «Последний шанс»: герой поднимается сам, без рекламы
-      const up = this.run.autoRevive();
+      const up = this.battle.autoRevive();
       if (up) {
         this.d.view.selfRevived();
         void this.turn(up);
@@ -188,26 +190,26 @@ export class GameController {
   private updateTutorial(): void {
     const tut = this.d.profile.tutorial;
     if (tut.fight || this.finished) return;
-    const run = this.run;
-    const adj = Grid.neighbors(run.playerCell).filter((c) => run.cards[c]);
+    const battle = this.battle;
+    const adj = Grid.neighbors(battle.playerCell).filter((c) => battle.cards[c]);
     if (this.hintStage === 0) {
       const pick =
-        adj.find((c) => run.cards[c]!.kind === 'enemy' && run.wouldKill(c)) ??
-        adj.find((c) => run.cards[c]!.kind === 'enemy') ??
+        adj.find((c) => battle.cards[c]!.kind === 'enemy' && battle.wouldKill(c)) ??
+        adj.find((c) => battle.cards[c]!.kind === 'enemy') ??
         adj[0];
       this.d.view.tutorial('attack', pick);
       this.hintStage = 1;
     } else if (this.hintStage === 1) {
-      const loot = adj.find((c) => run.cards[c]!.kind !== 'enemy');
-      if (run.totals.kills > 0 && loot !== undefined) {
+      const loot = adj.find((c) => battle.cards[c]!.kind !== 'enemy');
+      if (battle.totals.kills > 0 && loot !== undefined) {
         this.d.view.tutorial('loot', loot);
         this.hintStage = 2;
-      } else if (run.totals.turns > 1) {
+      } else if (battle.totals.turns > 1) {
         this.d.view.tutorial('finish');
         this.hintStage = 3;
       }
-    } else if (this.hintStage === 2 && run.totals.turns > 3) {
-      this.d.view.tutorial(run.stats.abilities.length && !tut.perk ? 'perk' : 'finish');
+    } else if (this.hintStage === 2 && battle.totals.turns > 3) {
+      this.d.view.tutorial(battle.stats.abilities.length && !tut.perk ? 'perk' : 'finish');
       this.hintStage = 3;
     }
   }
@@ -256,8 +258,8 @@ export class GameController {
     // между комнатами: что принесла эта, сколько здоровья осталось — и решение, идти ли выше
     const choice = await this.d.dialogs.roomCleared({
       ...paid,
-      hp: this.run.hp,
-      maxHp: this.run.stats.maxHp,
+      hp: this.battle.hp,
+      maxHp: this.battle.stats.maxHp,
       rooms: tower.state.rooms,
       nextRoomId: tower.nextRoomId,
     });
@@ -269,7 +271,7 @@ export class GameController {
   private async onDeath(): Promise<void> {
     for (;;) {
       const choice = await this.d.dialogs.died({
-        canRevive: !this.run.revived,
+        canRevive: !this.battle.revived,
         lootLost: this.d.tower.lootAtStake,
         keepsRooms: this.d.tower.state.rooms > 0,
       });
@@ -282,7 +284,7 @@ export class GameController {
     }
     this.finished = false;
     this.d.platform.gameplayStart();
-    void this.turn(this.run.revive());
+    void this.turn(this.battle.revive());
   }
 
   /** Конец забега: итог, рекорд и автопрокачка на заработанные души — и куда идти дальше. */

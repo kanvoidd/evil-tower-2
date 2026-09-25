@@ -5,7 +5,7 @@ import type { EngineSnapshot } from './interfaces/EngineSnapshot';
 import type { IDeckSupply } from './interfaces/IDeckSupply';
 import type { IEngine } from './interfaces/IEngine';
 
-/** Движок боя: поле, колода и журнал событий. Правила игры — в `Run`, здесь только механика. */
+/** Движок боя: поле, колода и журнал событий. Правила игры — в `RoomBattle`, здесь только механика. */
 export class Engine implements IEngine {
   readonly board: Array<Card | null> = Array(Grid.SIZE).fill(null);
   readonly deck: Card[] = [];

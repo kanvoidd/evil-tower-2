@@ -4,7 +4,7 @@
  * нажатием по карте), либо пассивный триггер (🔁 работает сам).
  *
  * Чтобы «прикрутить» иконку — положите файл perk_<id>.png в src/assets/images.
- * Логика способности — `ability`, см. `applyAbility` в src/domain/combat/room-battle/Run.ts.
+ * Логика способности — `ability`, см. `applyAbility` в src/domain/combat/room-battle/RoomBattle.ts.
  */
 export type AbilityId =
   // воин

@@ -62,7 +62,11 @@ import {
   worthArtifact,
 } from '../src/domain/combat/auto-use/autoUse';
 import { Card } from '../src/domain/combat/card';
-import { type Run, type RunCarryStats, RunFactory } from '../src/domain/combat/room-battle';
+import {
+  type BattleCarryStats,
+  type RoomBattle,
+  RoomBattleFactory,
+} from '../src/domain/combat/room-battle';
 import { GAMEPLAY } from '../src/domain/gameplay';
 import {
   branchOf,
@@ -507,7 +511,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       ...stats.abilities,
       ...stats.perks.map((p) => PERK_BY_ID[p]).filter((p) => p.basic),
     ]) {
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[20],
         stats,
         weapon: null,
@@ -515,43 +519,47 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(7),
       });
-      run.start();
-      run.cards.fill(null);
+      battle.start();
+      battle.cards.fill(null);
       // герой в углу: «Магический выстрел» бьёт только ЧЕРЕЗ карту, а из центра
       // поля на одной линии нет ни одной клетки на расстоянии двух
-      run.playerCell = 0;
-      run.hp = 100000;
-      run.res = stats.resMax;
-      for (const c of [1, 2, 3, 4, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
-      run.cards[0] = null;
+      battle.playerCell = 0;
+      battle.hp = 100000;
+      battle.res = stats.resMax;
+      for (const c of [1, 2, 3, 4, 5, 6, 7, 8]) battle.cards[c] = enemy(500, 3);
+      battle.cards[0] = null;
       // «Сокол-курьер» и «Перестановка» работают с картами добычи, «Подкуп» — с золотом кошеля
-      run.cards[8] = new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'gold', value: 25 });
-      run.totals.gold = 400;
+      battle.cards[8] = new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'gold', value: 25 });
+      battle.totals.gold = 400;
       if (perk.basic) {
-        const act = run.actionFor(2);
+        const act = battle.actionFor(2);
         ok(
           act.kind === 'ranged' || act.kind === 'none',
           `${id}/${perk.id}: базовое действие определено`,
         );
         continue;
       }
-      const res = run.usePerk(perk.id);
+      const res = battle.usePerk(perk.id);
       ok(res.ok, `${id}/${perk.id}: способность применяется (${res.reason ?? ''})`);
       if (!res.ok) continue;
       used++;
-      if (run.armed) {
-        const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
+      if (battle.armed) {
+        const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => battle.perkTargetOk(battle.armed!, c));
         ok(cell !== undefined, `${id}/${perk.id}: нашлась подходящая цель`);
         if (cell !== undefined) {
-          const r2 = run.tap(cell);
+          const r2 = battle.tap(cell);
           ok(r2.ok, `${id}/${perk.id}: способность наводится на цель`);
           // «Перестановка» требует двух касаний
-          if (run.armed) ok(run.tap(cell === 1 ? 2 : 1).ok, `${id}/${perk.id}: второе касание`);
+          if (battle.armed)
+            ok(battle.tap(cell === 1 ? 2 : 1).ok, `${id}/${perk.id}: второе касание`);
         }
       }
-      ok(run.res >= 0 && run.res <= run.stats.resMax, `${id}/${perk.id}: ресурс в пределах шкалы`);
       ok(
-        run.cards.every((c, i) => (i === run.playerCell ? c === null : true)),
+        battle.res >= 0 && battle.res <= battle.stats.resMax,
+        `${id}/${perk.id}: ресурс в пределах шкалы`,
+      );
+      ok(
+        battle.cards.every((c, i) => (i === battle.playerCell ? c === null : true)),
         `${id}/${perk.id}: клетка героя пуста`,
       );
     }
@@ -562,7 +570,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   {
     for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
       const stats = build(id);
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
         stats,
         weapon: null,
@@ -570,33 +578,33 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(11),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.cards[1] = enemy(500, 3);
-      run.hp = 100000;
-      const act = run.actionFor(1);
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.cards[1] = enemy(500, 3);
+      battle.hp = 100000;
+      const act = battle.actionFor(1);
       ok(
         act.kind === 'none' && act.reason === 'melee',
         `${id}: рукой не бьёт (${act.kind}/${act.reason ?? ''})`,
       );
-      ok(!run.tap(1).ok, `${id}: касание соседнего врага не тратит ход`);
-      ok(run.cards[1] !== null && run.cards[1]!.hp === 500, `${id}: враг не получил урона`);
+      ok(!battle.tap(1).ok, `${id}: касание соседнего врага не тратит ход`);
+      ok(battle.cards[1] !== null && battle.cards[1]!.hp === 500, `${id}: враг не получил урона`);
       // молния по кнопке — единственный способ ударить
-      run.res = stats.resMax;
+      battle.res = stats.resMax;
       // «Удар молнии» мага остаётся в руках у всей линейки — метаморфоза ничего не отнимает
       ok(
         stats.abilities.some((p2) => p2.id === 'mage_start'),
         `${id}: молния мага сохранилась`,
       );
-      ok(run.usePerk('mage_start').ok, `${id}: молния мага доступна`);
-      if (run.armed) ok(run.tap(1).ok, `${id}: молния наводится на соседнего врага`);
-      ok(run.cards[1] === null || run.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
+      ok(battle.usePerk('mage_start').ok, `${id}: молния мага доступна`);
+      if (battle.armed) ok(battle.tap(1).ok, `${id}: молния наводится на соседнего врага`);
+      ok(battle.cards[1] === null || battle.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
     }
     // ход на пустую соседнюю клетку — полноценный ход для всех классов
     for (const id of ['warrior', 'archer', 'mage', 'ninja'] as ClassId[]) {
       const stats = build(id);
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
         stats,
         weapon: null,
@@ -604,15 +612,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(12),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.hp = 100000;
-      ok(run.actionFor(3).kind === 'move', `${id}: пустая соседняя клетка — ход`);
-      ok(run.actionFor(0).kind === 'none', `${id}: пустая клетка по диагонали недоступна`);
-      const turns = run.totals.turns;
-      ok(run.tap(3).ok && run.playerCell === 3, `${id}: герой встал на пустую клетку`);
-      ok(run.totals.turns > turns, `${id}: шаг по пустой клетке засчитан ходом`);
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.hp = 100000;
+      ok(battle.actionFor(3).kind === 'move', `${id}: пустая соседняя клетка — ход`);
+      ok(battle.actionFor(0).kind === 'none', `${id}: пустая клетка по диагонали недоступна`);
+      const turns = battle.totals.turns;
+      ok(battle.tap(3).ok && battle.playerCell === 3, `${id}: герой встал на пустую клетку`);
+      ok(battle.totals.turns > turns, `${id}: шаг по пустой клетке засчитан ходом`);
     }
   }
 
@@ -623,7 +631,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     let potions = 0;
     let cards = 0;
     for (let seed = 1; seed <= 40; seed++) {
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[12],
         stats: build('warrior'),
         weapon: null,
@@ -631,8 +639,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(seed),
       });
-      run.start();
-      for (const c of [...run.cards, ...run.pool]) {
+      battle.start();
+      for (const c of [...battle.cards, ...battle.pool]) {
         if (!c) continue;
         cards++;
         if (c.kind === 'chest') chests++;
@@ -645,7 +653,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       `пустых сундуков не меньше половины (${empties} из ${chests})`,
     );
     ok(potions / cards < 0.1, `зелий меньше 10% колоды (${((100 * potions) / cards).toFixed(1)}%)`);
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[12],
       stats: build('warrior'),
       weapon: null,
@@ -653,28 +661,28 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(5),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
     const box = new Card({
       uid: Math.floor(Math.random() * 1e9),
       kind: 'chest',
       defId: 'chest_empty',
     });
-    run.cards[1] = box;
-    const gold = run.totals.gold;
-    const res = run.tap(1);
+    battle.cards[1] = box;
+    const gold = battle.totals.gold;
+    const res = battle.tap(1);
     ok(
       res.events.some((e) => e.type === 'chest' && e.empty),
       'пустой сундук открывается пустым',
     );
-    ok(run.totals.gold === gold, 'из пустого сундука ничего не выпало');
+    ok(battle.totals.gold === gold, 'из пустого сундука ничего не выпало');
   }
 
   // «Абсолютная защита» больше не даёт неуязвимости: после способности удар слабее не больше чем вдвое
   {
     const stats = build('magister', { perkDef: 3 } as Record<string, number>);
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -682,12 +690,12 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(73),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.hp = 100000;
-    run.res = 100;
-    const inner = run as unknown as { perkGuard: number; afterPerk: (e: unknown[]) => void };
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.hp = 100000;
+    battle.res = 100;
+    const inner = battle as unknown as { perkGuard: number; afterPerk: (e: unknown[]) => void };
     inner.afterPerk([]);
     ok(inner.perkGuard === 0.5, `защита после способности не выше 50% (${inner.perkGuard})`);
   }
@@ -695,7 +703,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «Раздвоение молнии»: второй разряд по той же цели, соседи не задеты
   {
     const stats = build('mage', { echoChance: 1, echoDmg: 0.16 } as Record<string, number>);
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -703,15 +711,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(71),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.hp = 100000;
-    run.res = stats.resMax;
-    run.cards[1] = enemy(100000, 1);
-    run.cards[3] = enemy(100000, 1);
-    run.usePerk('mage_start');
-    const hits = run
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.hp = 100000;
+    battle.res = stats.resMax;
+    battle.cards[1] = enemy(100000, 1);
+    battle.cards[3] = enemy(100000, 1);
+    battle.usePerk('mage_start');
+    const hits = battle
       .tap(1)
       .events.filter((e) => e.type === 'hit' && e.target === 'enemy')
       .map((e) => (e as { cell: number }).cell);
@@ -725,7 +733,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   {
     const stats = build('warrior');
     const mk2 = (seed: number) => {
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
         stats,
         weapon: null,
@@ -733,15 +741,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(seed),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.hp = 100000;
-      run.shield = 0;
-      run.res = stats.resMax;
-      return run;
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.hp = 100000;
+      battle.shield = 0;
+      battle.res = stats.resMax;
+      return battle;
     };
-    const strikers = (events: ReturnType<Run['tap']>['events']) =>
+    const strikers = (events: ReturnType<RoomBattle['tap']>['events']) =>
       events
         .filter((e) => e.type === 'attack' && e.by === 'enemy')
         .map((e) => (e as { from: number }).from)
@@ -798,7 +806,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 
     // маг без маны ударить не может — значит, и шаг к другому врагу не наказывается
     const mstats = build('mage');
-    const dry = RunFactory.standard().create({
+    const dry = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats: mstats,
       weapon: null,
@@ -816,7 +824,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     dry.cards[6] = enemy(100000, 20);
     ok(strikers(dry.tap(3).events).length === 0, 'маг без маны шагает к врагу — удара нет');
     // а с маной на молнию тот же шаг — уже подставиться
-    const wet = RunFactory.standard().create({
+    const wet = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats: mstats,
       weapon: null,
@@ -841,7 +849,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // Колода бесконечна, карта перехода открывает выход только после нормы
   {
     const stats = build('warrior');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -849,34 +857,34 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(47),
     });
-    run.start();
-    run.hp = 100000;
+    battle.start();
+    battle.hp = 100000;
     ok(
-      run.cards.every((c, i) => (i === run.playerCell ? c === null : c !== null)),
+      battle.cards.every((c, i) => (i === battle.playerCell ? c === null : c !== null)),
       'после раздачи поле заполнено',
     );
-    ok(!run.exitOpen, 'выход закрыт, пока норма не выполнена');
-    ok(run.totalEnemies > 0 && run.killsLeft === run.totalEnemies, 'норма комнаты задана');
+    ok(!battle.exitOpen, 'выход закрыт, пока норма не выполнена');
+    ok(battle.totalEnemies > 0 && battle.killsLeft === battle.totalEnemies, 'норма комнаты задана');
     let steps = 0;
-    for (; steps < 900 && !run.over; steps++) {
-      const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => run.actionFor(c).kind !== 'none');
+    for (; steps < 900 && !battle.over; steps++) {
+      const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => battle.actionFor(c).kind !== 'none');
       if (!cells.length) break;
-      const exitCell = cells.find((c) => run.cards[c]?.kind === 'exit');
-      run.tap(exitCell ?? cells[0]);
-      run.hp = 100000;
-      if (!run.over) {
-        const empty = run.cards.filter((c, i) => !c && i !== run.playerCell).length;
+      const exitCell = cells.find((c) => battle.cards[c]?.kind === 'exit');
+      battle.tap(exitCell ?? cells[0]);
+      battle.hp = 100000;
+      if (!battle.over) {
+        const empty = battle.cards.filter((c, i) => !c && i !== battle.playerCell).length;
         ok(empty === 0, `поле не пустеет (пустых клеток ${empty})`);
       }
     }
     ok(
-      run.over === 'win',
-      `комната закрывается шагом на переход (${run.over ?? 'не закончилась'}, ходов ${steps})`,
+      battle.over === 'win',
+      `комната закрывается шагом на переход (${battle.over ?? 'не закончилась'}, ходов ${steps})`,
     );
-    ok(run.exitOpen && run.killsLeft === 0, 'выход открылся после нормы');
+    ok(battle.exitOpen && battle.killsLeft === 0, 'выход открылся после нормы');
     // уходя, герой бросает всё, что не подобрал: в этом и выбор
     ok(
-      run.cards.some((c) => c && c.kind !== 'enemy'),
+      battle.cards.some((c) => c && c.kind !== 'enemy'),
       'добыча остаётся на поле после перехода',
     );
   }
@@ -884,7 +892,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // Норма выполнена — но враги лезть не перестают: либо уходи, либо рискуй и добирай
   {
     const stats = build('warrior');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -892,28 +900,28 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(61),
     });
-    run.start();
-    run.hp = 100000;
+    battle.start();
+    battle.hp = 100000;
     // выполняем норму искусственно и дальше играем, не трогая переход
-    for (let guard = 0; guard < 600 && !run.exitOpen; guard++) {
+    for (let guard = 0; guard < 600 && !battle.exitOpen; guard++) {
       const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(
-        (c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit',
+        (c) => battle.actionFor(c).kind !== 'none' && battle.cards[c]?.kind !== 'exit',
       );
       if (cell === undefined) break;
-      run.tap(cell);
-      run.hp = 100000;
+      battle.tap(cell);
+      battle.hp = 100000;
     }
-    ok(run.exitOpen, 'норма выполнена');
+    ok(battle.exitOpen, 'норма выполнена');
     let spawned = 0;
-    for (let guard = 0; guard < 120 && !run.over; guard++) {
+    for (let guard = 0; guard < 120 && !battle.over; guard++) {
       const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(
-        (c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit',
+        (c) => battle.actionFor(c).kind !== 'none' && battle.cards[c]?.kind !== 'exit',
       );
       if (cell === undefined) break;
-      spawned += run
+      spawned += battle
         .tap(cell)
         .events.filter((e) => e.type === 'spawn' && e.card.kind === 'enemy').length;
-      run.hp = 100000;
+      battle.hp = 100000;
     }
     ok(spawned > 0, `враги продолжают лезть после нормы (${spawned})`);
   }
@@ -921,7 +929,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // Перезарядка способностей и дальность магического выстрела
   {
     const stats = build('mage');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -929,29 +937,29 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(53),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 0;
-    run.hp = 100000;
-    run.res = 100;
-    run.cards[2] = enemy(100000, 1);
-    run.cards[4] = enemy(100000, 1);
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 0;
+    battle.hp = 100000;
+    battle.res = 100;
+    battle.cards[2] = enemy(100000, 1);
+    battle.cards[4] = enemy(100000, 1);
     const shot = PERK_BY_ID.mage_p2;
-    ok(!run.perkTargetOk(shot, 1), 'магический выстрел не бьёт вплотную');
-    ok(run.perkTargetOk(shot, 2), 'магический выстрел бьёт через карту');
-    ok(run.usePerk(shot.id).ok && run.tap(2).ok, 'выстрел применяется');
-    run.res = 100;
-    const after = run.perkReady(shot);
+    ok(!battle.perkTargetOk(shot, 1), 'магический выстрел не бьёт вплотную');
+    ok(battle.perkTargetOk(shot, 2), 'магический выстрел бьёт через карту');
+    ok(battle.usePerk(shot.id).ok && battle.tap(2).ok, 'выстрел применяется');
+    battle.res = 100;
+    const after = battle.perkReady(shot);
     ok(
       !after.ok && after.reason === 'cooldown',
       `выстрел на перезарядке (${after.reason ?? 'готов'})`,
     );
-    ok(run.cooldownOf(shot) === 1, `перезарядка один ход (${run.cooldownOf(shot)})`);
+    ok(battle.cooldownOf(shot) === 1, `перезарядка один ход (${battle.cooldownOf(shot)})`);
     const chain = PERK_BY_ID.mage_p3;
-    run.res = 100;
-    ok(run.usePerk(chain.id).ok && run.tap(2).ok, 'цепная молния применяется');
-    run.res = 100;
-    ok(run.cooldownOf(chain) === 2, `цепная молния на двух ходах (${run.cooldownOf(chain)})`);
+    battle.res = 100;
+    ok(battle.usePerk(chain.id).ok && battle.tap(2).ok, 'цепная молния применяется');
+    battle.res = 100;
+    ok(battle.cooldownOf(chain) === 2, `цепная молния на двух ходах (${battle.cooldownOf(chain)})`);
   }
 
   // Кто умеет бить рукой — не попадает в тупик никогда.
@@ -959,7 +967,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
       if (!stats.attack.melee) continue;
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
         stats,
         weapon: null,
@@ -967,15 +975,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(17),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.hp = 100000;
-      run.res = 0;
-      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
-      ok(!run.cornered(), `${id}: боец рукой в тупик не попадает`);
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.hp = 100000;
+      battle.res = 0;
+      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) battle.cards[c] = enemy(500, 3);
+      ok(!battle.cornered(), `${id}: боец рукой в тупик не попадает`);
       ok(
-        [1, 3, 5, 7].some((c) => run.actionFor(c).kind === 'melee'),
+        [1, 3, 5, 7].some((c) => battle.actionFor(c).kind === 'melee'),
         `${id}: соседний враг доступен рукой`,
       );
     }
@@ -988,7 +996,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {},
     ) => {
       const stats = build(id);
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
         stats,
         weapon: null,
@@ -1000,13 +1008,13 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         },
         rng: makeRng(17),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.hp = 400;
-      run.res = patch.res ?? 0;
-      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(100000, 3);
-      return run;
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.hp = 400;
+      battle.res = patch.res ?? 0;
+      for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) battle.cards[c] = enemy(100000, 3);
+      return battle;
     };
     for (const id of ['mage', 'magister', 'necromancer'] as ClassId[]) {
       ok(surround(id).cornered(), `${id}: пустая шкала в окружении — это тупик`);
@@ -1022,7 +1030,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     // занимает новый враг — и в конце хода отбиваться уже нечем.
     {
       const stats = build('mage');
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
         stats,
         weapon: null,
@@ -1030,28 +1038,28 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(29),
       });
-      run.start();
-      run.cards.fill(null);
-      run.pool.length = 0;
-      run.pool.push(enemy(100000, 4));
-      run.playerCell = 0;
-      run.hp = 400;
-      run.res = 0;
-      run.cards[1] = enemy(100000, 4);
-      run.cards[4] = enemy(100000, 4);
-      run.cards[6] = enemy(100000, 4);
-      const res = run.tap(3);
+      battle.start();
+      battle.cards.fill(null);
+      battle.pool.length = 0;
+      battle.pool.push(enemy(100000, 4));
+      battle.playerCell = 0;
+      battle.hp = 400;
+      battle.res = 0;
+      battle.cards[1] = enemy(100000, 4);
+      battle.cards[4] = enemy(100000, 4);
+      battle.cards[6] = enemy(100000, 4);
+      const res = battle.tap(3);
       ok(res.ok, 'шаг на пустую клетку сделан');
       ok(
         res.events.some((e) => e.type === 'swarm'),
         'карты бросаются на героя',
       );
-      ok(run.over === 'lose' && run.hp === 0, 'растерзание доводит до смерти');
+      ok(battle.over === 'lose' && battle.hp === 0, 'растерзание доводит до смерти');
       const hits = res.events.filter((e) => e.type === 'hit' && e.target === 'player').length;
       ok(hits >= 4, `бьют все карты по очереди (${hits})`);
       // поднявшись, герой получает полную шкалу и снова может бить
-      run.revive();
-      ok(!run.cornered(), 'после воскрешения герой снова может ходить');
+      battle.revive();
+      ok(!battle.cornered(), 'после воскрешения герой снова может ходить');
     }
     // выходы из окружения: мана, зелье восстановления, артефакт мага
     ok(!surround('mage', { res: 20 }).cornered(), 'мана на молнию — не тупик');
@@ -1069,7 +1077,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     ];
     for (const [id, perkId2, apply] of cases) {
       const stats = build(id);
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
         stats,
         weapon: null,
@@ -1077,23 +1085,23 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(23),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.hp = 100000;
-      run.res = stats.resMax;
-      run.cards[1] = enemy(500, 3);
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.hp = 100000;
+      battle.res = stats.resMax;
+      battle.cards[1] = enemy(500, 3);
       const perk = PERK_BY_ID[perkId2];
-      ok(run.perkTargetOk(perk, 1), `${perkId2}: чистая цель подходит`);
-      apply(run.cards[1]!);
-      ok(!run.perkTargetOk(perk, 1), `${perkId2}: заклеймённая цель больше не подсвечивается`);
+      ok(battle.perkTargetOk(perk, 1), `${perkId2}: чистая цель подходит`);
+      apply(battle.cards[1]!);
+      ok(!battle.perkTargetOk(perk, 1), `${perkId2}: заклеймённая цель больше не подсвечивается`);
     }
   }
 
   // «Взрыв трупа» по выбранной цели: рвётся именно она, помеченных повторно не метим
   {
     const stats = build('necromancer');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[30],
       stats,
       weapon: null,
@@ -1101,29 +1109,32 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(19),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.hp = 100000;
-    run.res = 100;
-    run.cards[1] = enemy(10, 1);
-    run.cards[0] = enemy(100000, 1);
-    run.cards[2] = enemy(100000, 1);
-    run.cards[7] = enemy(10, 1);
-    ok(run.usePerk('necromancer_start').ok && run.tap(1).ok, 'взрыв трупа наводится на врага');
-    ok(!!run.cards[1]?.corpse, 'цель помечена');
-    ok(!run.perkTargetOk(PERK_BY_ID.necromancer_start, 1), 'помеченного повторно не метят');
-    const hp0 = run.cards[0]!.hp;
-    run.res = 100;
-    run.usePerk('mage_start');
-    run.tap(1);
-    ok(run.cards[0]!.hp < hp0, 'смерть помеченного взрывает соседей');
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.hp = 100000;
+    battle.res = 100;
+    battle.cards[1] = enemy(10, 1);
+    battle.cards[0] = enemy(100000, 1);
+    battle.cards[2] = enemy(100000, 1);
+    battle.cards[7] = enemy(10, 1);
+    ok(
+      battle.usePerk('necromancer_start').ok && battle.tap(1).ok,
+      'взрыв трупа наводится на врага',
+    );
+    ok(!!battle.cards[1]?.corpse, 'цель помечена');
+    ok(!battle.perkTargetOk(PERK_BY_ID.necromancer_start, 1), 'помеченного повторно не метят');
+    const hp0 = battle.cards[0]!.hp;
+    battle.res = 100;
+    battle.usePerk('mage_start');
+    battle.tap(1);
+    ok(battle.cards[0]!.hp < hp0, 'смерть помеченного взрывает соседей');
     // смерть непомеченного ничего не взрывает
-    const hp2 = run.cards[2] ? run.cards[2]!.hp : 0;
-    run.res = 100;
-    (run as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
-    run.usePerk('mage_start');
-    const r = run.tap(7);
+    const hp2 = battle.cards[2] ? battle.cards[2]!.hp : 0;
+    battle.res = 100;
+    (battle as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+    battle.usePerk('mage_start');
+    const r = battle.tap(7);
     ok(!r.events.some((e) => e.type === 'fx' && e.style === 'corpse'), 'непомеченный умирает тихо');
     void hp2;
   }
@@ -1131,7 +1142,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «Призрачные слуги»: призрак встаёт на месте заражённого, бьёт крестом три хода, максимум два
   {
     const stats = build('necromancer');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[30],
       stats,
       weapon: null,
@@ -1139,43 +1150,43 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(23),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.hp = 100000;
-    run.res = 100;
-    run.cards[1] = enemy(10, 1);
-    run.cards[0] = enemy(100000, 1);
-    run.cards[2] = enemy(100000, 1);
-    run.cards[3] = enemy(100000, 1);
-    run.cards[5] = enemy(100000, 1);
-    run.cards[6] = enemy(100000, 1);
-    run.cards[7] = enemy(100000, 1);
-    run.cards[8] = enemy(100000, 1);
-    ok(run.usePerk('necromancer_p2').ok && run.tap(1).ok, 'заражение наводится на врага');
-    ok(!!run.cards[1]?.haunt, 'цель заражена');
-    run.res = 100;
-    run.usePerk('mage_start');
-    run.tap(1);
-    const ghost = run.cards[1];
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.hp = 100000;
+    battle.res = 100;
+    battle.cards[1] = enemy(10, 1);
+    battle.cards[0] = enemy(100000, 1);
+    battle.cards[2] = enemy(100000, 1);
+    battle.cards[3] = enemy(100000, 1);
+    battle.cards[5] = enemy(100000, 1);
+    battle.cards[6] = enemy(100000, 1);
+    battle.cards[7] = enemy(100000, 1);
+    battle.cards[8] = enemy(100000, 1);
+    ok(battle.usePerk('necromancer_p2').ok && battle.tap(1).ok, 'заражение наводится на врага');
+    ok(!!battle.cards[1]?.haunt, 'цель заражена');
+    battle.res = 100;
+    battle.usePerk('mage_start');
+    battle.tap(1);
+    const ghost = battle.cards[1];
     ok(ghost?.kind === 'ghost', `на месте заражённого встал призрак (${ghost?.kind ?? 'пусто'})`);
     ok(ghost?.ttl === 2, `призрак отработал первый ход (${ghost?.ttl})`);
     // призрак бьёт соседей крестом: 0 и 2 — соседи клетки 1, 4 — герой
-    ok(run.cards[0]!.hp < 100000 || run.cards[2]!.hp < 100000, 'призрак бьёт соседа');
+    ok(battle.cards[0]!.hp < 100000 || battle.cards[2]!.hp < 100000, 'призрак бьёт соседа');
     // ещё два хода — и призрак исчезает
     for (let i = 0; i < 2; i++) {
-      run.res = 100;
-      (run as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
-      run.usePerk('mage_start');
-      run.tap(3);
+      battle.res = 100;
+      (battle as unknown as { cooldowns: Record<string, number> }).cooldowns = {};
+      battle.usePerk('mage_start');
+      battle.tap(3);
     }
-    ok(run.cards[1]?.kind !== 'ghost', 'через три хода призрак растаял');
+    ok(battle.cards[1]?.kind !== 'ghost', 'через три хода призрак растаял');
   }
 
   // Горение: число на значке — ровно столько тиков, сколько впереди
   {
     const stats = build('pyromancer');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -1183,24 +1194,24 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(29),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.hp = 100000;
-    run.res = 100;
-    run.cards[0] = enemy(100000, 1);
-    run.usePerk('pyromancer_start');
-    run.tap(0);
-    ok(run.cards[0]!.burn === 3, `после поджога на значке три хода (${run.cards[0]!.burn})`);
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.hp = 100000;
+    battle.res = 100;
+    battle.cards[0] = enemy(100000, 1);
+    battle.usePerk('pyromancer_start');
+    battle.tap(0);
+    ok(battle.cards[0]!.burn === 3, `после поджога на значке три хода (${battle.cards[0]!.burn})`);
     let ticks = 0;
     for (let i = 0; i < 5; i++) {
-      const hp = run.cards[0]!.hp;
+      const hp = battle.cards[0]!.hp;
       // любой шаг на не-врага — полноценный ход, горение тикает в его конце
-      const step = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind === 'move');
+      const step = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => battle.actionFor(c).kind === 'move');
       if (step === undefined) break;
-      run.tap(step);
-      run.hp = 100000;
-      if (run.cards[0]!.hp < hp) ticks++;
+      battle.tap(step);
+      battle.hp = 100000;
+      if (battle.cards[0]!.hp < hp) ticks++;
     }
     ok(ticks === 3, `поджог тикает ровно три раза (${ticks})`);
   }
@@ -1211,7 +1222,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
       for (const perk of stats.abilities) {
-        const run = RunFactory.standard().create({
+        const battle = RoomBattleFactory.standard().create({
           room: ROOMS[20],
           stats,
           weapon: null,
@@ -1219,21 +1230,25 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
           consumables: cons(),
           rng: makeRng(13),
         });
-        run.start();
-        run.cards.fill(null);
-        run.playerCell = 0;
-        run.hp = 100000;
-        run.res = stats.resMax;
-        run.totals.gold = 400;
-        for (const c of [1, 2, 3, 4, 5, 6, 7]) run.cards[c] = enemy(500, 3);
-        run.cards[8] = new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'gold', value: 25 });
-        const r = run.usePerk(perk.id);
+        battle.start();
+        battle.cards.fill(null);
+        battle.playerCell = 0;
+        battle.hp = 100000;
+        battle.res = stats.resMax;
+        battle.totals.gold = 400;
+        for (const c of [1, 2, 3, 4, 5, 6, 7]) battle.cards[c] = enemy(500, 3);
+        battle.cards[8] = new Card({
+          uid: Math.floor(Math.random() * 1e9),
+          kind: 'gold',
+          value: 25,
+        });
+        const r = battle.usePerk(perk.id);
         let events = r.events;
-        while (run.armed) {
-          const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.perkTargetOk(run.armed!, c));
+        while (battle.armed) {
+          const cell = [1, 2, 3, 4, 5, 6, 7, 8].find((c) => battle.perkTargetOk(battle.armed!, c));
           if (cell === undefined) break;
           // «Перестановка» требует двух касаний — эффект рисуется на последнем
-          events = [...events, ...run.tap(cell).events];
+          events = [...events, ...battle.tap(cell).events];
         }
         const drew = events.some(
           (e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'),
@@ -1248,7 +1263,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «один раз за комнату» действительно один раз
   {
     const stats = build('berserk');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[20],
       stats,
       weapon: null,
@@ -1256,20 +1271,20 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(3),
     });
-    run.start();
-    run.cards.fill(null);
-    for (const c of [0, 1, 3, 5]) run.cards[c] = enemy(400, 2);
-    run.hp = 100000;
-    run.res = stats.resMax;
-    ok(run.usePerk('berserk_legend').ok, 'легендарная способность применяется');
-    run.res = stats.resMax;
-    ok(!run.usePerk('berserk_legend').ok, 'легендарная способность — один раз за комнату');
+    battle.start();
+    battle.cards.fill(null);
+    for (const c of [0, 1, 3, 5]) battle.cards[c] = enemy(400, 2);
+    battle.hp = 100000;
+    battle.res = stats.resMax;
+    ok(battle.usePerk('berserk_legend').ok, 'легендарная способность применяется');
+    battle.res = stats.resMax;
+    ok(!battle.usePerk('berserk_legend').ok, 'легендарная способность — один раз за комнату');
   }
 
   // оглушение: враг не отвечает
   {
     const stats = build('knight');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -1277,27 +1292,27 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(4),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.cards[1] = enemy(100000, 50);
-    run.hp = 100000;
-    run.res = stats.resMax;
-    const before = run.hp;
-    run.usePerk('knight_start');
-    const res = run.tap(1);
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.cards[1] = enemy(100000, 50);
+    battle.hp = 100000;
+    battle.res = stats.resMax;
+    const before = battle.hp;
+    battle.usePerk('knight_start');
+    const res = battle.tap(1);
     ok(res.ok, 'таран щитом применяется');
     ok(
       res.events.some((e) => e.type === 'miss' && e.kind === 'stun'),
       'оглушённый враг пропускает ход врагов',
     );
-    ok(run.hp === before, 'оглушённый враг не наносит урона');
+    ok(battle.hp === before, 'оглушённый враг не наносит урона');
   }
 
   // горение тикает и гаснет
   {
     const stats = build('pyromancer');
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
       weapon: null,
@@ -1305,20 +1320,20 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: cons(),
       rng: makeRng(9),
     });
-    run.start();
-    run.cards.fill(null);
-    run.playerCell = 4;
-    run.cards[0] = enemy(100000, 1);
-    run.hp = 100000;
-    run.res = stats.resMax;
-    run.usePerk('pyromancer_start');
-    run.tap(0);
-    const burning = run.cards[0]!;
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = 4;
+    battle.cards[0] = enemy(100000, 1);
+    battle.hp = 100000;
+    battle.res = stats.resMax;
+    battle.usePerk('pyromancer_start');
+    battle.tap(0);
+    const burning = battle.cards[0]!;
     ok(burning.burn > 0 && burning.burnDmg > 0, 'поджог вешает горение');
     const hp0 = burning.hp;
     // маг рукой не бьёт, зато ходит по пустым клеткам — это полноценный ход
-    ok(run.tap(1).ok, 'ход на пустую соседнюю клетку засчитывается');
-    ok(run.cards[0]!.hp < hp0, 'горение отнимает здоровье в конце хода');
+    ok(battle.tap(1).ok, 'ход на пустую соседнюю клетку засчитывается');
+    ok(battle.cards[0]!.hp < hp0, 'горение отнимает здоровье в конце хода');
   }
 
   // талант «перк сильнее» действительно усиливает способность
@@ -1326,7 +1341,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     const weak = build('warrior');
     const strong = { ...weak, perkPower: 2 };
     const hit = (stats: typeof weak): number => {
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
         stats,
         weapon: null,
@@ -1334,15 +1349,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         consumables: cons(),
         rng: makeRng(21),
       });
-      run.start();
-      run.cards.fill(null);
-      run.playerCell = 4;
-      run.cards[1] = enemy(100000, 0);
-      run.hp = 100000;
-      run.res = stats.resMax;
-      run.usePerk('warrior_start');
-      run.tap(1);
-      return 100000 - run.cards[1]!.hp;
+      battle.start();
+      battle.cards.fill(null);
+      battle.playerCell = 4;
+      battle.cards[1] = enemy(100000, 0);
+      battle.hp = 100000;
+      battle.res = stats.resMax;
+      battle.usePerk('warrior_start');
+      battle.tap(1);
+      return 100000 - battle.cards[1]!.hp;
     };
     ok(hit(strong) > hit(weak), 'талант «способности сильнее» повышает урон способности');
   }
@@ -1357,8 +1372,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     weapon: null,
     armor: null,
   });
-  const mk = (carry?: RunCarryStats) =>
-    RunFactory.standard().create({
+  const mk = (carry?: BattleCarryStats) =>
+    RoomBattleFactory.standard().create({
       room: ROOMS[1],
       stats,
       weapon: null,
@@ -1393,7 +1408,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   );
   // «Возвращение» тоже одно на забег: истраченное в прошлой комнате не возвращается
   const rs = { ...stats, reviveHp: 0.5 };
-  const up = RunFactory.standard().create({
+  const up = RoomBattleFactory.standard().create({
     room: ROOMS[1],
     stats: rs,
     weapon: null,
@@ -1403,7 +1418,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   });
   up.over = 'lose';
   ok(!!up.autoRevive(), '«Возвращение» поднимает героя');
-  const after = RunFactory.standard().create({
+  const after = RoomBattleFactory.standard().create({
     room: ROOMS[2],
     stats: rs,
     weapon: null,
@@ -1427,7 +1442,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   });
   ok(stats.regen === 1, `мана восстанавливается по 1 за ход (${stats.regen})`);
   const bolt = PERK_BY_ID.mage_start;
-  const run = RunFactory.standard().create({
+  const battle = RoomBattleFactory.standard().create({
     room: ROOMS[1],
     stats: { ...stats, maxHp: 100000 },
     weapon: null,
@@ -1435,20 +1450,20 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     consumables: cons(),
     rng: makeRng(7),
   });
-  run.start();
-  run.cards.fill(null);
-  run.playerCell = 4;
-  run.hp = 100000;
-  run.cards[1] = new Card({ uid: 777, kind: 'enemy', defId: 'skeleton', hp: 100000 });
-  run.res = 10;
-  run.usePerk('mage_start');
-  run.tap(1);
+  battle.start();
+  battle.cards.fill(null);
+  battle.playerCell = 4;
+  battle.hp = 100000;
+  battle.cards[1] = new Card({ uid: 777, kind: 'enemy', defId: 'skeleton', hp: 100000 });
+  battle.res = 10;
+  battle.usePerk('mage_start');
+  battle.tap(1);
   ok(
-    run.res === 10 - (bolt.cost ?? 0) + 1,
-    `молния за ${bolt.cost} маны: 10 → ${run.res} (с учётом +1 за ход)`,
+    battle.res === 10 - (bolt.cost ?? 0) + 1,
+    `молния за ${bolt.cost} маны: 10 → ${battle.res} (с учётом +1 за ход)`,
   );
   // скидка «Экономия маны» не делает основной удар дешевле двух — иначе он окупался бы регенерацией
-  const cheap = RunFactory.standard().create({
+  const cheap = RoomBattleFactory.standard().create({
     room: ROOMS[1],
     stats: { ...stats, perkCostDown: 1 },
     weapon: null,
@@ -1476,7 +1491,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     armor: null,
   });
   const stats = { ...base, crit: 100, damage: 10, maxHp: 1e6, dodge: 0, parry: 0, block: 0 };
-  const run = RunFactory.standard().create({
+  const battle = RoomBattleFactory.standard().create({
     room: ROOMS[0],
     stats,
     weapon: null,
@@ -1484,14 +1499,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     consumables: cons(),
     rng: makeRng(5),
   });
-  run.start();
-  run.hp = 1e6;
+  battle.start();
+  battle.hp = 1e6;
   const seen = new Set<number>();
   let sum = 0;
   const N = 300;
   for (let i = 0; i < N; i++) {
-    run.cards[5] = new Card({ uid: 9000 + i, kind: 'enemy', defId: 'skeleton', hp: 999999 });
-    const hit = run.tap(5).events.find((e) => e.type === 'hit' && e.target === 'enemy');
+    battle.cards[5] = new Card({ uid: 9000 + i, kind: 'enemy', defId: 'skeleton', hp: 999999 });
+    const hit = battle.tap(5).events.find((e) => e.type === 'hit' && e.target === 'enemy');
     ok(!!hit && hit.type === 'hit' && hit.crit, 'крит при шансе 100%');
     if (hit && hit.type === 'hit') {
       seen.add(hit.amount);
@@ -1511,12 +1526,15 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 
 // ---------------------------------------------------------------- автоприменение расходников
 {
-  const mk = (lin: 'mage' | 'warrior' | 'archer' | 'mercenary', perks: string[] = []): Run => {
+  const mk = (
+    lin: 'mage' | 'warrior' | 'archer' | 'mercenary',
+    perks: string[] = [],
+  ): RoomBattle => {
     const tree = TREES[lin];
     const ls = newLineageSave(tree);
     for (const id of perks) ls.ranks[id] = 1;
     const stats = buildPlayerStats({ classId: lin, lineage: ls, weapon: null, armor: null });
-    const run = RunFactory.standard().create({
+    const battle = RoomBattleFactory.standard().create({
       room: ROOMS[0],
       stats,
       weapon: null,
@@ -1524,9 +1542,9 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       consumables: { potion_heal: 2, potion_regen: 2, artifact: 2 },
       rng: makeRng(3),
     });
-    run.start();
-    run.cards.fill(null);
-    return run;
+    battle.start();
+    battle.cards.fill(null);
+    return battle;
   };
   const enemy = (atk: number, hp = 3): Card =>
     new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'enemy', defId: 'skeleton', hp, atk });
@@ -1816,7 +1834,7 @@ for (const lin of LINEAGE_ORDER) {
     for (let k = 0; k < 24; k++) {
       const rng = makeRng(room * 1000 + k + 7);
       const stats = buildPlayerStats({ classId: terminal, lineage: ls, weapon: null, armor: null });
-      const run = RunFactory.standard().create({
+      const battle = RoomBattleFactory.standard().create({
         room: ROOMS[room],
         stats,
         weapon: null,
@@ -1824,61 +1842,63 @@ for (const lin of LINEAGE_ORDER) {
         consumables: { potion_heal: 3, potion_regen: 2, artifact: 2 },
         rng,
       });
-      run.start();
+      battle.start();
       runs++;
-      for (let step = 0; step < 400 && !run.over; step++) {
-        const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => run.cards[c]);
+      for (let step = 0; step < 400 && !battle.over; step++) {
+        const cells = [0, 1, 2, 3, 4, 5, 6, 7, 8].filter((c) => battle.cards[c]);
         if (!cells.length) {
           ok(false, `${lin} ${ROOMS[room].id}: на поле не осталось карт, но комната не завершена`);
           break;
         }
         const r = rng.next();
-        if (r < 0.08) run.useItem(rng.pick(['potion_heal', 'potion_regen', 'artifact'] as const));
+        if (r < 0.08)
+          battle.useItem(rng.pick(['potion_heal', 'potion_regen', 'artifact'] as const));
         else if (r < 0.32 && stats.abilities.length) {
           const perk = rng.pick(stats.abilities);
-          if (run.usePerk(perk.id).ok) perkUses++;
-          if (run.armed) {
-            const target = cells.find((c) => run.perkTargetOk(run.armed!, c));
-            if (target === undefined) run.cancelPerk();
+          if (battle.usePerk(perk.id).ok) perkUses++;
+          if (battle.armed) {
+            const target = cells.find((c) => battle.perkTargetOk(battle.armed!, c));
+            if (target === undefined) battle.cancelPerk();
             else {
-              run.tap(target);
-              if (run.armed) run.tap(cells.find((c) => c !== target) ?? target);
+              battle.tap(target);
+              if (battle.armed) battle.tap(cells.find((c) => c !== target) ?? target);
             }
           }
-        } else run.tap(rng.pick(cells));
-        const auto = run.over
+        } else battle.tap(rng.pick(cells));
+        const auto = battle.over
           ? null
-          : pickAutoUse(run, { heal: true, regen: true, artifact: true });
+          : pickAutoUse(battle, { heal: true, regen: true, artifact: true });
         if (auto) {
           autoPicks++;
           ok(
-            run.useItem(auto).ok,
+            battle.useItem(auto).ok,
             `${lin} ${ROOMS[room].id}: автоприменение предложило невозможное действие ${auto}`,
           );
         }
-        ok(run.hp <= run.stats.maxHp, 'hp не превышает максимум');
-        ok(run.res >= 0 && run.res <= run.stats.resMax, 'ресурс в пределах');
-        ok(run.cards[run.playerCell] === null, 'клетка игрока пуста в массиве карт');
+        ok(battle.hp <= battle.stats.maxHp, 'hp не превышает максимум');
+        ok(battle.res >= 0 && battle.res <= battle.stats.resMax, 'ресурс в пределах');
+        ok(battle.cards[battle.playerCell] === null, 'клетка игрока пуста в массиве карт');
         ok(
-          run.cards.every((c) => !c || c.hp <= c.maxHp || c.kind !== 'enemy'),
+          battle.cards.every((c) => !c || c.hp <= c.maxHp || c.kind !== 'enemy'),
           'здоровье врага не превышает максимум',
         );
-        if (run.pool.length === 0 && !run.over && !run.armed) {
-          const seen = new Set([run.playerCell]);
-          const q = [run.playerCell];
+        if (battle.pool.length === 0 && !battle.over && !battle.armed) {
+          const seen = new Set([battle.playerCell]);
+          const q = [battle.playerCell];
           while (q.length) {
             const c = q.shift()!;
             for (let n = 0; n < 9; n++)
-              if (dist(c, n) === 1 && run.cards[n] && !seen.has(n)) (seen.add(n), q.push(n));
+              if (dist(c, n) === 1 && battle.cards[n] && !seen.has(n)) (seen.add(n), q.push(n));
           }
           ok(
-            !run.cards.some((c, i) => c && !seen.has(i)),
+            !battle.cards.some((c, i) => c && !seen.has(i)),
             `${lin} ${ROOMS[room].id}: пустые клетки разделили карты`,
           );
         }
-        if (run.over) break;
+        if (battle.over) break;
       }
-      if (run.over === 'win') ok(run.exitOpen, 'победа только после того, как открылся выход');
+      if (battle.over === 'win')
+        ok(battle.exitOpen, 'победа только после того, как открылся выход');
     }
   }
 }

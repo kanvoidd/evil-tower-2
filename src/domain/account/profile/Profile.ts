@@ -423,7 +423,7 @@ export class Profile {
   }
 
   /** Записывает износ экипировки и расходники после комнаты. */
-  commitRun(
+  commitBattle(
     weapon: EquipmentSave | null,
     armor: EquipmentSave | null,
     consumables: Readonly<Record<ConsumableId, number>>,

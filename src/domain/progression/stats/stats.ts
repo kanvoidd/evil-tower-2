@@ -135,6 +135,6 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     passives: new Set(perkDefs.filter((p) => p.passive).map((p) => p.ability)),
   };
 
-  // «Мгновенное исполнение»: первая способность в комнате бесплатна — учитывается в Run.
+  // «Мгновенное исполнение»: первая способность в комнате бесплатна — учитывается в RoomBattle.
   return s;
 };

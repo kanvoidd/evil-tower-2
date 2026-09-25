@@ -7,7 +7,7 @@ import type { CardStatus } from './interfaces/CardStatus';
  *
  * Карта знает только себя: своё здоровье, атаку и наложенные состояния. Как она попадает
  * на поле и уходит с него, решает движок (`Engine`), а что с ней происходит в бою — правила
- * (`Run`). Создают карты фабрики (`CardFactory`).
+ * (`RoomBattle`). Создают карты фабрики (`CardFactory`).
  */
 export class Card {
   uid: number;

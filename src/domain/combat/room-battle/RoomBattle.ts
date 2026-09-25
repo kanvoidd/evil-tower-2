@@ -14,23 +14,23 @@ import type { IEngine } from '../engine/interfaces/IEngine';
 import type { GameEvent, Loot } from '../events';
 import type { PlayerStats } from '../player';
 import type { Action } from './interfaces/Action';
-import type { IRunSession } from './interfaces/IRunSession';
+import type { BattleCarryStats } from './interfaces/BattleCarryStats';
+import type { BattleDeps } from './interfaces/BattleDeps';
+import type { BattleInit } from './interfaces/BattleInit';
+import type { BattleSnapshot } from './interfaces/BattleSnapshot';
+import type { BattleTotals } from './interfaces/BattleTotals';
+import type { IBattleSession } from './interfaces/IBattleSession';
 import type { PerkReadiness } from './interfaces/PerkReadiness';
-import type { RunCarryStats } from './interfaces/RunCarryStats';
-import type { RunDeps } from './interfaces/RunDeps';
-import type { RunInit } from './interfaces/RunInit';
-import type { RunSnapshot } from './interfaces/RunSnapshot';
-import type { RunTotals } from './interfaces/RunTotals';
 import type { TurnResult } from './interfaces/TurnResult';
 
 /**
  * Правила боя в одной комнате: ход героя, способности, ответ врагов, статусы, добыча.
  *
  * Правила не трогают поле напрямую — карты ставит, снимает и двигает движок (`IEngine`),
- * а создаёт фабрика карт (`CardFactory`). Оба приходят готовыми от `RunFactory`.
- * Наружу правила открывают только действия игрока и чтение состояния (`IRunSession`).
+ * а создаёт фабрика карт (`CardFactory`). Оба приходят готовыми от `RoomBattleFactory`.
+ * Наружу правила открывают только действия игрока и чтение состояния (`IBattleSession`).
  */
-export class Run implements IRunSession {
+export class RoomBattle implements IBattleSession {
   /** Потолок «защиты после способности»: ослабляет удар, но никогда не гасит его целиком. */
   private static readonly PERK_GUARD_CAP = 0.5;
   /** Ниже этой цены талант-скидка способность не удешевляет. */
@@ -48,7 +48,7 @@ export class Run implements IRunSession {
   weapon: EquipmentSave | null;
   armor: EquipmentSave | null;
   consumables: Record<ConsumableId, number>;
-  totals: RunTotals = { gold: 0, souls: 0, kills: 0, damageTaken: 0, turns: 0 };
+  totals: BattleTotals = { gold: 0, souls: 0, kills: 0, damageTaken: 0, turns: 0 };
   readonly room: RoomDef;
   readonly plan: RoomPlan;
   readonly mod: RoomModifier;
@@ -83,14 +83,14 @@ export class Run implements IRunSession {
   private playerPoison = 0;
   private playerPoisonDmg = 0;
   private warCry = 0; // накопленное ослабление атаки врагов
-  private snapshot: RunSnapshot | null = null;
+  private snapshot: BattleSnapshot | null = null;
 
   private readonly rng: Rng;
   private readonly engine: IEngine;
   private readonly factory: CardFactory;
   private readonly enemies: Readonly<Record<string, EnemyDef>>;
 
-  constructor(init: RunInit, deps: RunDeps) {
+  constructor(init: BattleInit, deps: BattleDeps) {
     this.room = init.room;
     this.rng = init.rng;
     this.engine = deps.engine;
@@ -307,7 +307,7 @@ export class Run implements IRunSession {
     // скидка не опускает цену ниже двух: иначе молния за единицу окупалась бы
     // восстановлением каждого хода, и мана перестала бы что-то значить
     const base = p.cost ?? 0;
-    return Math.max(Math.min(base, Run.PERK_COST_FLOOR), base - this.stats.perkCostDown);
+    return Math.max(Math.min(base, RoomBattle.PERK_COST_FLOOR), base - this.stats.perkCostDown);
   }
 
   /**
@@ -429,7 +429,7 @@ export class Run implements IRunSession {
   private afterPerk(): void {
     const s = this.stats;
     if (s.perkDef > 0)
-      this.perkGuard = Math.max(this.perkGuard, Math.min(Run.PERK_GUARD_CAP, s.perkDef));
+      this.perkGuard = Math.max(this.perkGuard, Math.min(RoomBattle.PERK_GUARD_CAP, s.perkDef));
     if (s.abilityShield > 0 && !this.over) {
       this.shield += Math.max(1, Math.round(s.maxHp * s.abilityShield));
       this.emit({ type: 'shield', now: this.shield });
@@ -1684,7 +1684,7 @@ export class Run implements IRunSession {
   }
 
   /** Что уходит в следующую комнату забега. */
-  carryOut(): RunCarryStats {
+  carryOut(): BattleCarryStats {
     return { hp: this.hp, res: this.res, revived: this.revived, selfRevived: this.selfRevived };
   }
 
@@ -2010,7 +2010,7 @@ export class Run implements IRunSession {
     this.hp = s.hp;
     this.shield = s.shield;
     this.res = s.res;
-    this.totals = JSON.parse(s.totals) as RunTotals;
+    this.totals = JSON.parse(s.totals) as BattleTotals;
     this.consumables = JSON.parse(s.consumables) as Record<ConsumableId, number>;
     const f = JSON.parse(s.flags) as number[];
     [this.killsRoom, this.killStreak, this.noCounter, this.madness, this.reaping, this.warCry] = f;

@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 
 import type { PlayerStats } from '../../domain/combat';
 import type { Card } from '../../domain/combat/card/Card';
-import type { IRunState } from '../../domain/combat/room-battle';
+import type { IBattleState } from '../../domain/combat/room-battle';
 import type { Point } from '../animations/interfaces/Point';
 import { plateTexture } from '../components';
 import { CARD_H, CARD_W } from '../textures/Textures';
@@ -92,10 +92,10 @@ export class BoardView {
   }
 
   /** Заряжена способность: карточки, по которым её не применить, гаснут. Без заряда подсветка снята. */
-  showTargets(run: IRunState): void {
-    const armed = run.armed;
+  showTargets(battle: IBattleState): void {
+    const armed = battle.armed;
     for (const v of this.views.values()) {
-      const ok = !!armed && run.perkTargetOk(armed, v.cell);
+      const ok = !!armed && battle.perkTargetOk(armed, v.cell);
       v.c.setAlpha(armed && !ok ? 0.45 : 1);
     }
   }

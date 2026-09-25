@@ -5,12 +5,12 @@ import type { ConsumableId, EquipmentSave, LineageId } from '../../../types';
 import type { Card } from '../../card/Card';
 import type { PlayerStats } from '../../player';
 import type { Action } from './Action';
+import type { BattleCarryStats } from './BattleCarryStats';
+import type { BattleTotals } from './BattleTotals';
 import type { PerkReadiness } from './PerkReadiness';
-import type { RunCarryStats } from './RunCarryStats';
-import type { RunTotals } from './RunTotals';
 
 /** Что сцена и подсказки могут узнать о бое. Только чтение: менять бой можно лишь действиями игрока. */
-export interface IRunState {
+export interface IBattleState {
   readonly room: RoomDef;
   readonly mod: RoomModifier;
   readonly stats: PlayerStats;
@@ -27,7 +27,7 @@ export interface IRunState {
   readonly weapon: EquipmentSave | null;
   readonly armor: EquipmentSave | null;
   readonly consumables: Readonly<Record<ConsumableId, number>>;
-  readonly totals: Readonly<RunTotals>;
+  readonly totals: Readonly<BattleTotals>;
   readonly armed: PerkDef | null;
   readonly enemiesLeft: number;
   readonly totalEnemies: number;
@@ -44,5 +44,5 @@ export interface IRunState {
   healPotionAmount(): number;
   artifactDamage(): number;
   cornered(): boolean;
-  carryOut(): RunCarryStats;
+  carryOut(): BattleCarryStats;
 }

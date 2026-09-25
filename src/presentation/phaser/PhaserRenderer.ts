@@ -3,7 +3,7 @@ import type { IGameRenderer } from '../../application/game/interfaces/IGameRende
 import type { TutorialStep } from '../../application/game/interfaces/TutorialStep';
 import type { ISoundPlayer } from '../../application/ports';
 import type { PerkDef } from '../../domain/catalog/perks';
-import type { IRunState } from '../../domain/combat/room-battle';
+import type { IBattleState } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';
@@ -26,7 +26,7 @@ export class PhaserRenderer implements IGameRenderer {
   };
 
   constructor(
-    private readonly run: IRunState,
+    private readonly battle: IBattleState,
     private readonly board: BoardView,
     private readonly hud: Hud,
     private readonly animations: Animations,
@@ -35,20 +35,20 @@ export class PhaserRenderer implements IGameRenderer {
 
   refresh(): void {
     this.hud.update();
-    this.board.refreshStatuses(this.run.cards);
-    this.board.showTargets(this.run);
-    this.board.setPlayerHp(this.run.hp, this.run.stats.maxHp);
-    this.board.setPlayerDamage(this.run.stats.damage);
+    this.board.refreshStatuses(this.battle.cards);
+    this.board.showTargets(this.battle);
+    this.board.setPlayerHp(this.battle.hp, this.battle.stats.maxHp);
+    this.board.setPlayerDamage(this.battle.stats.damage);
   }
 
   markKillable(): void {
-    this.board.markKillable((cell) => this.run.wouldKill(cell));
+    this.board.markKillable((cell) => this.battle.wouldKill(cell));
   }
 
   rejectPerk(perk: PerkDef, reason: string | undefined): void {
     this.sound.play('error');
     const key = PhaserRenderer.PERK_REJECT[reason ?? ''] ?? 'game.no_res';
-    const n = this.run.cooldownOf(perk);
+    const n = this.battle.cooldownOf(perk);
     this.overHero(100, t(key, { r: this.resourceName(), n }), HEX.bad, 22);
   }
 
@@ -89,13 +89,13 @@ export class PhaserRenderer implements IGameRenderer {
   armed(pick: 'one' | 'two' | null): void {
     this.sound.play('click');
     this.hud.refreshAbilities();
-    this.board.showTargets(this.run);
+    this.board.showTargets(this.battle);
     if (pick) this.hud.note(t(pick === 'two' ? 'game.pick_two' : 'game.pick_target'), HEX.gold, 24);
   }
 
   firstOfTwo(): void {
     this.sound.play('click');
-    this.board.showTargets(this.run);
+    this.board.showTargets(this.battle);
   }
 
   autoUsed(item: ConsumableId): void {
@@ -128,7 +128,7 @@ export class PhaserRenderer implements IGameRenderer {
   }
 
   private resourceName(): string {
-    return t(`res.${this.run.stats.resource}` as TKey);
+    return t(`res.${this.battle.stats.resource}` as TKey);
   }
 
   /** Подпись над карточкой героя. */

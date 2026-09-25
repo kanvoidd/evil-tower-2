@@ -1,14 +1,14 @@
-import type { IRunSession, TurnResult } from '../../domain/combat/room-battle';
+import type { IBattleSession, TurnResult } from '../../domain/combat/room-battle';
 import type { BattleCommand } from './interfaces/BattleCommand';
 
 /**
  * Переводит намерение игрока в вызов боя. Правил игры обработчик не знает: удар это, шаг или
- * наведение способности, решают правила (`Run`), а обработчик лишь выбирает, какое действие позвать.
+ * наведение способности, решают правила (`RoomBattle`), а обработчик лишь выбирает, какое действие позвать.
  *
- *   PlayerCommand → GameCommandHandler → IRunSession → TurnResult → GameEvent[]
+ *   PlayerCommand → GameCommandHandler → IBattleSession → TurnResult → GameEvent[]
  */
 export class GameCommandHandler {
-  constructor(private readonly session: IRunSession) {}
+  constructor(private readonly session: IBattleSession) {}
 
   execute(cmd: BattleCommand): TurnResult {
     switch (cmd.type) {

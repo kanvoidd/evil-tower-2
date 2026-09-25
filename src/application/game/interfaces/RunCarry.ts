@@ -1,4 +1,4 @@
-import type { RunCarryStats } from '../../../domain/combat/room-battle';
+import type { BattleCarryStats } from '../../../domain/combat/room-battle';
 
 /**
  * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет
@@ -10,7 +10,7 @@ export interface RunCarry {
   /** Индекс следующей комнаты в ROOMS. */
   index: number;
   /** Здоровье, ресурс и истраченные воскрешения; в первой комнате их нет. */
-  hero?: RunCarryStats;
+  hero?: BattleCarryStats;
   /** Сколько комнат пройдено в этом забеге. */
   rooms: number;
   /** Золото и души, заработанные за пройденные комнаты (уже в кошельке). */

@@ -1,7 +1,7 @@
 import type { Profile } from '../../domain/account/profile';
 import { type RoomDef, ROOMS } from '../../domain/catalog/levels';
 import type { GameEvent } from '../../domain/combat/events';
-import { type IRunSession, RunFactory } from '../../domain/combat/room-battle';
+import { type IBattleSession, RoomBattleFactory } from '../../domain/combat/room-battle';
 import { makeRng, randomSeed, type Rng } from '../../domain/shared/rng/rng';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
@@ -10,7 +10,7 @@ import type { RunEndReason } from './interfaces/RunEndReason';
 
 /**
  * Забег по башне глазами текущей комнаты: с чем герой в неё вошёл и что забег оставляет
- * в профиле. Бой в комнате — `Run` (домен), а здесь — учёт: износ и расходники после комнаты,
+ * в профиле. Бой в комнате — `RoomBattle` (домен), а здесь — учёт: износ и расходники после комнаты,
  * награда за пройденную комнату, рекорд, таблица рекордов, автопрокачка на заработанные души.
  *
  * Пройденная комната сразу платит в кошелёк героя — закрытая вкладка ничего не отнимает;
@@ -19,7 +19,7 @@ import type { RunEndReason } from './interfaces/RunEndReason';
 export class TowerRun {
   /** Итоги комнаты уже записаны (износ, убийства) — второй раз не пишем. */
   private committed = false;
-  private run!: IRunSession;
+  private battle!: IBattleSession;
 
   constructor(
     private readonly profile: Profile,
@@ -57,13 +57,13 @@ export class TowerRun {
 
   /** Добыча текущей комнаты ещё не в кошельке героя — пропадёт при гибели или побеге. */
   get lootAtStake(): boolean {
-    return this.run.totals.gold > 0 || this.run.totals.souls > 0;
+    return this.battle.totals.gold > 0 || this.battle.totals.souls > 0;
   }
 
   /** Бой в комнате собирает фабрика: героя берёт у фабрик героев, врагов — у фабрик этажей. */
-  enterRoom(rng: Rng = makeRng(randomSeed())): IRunSession {
+  enterRoom(rng: Rng = makeRng(randomSeed())): IBattleSession {
     const p = this.profile;
-    this.run = RunFactory.standard().create({
+    this.battle = RoomBattleFactory.standard().create({
       room: this.room,
       stats: p.playerStats(),
       weapon: p.equipped('weapon'),
@@ -72,7 +72,7 @@ export class TowerRun {
       rng,
       carry: this.carry.hero,
     });
-    return this.run;
+    return this.battle;
   }
 
   /** Счётчики профиля по событиям хода: открытые сундуки и сломанные предметы. */
@@ -85,26 +85,26 @@ export class TowerRun {
 
   /** Расходники героя — такими, какими их оставил ход. */
   keepConsumables(): void {
-    this.profile.keepConsumables(this.run.consumables);
+    this.profile.keepConsumables(this.battle.consumables);
   }
 
   /** Износ экипировки, расходники и убийства комнаты — в профиль (один раз за комнату). */
   commitRoom(): void {
     if (this.committed) return;
     this.committed = true;
-    this.profile.commitRun(this.run.weapon, this.run.armor, this.run.consumables);
-    this.profile.bump('kills', this.run.totals.kills);
+    this.profile.commitBattle(this.battle.weapon, this.battle.armor, this.battle.consumables);
+    this.profile.bump('kills', this.battle.totals.kills);
     this.profile.markTutorial('fight');
   }
 
   /** Пройденная комната сразу платит всё: сумку, души и бонус за прохождение. */
   clearRoom(): { gold: number; souls: number; flawless: boolean } {
-    const run = this.run;
-    const room = run.room;
+    const battle = this.battle;
+    const room = battle.room;
     this.commitRoom();
-    const gold = run.totals.gold + room.clearGold;
-    const souls = run.totals.souls + room.clearSouls;
-    const flawless = run.totals.damageTaken === 0;
+    const gold = battle.totals.gold + room.clearGold;
+    const souls = battle.totals.souls + room.clearSouls;
+    const flawless = battle.totals.damageTaken === 0;
     const p = this.profile;
     p.addGold(gold);
     p.addSouls(souls);
@@ -117,7 +117,7 @@ export class TowerRun {
       rooms: c.rooms + 1,
       gold: c.gold + gold,
       souls: c.souls + souls,
-      hero: run.carryOut(),
+      hero: battle.carryOut(),
     };
     // рекорд пишем сразу: закрытая посреди забега вкладка не должна его отнимать
     p.recordRun(this.carry.rooms);

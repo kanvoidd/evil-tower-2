@@ -31,7 +31,7 @@ const warnings = {
  * Новый код сюда не попадает. К концу второго круга список пуст (кроме сменного блока H).
  */
 const legacyComplexity = {
-  'src/domain/combat/room-battle/Run.ts': 'D',
+  'src/domain/combat/room-battle/RoomBattle.ts': 'D',
   'src/domain/progression/skill-tree/skillTree.ts': 'C6',
   'src/infrastructure/store/ProfileStore.ts': 'G3',
   'src/presentation/animations/GameEventPlayer.ts': 'F2',

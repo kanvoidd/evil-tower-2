@@ -20,7 +20,7 @@
 ### BUG-002 «Откат времени» не отматывает прошлый ход
 - **Статус:** open
 - **Серьёзность:** major
-- **Где:** src/domain/combat/room-battle/Run.ts — `usePerk` → `beginTurn()` → `takeSnapshot()`, затем `applyAbility('rewind')` → `restoreSnapshot()`
+- **Где:** src/domain/combat/room-battle/RoomBattle.ts — `usePerk` → `beginTurn()` → `takeSnapshot()`, затем `applyAbility('rewind')` → `restoreSnapshot()`
 - **Найдено:** 2026-09-24
 - **Воспроизведение:**
   1. Магистр (способность «Откат времени» куплена), рядом враг.

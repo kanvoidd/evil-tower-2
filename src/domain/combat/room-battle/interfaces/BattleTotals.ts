@@ -1,5 +1,5 @@
 /** Итоги захода в комнату. */
-export interface RunTotals {
+export interface BattleTotals {
   gold: number;
   souls: number;
   kills: number;

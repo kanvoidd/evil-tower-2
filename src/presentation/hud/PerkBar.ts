@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import { FULL_BAR, type PerkDef } from '../../domain/catalog/perks';
-import type { IRunState } from '../../domain/combat/room-battle';
+import type { IBattleState } from '../../domain/combat/room-battle';
 import { perkDesc, perkName } from '../../i18n';
 import type { Animations } from '../animations/Animations';
 import { outlineTexture, PlateButton, tipOnHover, txt } from '../components';
@@ -83,16 +83,16 @@ export class PerkBar {
   }
 
   /** Заряд, цена, перезарядка и доступность каждой кнопки — по текущему бою. */
-  update(run: IRunState): void {
+  update(battle: IBattleState): void {
     for (const pb of this.buttons) {
-      const ready = run.perkReady(pb.perk);
-      const armed = run.armed?.id === pb.perk.id;
-      const cd = run.cooldownOf(pb.perk);
-      const free = cd === 0 && run.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
+      const ready = battle.perkReady(pb.perk);
+      const armed = battle.armed?.id === pb.perk.id;
+      const cd = battle.cooldownOf(pb.perk);
+      const free = cd === 0 && battle.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
       pb.btn.setStyle(armed ? 'gold' : 'raised');
       pb.btn.setLocked(!ready.ok);
       pb.frame.setVisible(armed);
-      pb.costText.setText(PerkBar.costLabel(run, pb.perk));
+      pb.costText.setText(PerkBar.costLabel(battle, pb.perk));
       const costColor = cd > 0 ? HEX.soul : !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
       pb.costText.setColor(costColor);
       pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
@@ -108,11 +108,11 @@ export class PerkBar {
   }
 
   /** Короткая метка цены: она живёт в маленьком бейдже, поэтому не больше двух знаков. */
-  private static costLabel(run: IRunState, perk: PerkDef): string {
-    const cd = run.cooldownOf(perk);
+  private static costLabel(battle: IBattleState, perk: PerkDef): string {
+    const cd = battle.cooldownOf(perk);
     if (cd > 0) return `⏱${cd}`;
     if (perk.goldCost !== undefined) return '$';
-    const cost = run.perkCostOf(perk);
+    const cost = battle.perkCostOf(perk);
     if (cost === 0) return '0';
     return perk.cost === FULL_BAR ? '⚡' : String(cost);
   }

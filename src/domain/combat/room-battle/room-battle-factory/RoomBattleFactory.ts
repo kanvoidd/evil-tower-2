@@ -6,16 +6,16 @@ import type { HeroFactory } from '../../../catalog/heroes/hero-factory/HeroFacto
 import { rollRoom } from '../../../catalog/levels';
 import { RoomCardFactory } from '../../card/room-card-factory/RoomCardFactory';
 import { Engine } from '../../engine/Engine';
-import type { RunInit } from '../interfaces/RunInit';
-import { Run } from '../Run';
+import type { BattleInit } from '../interfaces/BattleInit';
+import { RoomBattle } from '../RoomBattle';
 
 /**
  * Собирает бой в комнате: берёт линейку героя у его фабрики (`HeroFactory`), каталог врагов —
  * у фабрик этажей (`FloorFactory`), и из них делает фабрику карт, движок и правила.
- * Сцена и тесты получают готовый `Run` и не создают его части сами.
+ * Сцена и тесты получают готовый `RoomBattle` и не создают его части сами.
  */
-export class RunFactory {
-  private static shared: RunFactory | null = null;
+export class RoomBattleFactory {
+  private static shared: RoomBattleFactory | null = null;
 
   private readonly enemies: Readonly<Record<string, EnemyDef>>;
 
@@ -29,12 +29,12 @@ export class RunFactory {
   }
 
   /** Фабрика на всех героях и этажах игры. */
-  static standard(): RunFactory {
-    RunFactory.shared ??= new RunFactory(HERO_FACTORIES, FLOOR_FACTORIES);
-    return RunFactory.shared;
+  static standard(): RoomBattleFactory {
+    RoomBattleFactory.shared ??= new RoomBattleFactory(HERO_FACTORIES, FLOOR_FACTORIES);
+    return RoomBattleFactory.shared;
   }
 
-  create(init: RunInit): Run {
+  create(init: BattleInit): RoomBattle {
     const hero = this.heroes.find((h) => h.lineage === init.stats.lineage);
     if (!hero) throw new Error(`нет фабрики героя для линейки ${init.stats.lineage}`);
     const lineage = hero.createLineage();
@@ -48,6 +48,6 @@ export class RunFactory {
       lineage,
     });
     const engine = new Engine(cards);
-    return new Run(init, { engine, cards, plan, enemies: this.enemies, lineage });
+    return new RoomBattle(init, { engine, cards, plan, enemies: this.enemies, lineage });
   }
 }

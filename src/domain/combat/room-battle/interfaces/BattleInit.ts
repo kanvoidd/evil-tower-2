@@ -2,10 +2,10 @@ import type { RoomDef, RoomPlan } from '../../../catalog/levels';
 import type { Rng } from '../../../shared/rng/rng';
 import type { ConsumableId, EquipmentSave } from '../../../types';
 import type { PlayerStats } from '../../player';
-import type { RunCarryStats } from './RunCarryStats';
+import type { BattleCarryStats } from './BattleCarryStats';
 
 /** С чем герой входит в комнату. */
-export interface RunInit {
+export interface BattleInit {
   room: RoomDef;
   stats: PlayerStats;
   weapon: EquipmentSave | null;
@@ -15,5 +15,5 @@ export interface RunInit {
   /** Готовый расклад (для повторов и тестов); иначе набирается случайно. */
   plan?: RoomPlan;
   /** Забег продолжается из прошлой комнаты: здоровье, ресурс и уже истраченные «раз за забег». */
-  carry?: RunCarryStats;
+  carry?: BattleCarryStats;
 }

@@ -45,14 +45,14 @@ export class GameScene extends Phaser.Scene {
     bindAchievementToasts(this, profile.achievementUnlocked);
 
     const tower = new TowerRun(profile, platform, storage, this.carry ?? TowerRun.start(profile));
-    const run = tower.enterRoom();
+    const battle = tower.enterRoom();
     const autoUse = new AutoUseToggles(profile);
     const animations = new Animations(this, sound);
     const clock = new PhaserClock(this);
     // кнопки панелей отдают команды контроллеру; он появится ниже — до первого нажатия
     const hud = new Hud(
       this,
-      run,
+      battle,
       tower.state,
       {
         command: (cmd) => this.controller?.execute(cmd),
@@ -63,22 +63,28 @@ export class GameScene extends Phaser.Scene {
       sound,
       new AudioSettings(profile, this.services.audio),
     );
-    const board = new BoardView(this, new CardViewFactory(this), run.stats, run.hp, run.playerCell);
-    const player = new GameEventPlayer(run, board, animations, hud, sound, clock);
+    const board = new BoardView(
+      this,
+      new CardViewFactory(this),
+      battle.stats,
+      battle.hp,
+      battle.playerCell,
+    );
+    const player = new GameEventPlayer(battle, board, animations, hud, sound, clock);
 
     const controller = new GameController({
-      run,
+      battle,
       tower,
       profile,
       autoUse,
       ads,
       platform,
-      view: new PhaserRenderer(run, board, hud, animations, sound),
+      view: new PhaserRenderer(battle, board, hud, animations, sound),
       player,
       dialogs: new GameDialogs(this),
       navigator: new GameNavigator(this),
       clock,
-      input: new PhaserInput(this, () => run.playerCell),
+      input: new PhaserInput(this, () => battle.playerCell),
     });
     this.controller = controller;
     this.events.once('shutdown', () => {

@@ -1,5 +1,5 @@
 import type { Profile } from '../../../domain/account/profile';
-import type { IRunSession } from '../../../domain/combat/room-battle';
+import type { IBattleSession } from '../../../domain/combat/room-battle';
 import type { AdService } from '../../ads/AdService';
 import type { IClock } from '../../ports/IClock';
 import type { IPlatform } from '../../ports/IPlatform';
@@ -13,7 +13,7 @@ import type { IInput } from './IInput';
 
 /** Всё, из чего собирается контроллер боя: бой, учёт забега и то, чем он говорит с игроком. */
 export interface GameControllerDeps {
-  run: IRunSession;
+  battle: IBattleSession;
   tower: TowerRun;
   profile: Profile;
   autoUse: AutoUseToggles;

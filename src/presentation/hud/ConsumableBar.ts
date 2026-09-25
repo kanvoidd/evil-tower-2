@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import type { ISoundPlayer } from '../../application/ports';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/catalog/consumables';
 import { needsHeal, needsRegen, worthArtifact } from '../../domain/combat/auto-use/autoUse';
-import type { IRunState } from '../../domain/combat/room-battle';
+import type { IBattleState } from '../../domain/combat/room-battle';
 import type { ConsumableId, LineageId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';
@@ -90,23 +90,24 @@ export class ConsumableBar {
     if (sl) this.animations.bump.play(sl.c, 1.16, 170);
   }
 
-  update(run: IRunState): void {
+  update(battle: IBattleState): void {
     this.slots.forEach((sl) => {
-      const n = run.consumables[sl.id];
+      const n = battle.consumables[sl.id];
       sl.count.setText(String(n));
       sl.badge.setVisible(!sl.locked && n > 0);
       sl.c.setAlpha(sl.locked ? 0.5 : n > 0 ? 1 : 0.5);
     });
-    this.updateHints(run);
+    this.updateHints(battle);
   }
 
   /** Подсвечивает расходник, когда он действительно нужен (те же правила, что у автоприменения; лечение — с запасом). */
-  private updateHints(run: IRunState): void {
-    const s = run.stats;
+  private updateHints(battle: IBattleState): void {
+    const s = battle.stats;
     const wants: Partial<Record<ConsumableId, boolean>> = {
-      potion_heal: needsHeal(run) || (run.hp <= s.maxHp * 0.4 && run.consumables.potion_heal > 0),
-      potion_regen: needsRegen(run),
-      artifact: worthArtifact(run),
+      potion_heal:
+        needsHeal(battle) || (battle.hp <= s.maxHp * 0.4 && battle.consumables.potion_heal > 0),
+      potion_regen: needsRegen(battle),
+      artifact: worthArtifact(battle),
     };
     this.slots.forEach((sl) => {
       const on = !!wants[sl.id];
