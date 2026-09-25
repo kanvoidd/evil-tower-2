@@ -26,16 +26,6 @@ const warnings = {
 };
 
 /**
- * Переходный список: код, написанный до правил. Сложность в этих файлах пока — предупреждение;
- * буква — этап плана (docs/REFACTORING-PLAN-2.md), который файл разберёт и уберёт из списка.
- * Новый код сюда не попадает. К концу второго круга список пуст.
- */
-const legacyComplexity = {
-  'src/composition/DevParams.ts': 'I',
-  'tools/sim.ts': 'I',
-};
-
-/**
  * Сменный блок: процедурная графика и звук — временные заглушки, которые заменят картинки и файлы
  * (PROJECT-DECISIONS.md, «Процедурная графика и звук — сменный блок»). Внутри их не разбираем:
  * размер и сложность — не повод для правки; импорты и форматирование проверяются как везде.
@@ -130,13 +120,5 @@ export default tseslint.config(
   {
     files: selftestFiles,
     rules: { 'max-lines': 'off' },
-  },
-  {
-    files: Object.keys(legacyComplexity),
-    rules: {
-      complexity: ['warn', 15],
-      'max-depth': ['warn', 4],
-      'max-nested-callbacks': ['warn', 3],
-    },
   },
 );
