@@ -25,11 +25,11 @@ import {
   currentClassOf,
   isClassOwned,
   isPurchasable,
+  learnedTalents,
   newLineageSave,
   nodeState,
   openedClasses,
   rankOf,
-  talentBonuses,
   type TreeNode,
   TREES,
 } from '../../src/domain/progression/skill-tree';
@@ -39,6 +39,7 @@ import {
   StageTablePricing,
 } from '../../src/domain/progression/soul-prices';
 import { buildPlayerStats, CAPS } from '../../src/domain/progression/stats/stats';
+import { talentBonuses } from '../../src/domain/progression/stats/talent-bonuses/talentBonuses';
 import { CellIndex, DayKey, Ratio, Souls } from '../../src/domain/shared';
 import { SkillTreeLayout } from '../../src/presentation/views/skill-tree/SkillTreeLayout';
 import { ok } from './harness';
@@ -160,7 +161,7 @@ for (const lin of LINEAGE_ORDER) {
     }
   };
   buyAll((n) => n.owner === lin && n.kind !== 'class');
-  const bonusBefore = talentBonuses(tree, ls);
+  const bonusBefore = talentBonuses(learnedTalents(tree, ls));
   const perksBefore = activePerkIds(tree, ls, lin);
   ok(perksBefore.length === 3, `${lin}: у базового класса три способности (${perksBefore.length})`);
 
@@ -170,7 +171,7 @@ for (const lin of LINEAGE_ORDER) {
     `${lin}: метаморфоза доступна после прокачки третьего яруса`,
   );
   applyBuy(tree, ls, second);
-  const bonusAfter = talentBonuses(tree, ls);
+  const bonusAfter = talentBonuses(learnedTalents(tree, ls));
   ok(
     JSON.stringify(bonusBefore) === JSON.stringify(bonusAfter),
     `${lin}: таланты сохранились при метаморфозе`,

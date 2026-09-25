@@ -9,9 +9,10 @@ import {
 } from '../../catalog';
 import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat';
 import { Percent, Ratio } from '../../shared';
-import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree';
+import { activePerkIds, learnedTalents, TREES } from '../skill-tree';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import { StatModifiers } from './stat-modifiers/StatModifiers';
+import { talentBonuses, talentPowers } from './talent-bonuses/talentBonuses';
 
 export interface Loadout {
   classId: ClassId;
@@ -33,8 +34,9 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const cls = CLASSES[l.classId];
   const lin = LINEAGES[cls.lineage];
   const tree = TREES[cls.lineage];
-  const tb = talentBonuses(tree, l.lineage);
-  const tb2 = talentBonuses2(tree, l.lineage);
+  const learned = learnedTalents(tree, l.lineage);
+  const tb = talentBonuses(learned);
+  const tb2 = talentPowers(learned);
   const g = (k: keyof typeof tb): number => tb[k] ?? 0;
   const g2 = (k: keyof typeof tb2): number => tb2[k] ?? 0;
 

@@ -1,6 +1,7 @@
 /**
  * Правила дерева прокачки над купленным (`LineageSave`): состояние узлов, цены, покупка,
- * отказ от финального класса, сумма эффектов талантов и доступные способности.
+ * отказ от финального класса, изученные таланты и доступные способности. Что таланты дают,
+ * дерево не знает — это считают характеристики героя (`stats/talent-bonuses`).
  */
 import {
   CLASSES,
@@ -9,18 +10,16 @@ import {
   PERK_BY_ID,
   perkId,
   placesOfClass,
-  powerAt,
   SLOT_ORDER,
   TALENT_PLACE_BY_ID,
   type TalentPlace,
-  valueAt,
 } from '../../catalog';
 import { Souls } from '../../shared';
 import { SOUL_PRICING } from '../soul-prices/soulPricing';
 import type { BuyResult } from './interfaces/BuyResult';
+import type { LearnedTalent } from './interfaces/LearnedTalent';
 import type { LineageSave } from './interfaces/LineageSave';
 import type { NodeState } from './interfaces/NodeState';
-import type { TalentBonus } from './interfaces/TalentBonus';
 import type { Tree } from './interfaces/Tree';
 import type { TreeNode } from './interfaces/TreeNode';
 
@@ -160,38 +159,13 @@ export const applyCancelMetamorphosis = (
   return { refund: SOUL_PRICING.refund(spent) };
 };
 
-// ------------------------------------------------------------------ бонусы и способности
+// ------------------------------------------------------------------ изученное и способности
 
-/** Сумма эффектов всех изученных талантов линейки — они тоже сохраняются при метаморфозе. */
-export const talentBonuses = (tree: Tree, s: LineageSave): TalentBonus => {
-  const out: TalentBonus = {};
-  for (const n of tree.nodes) {
-    if (n.kind !== 'talent') continue;
-    const rank = rankOf(s, n.id);
-    if (rank <= 0) continue;
-    const { effect } = talentOfNode(n).talent;
-    out[effect.fx] = (out[effect.fx] ?? 0) + valueAt(effect, rank);
-  }
-  return out;
-};
-
-/**
- * Сила эффектов-пар «шанс / сила» (у «Раздвоения молнии» — доля урона второго разряда).
- * Берём максимум, а не сумму: это одна и та же механика, и складывать силу от двух классов
- * линейки было бы неверно. Шансы пар складываются в `talentBonuses`.
- */
-export const talentBonuses2 = (tree: Tree, s: LineageSave): TalentBonus => {
-  const out: TalentBonus = {};
-  for (const n of tree.nodes) {
-    if (n.kind !== 'talent') continue;
-    const rank = rankOf(s, n.id);
-    if (rank <= 0) continue;
-    const { effect } = talentOfNode(n).talent;
-    const power = powerAt(effect, rank);
-    if (power > 0) out[effect.fx] = Math.max(out[effect.fx] ?? 0, power);
-  }
-  return out;
-};
+/** Изученные таланты линейки по порядку дерева — что они дают, считают характеристики героя. */
+export const learnedTalents = (tree: Tree, s: LineageSave): LearnedTalent[] =>
+  tree.nodes
+    .filter((n) => n.kind === 'talent' && rankOf(s, n.id) > 0)
+    .map((n) => ({ place: talentOfNode(n), rank: rankOf(s, n.id) }));
 
 /** Сколько рангов талантов изучено всего (для сводки в интерфейсе). */
 export const talentPointsSpent = (tree: Tree, s: LineageSave): number =>
