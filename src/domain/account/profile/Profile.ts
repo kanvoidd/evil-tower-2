@@ -1,76 +1,51 @@
-import {
-  CLASSES,
-  type ClassId,
-  type ConsumableId,
-  CONSUMABLES,
-  type EquipmentSave,
-  type ItemDef,
-  LINEAGE_ORDER,
-  type LineageId,
-} from '../../catalog';
+import type { ClassId, ConsumableId, EquipmentSave, ItemDef, LineageId } from '../../catalog';
 import { type AutoUseSave, DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
-import { REPAIR_PRICING, ShopRules, Wallet } from '../../economy';
-import {
-  applyBuy,
-  type AutoSkillPlan,
-  type AutoSkillSave,
-  branchOf,
-  costOf,
-  DEFAULT_AUTO_SKILL,
-  Hero,
-  inferBranch,
-  type LineageSave,
-  newLineageSave,
-  planAutoSkill,
-  ProgressionBalance,
-  type TreeNode,
-  TREES,
-} from '../../progression';
-import {
-  type AchievementDef,
-  ACHIEVEMENTS,
-  DAILY_REWARDS,
-  type DailyReward,
-  GIFT_COOLDOWN_MS,
-  GIFT_REWARD,
-  type ICalendar,
-} from '../../rewards';
-import { DayKey, Gold, type Lang, Signal, Souls } from '../../shared';
+import type { AutoSkillPlan, AutoSkillSave, Hero, LineageSave, TreeNode } from '../../progression';
+import type { AchievementDef, DailyReward, GIFT_REWARD, ICalendar } from '../../rewards';
+import type { Gold, Lang, Signal, Souls } from '../../shared';
 import type { HeroSave } from '../save/interfaces/HeroSave';
 import type { SaveData } from '../save/interfaces/SaveData';
+import { AccountState } from './account-state/AccountState';
+import { AchievementTracker } from './achievement-tracker/AchievementTracker';
+import { AutomationSettings } from './automation-settings/AutomationSettings';
+import { DailyRewards } from './daily-rewards/DailyRewards';
+import { HeroRoster } from './hero-roster/HeroRoster';
+import { HeroWallets } from './hero-wallets/HeroWallets';
 import type { ConsumablePurchase } from './interfaces/ConsumablePurchase';
 import type { DailyStatus } from './interfaces/DailyStatus';
 import type { ItemPurchase } from './interfaces/ItemPurchase';
+import type { ProfileParts } from './interfaces/ProfileParts';
+import { PlayerSettings } from './player-settings/PlayerSettings';
+import { TowerGift } from './tower-gift/TowerGift';
 
 /**
- * Профиль игрока — правила над документом сохранения: у каждого героя (линейки) свой кошелёк,
- * расходники, доспех, оружие и рекорд; общие на профиль — счётчики, достижения, обучение,
- * награда дня и «Дар башни», настройки автоматизации.
+ * Профиль игрока — корень агрегата «аккаунт»: правила над документом сохранения. Фасад над
+ * частями: настройки и отметки игрока (`PlayerSettings`), автоматизация (`AutomationSettings`),
+ * герои и их прогресс (`HeroRoster`), всё своё у каждого героя — кошелёк, снаряжение, расходники,
+ * рекорд (`HeroWallets`), счётчики и достижения (`AchievementTracker`), награда дня
+ * (`DailyRewards`) и «Дар башни» (`TowerGift`). Общее у частей — `AccountState`.
  *
  * Профиль не знает, где и как хранится документ: об изменениях он сообщает сигналом `changed`,
- * а сохраняет их инфраструктура. Время приходит снаружи (`now`), поэтому правила наград
- * проверяются без часов браузера.
+ * а сохраняет их инфраструктура. Время и день игрока приходят снаружи (`now`, `calendar`),
+ * поэтому правила наград проверяются без часов браузера и часового пояса.
  */
 export class Profile {
-  /** Изменилось что угодно — документ пора сохранить. */
-  readonly changed = new Signal();
-  /** Изменился кошелёк активного героя (или сменился сам герой). */
-  readonly walletChanged = new Signal();
-  /** Открыто достижение (id). */
-  readonly achievementUnlocked = new Signal<[string]>();
+  private readonly state: AccountState;
+  private readonly parts: ProfileParts;
 
-  /** Герои открытых линеек — по экземпляру на линейку. */
-  private readonly heroes = new Map<LineageId, Hero>();
-
-  /**
-   * `now` — время для таймера «Дара башни» и рекламы, `calendar` — день игрока для награды дня;
-   * оба приходят снаружи, поэтому правила наград проверяются без часов и часового пояса.
-   */
-  constructor(
-    private doc: SaveData,
-    private readonly now: () => number,
-    private readonly calendar: ICalendar,
-  ) {}
+  constructor(doc: SaveData, now: () => number, calendar: ICalendar) {
+    const state = new AccountState(doc, now, calendar);
+    const parts = {} as { -readonly [K in keyof ProfileParts]: ProfileParts[K] };
+    parts.settings = new PlayerSettings(state, parts);
+    parts.automation = new AutomationSettings(state, parts);
+    parts.heroes = new HeroRoster(state, parts);
+    parts.wallets = new HeroWallets(state, parts);
+    parts.achievements = new AchievementTracker(state, parts);
+    parts.daily = new DailyRewards(state, parts);
+    parts.gift = new TowerGift(state, parts);
+    this.state = state;
+    this.parts = parts;
+  }
 
   /** Документ сохранения нового игрока. */
   static freshData(lang: Lang, now: number): SaveData {
@@ -108,326 +83,225 @@ export class Profile {
 
   /** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
   static emptyHero(): HeroSave {
-    return {
-      gold: Gold.of(0),
-      souls: Souls.of(0),
-      consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 },
-      armor: null,
-      best: 0,
-    };
+    return HeroWallets.emptyHero();
+  }
+
+  // ------------------------------------------------------------------ документ и сигналы
+
+  /** Изменилось что угодно — документ пора сохранить. */
+  get changed(): Signal {
+    return this.state.changed;
+  }
+
+  /** Изменился кошелёк активного героя (или сменился сам герой). */
+  get walletChanged(): Signal {
+    return this.state.walletChanged;
+  }
+
+  /** Открыто достижение (id). */
+  get achievementUnlocked(): Signal<[string]> {
+    return this.state.achievementUnlocked;
   }
 
   /** Документ сохранения, над которым работают правила. */
   get data(): SaveData {
-    return this.doc;
+    return this.state.doc;
   }
 
   /** Подменить документ целиком (загрузка сохранения, сброс прогресса). Это не изменение — сохранять нечего. */
   replace(doc: SaveData): void {
-    this.doc = doc;
-    this.heroes.clear();
-    this.walletChanged.emit();
+    this.state.doc = doc;
+    this.parts.heroes.forget();
+    this.state.walletChanged.emit();
   }
 
-  private touch(): void {
-    this.changed.emit();
-  }
-
-  // ------------------------------------------------------------------ настройки
+  // ------------------------------------------------------------------ настройки и отметки
 
   get lang(): Lang {
-    return this.doc.lang;
+    return this.parts.settings.lang;
   }
 
   setLang(l: Lang): void {
-    this.doc.lang = l;
-    this.touch();
+    this.parts.settings.setLang(l);
   }
 
   /** Громкость 0…1. */
   get volume(): number {
-    return this.doc.volume;
+    return this.parts.settings.volume;
   }
 
   get muted(): boolean {
-    return this.doc.muted;
+    return this.parts.settings.muted;
   }
 
   setAudio(volume: number, muted: boolean): void {
-    this.doc.volume = volume;
-    this.doc.muted = muted;
-    this.touch();
+    this.parts.settings.setAudio(volume, muted);
   }
 
-  // ------------------------------------------------------------------ обучение и реклама
-
   get tutorial(): Readonly<SaveData['tutorial']> {
-    return this.doc.tutorial;
+    return this.parts.settings.tutorial;
   }
 
   /** Шаг обучения пройден. */
   markTutorial(step: keyof SaveData['tutorial']): void {
-    this.doc.tutorial[step] = true;
-    this.touch();
+    this.parts.settings.markTutorial(step);
   }
 
   get lastInterstitial(): number {
-    return this.doc.ads.lastInterstitial;
+    return this.parts.settings.lastInterstitial;
   }
 
   noteInterstitial(at: number): void {
-    this.doc.ads.lastInterstitial = at;
-    this.touch();
+    this.parts.settings.noteInterstitial(at);
   }
 
   // ------------------------------------------------------------------ автоматизация
 
   get autoUse(): AutoUseSave {
-    return this.doc.auto.use;
+    return this.parts.automation.autoUse;
   }
 
   setAutoUse(patch: Partial<AutoUseSave>): void {
-    this.doc.auto.use = { ...this.doc.auto.use, ...patch };
-    this.touch();
+    this.parts.automation.setAutoUse(patch);
   }
 
-  autoSkillCfg(l: LineageId = this.activeLineage): AutoSkillSave {
-    return { ...DEFAULT_AUTO_SKILL, ...this.doc.auto.skill[l] };
+  autoSkillCfg(l?: LineageId): AutoSkillSave {
+    return this.parts.automation.autoSkillCfg(l);
   }
 
-  setAutoSkill(patch: Partial<AutoSkillSave>, l: LineageId = this.activeLineage): void {
-    this.doc.auto.skill[l] = { ...this.autoSkillCfg(l), ...patch };
-    this.touch();
+  setAutoSkill(patch: Partial<AutoSkillSave>, l?: LineageId): void {
+    this.parts.automation.setAutoSkill(patch, l);
   }
 
-  /** Включает/выключает автопрокачку одной кнопкой. При включении ветка берётся по последнему улучшению игрока. */
+  /** Автопрокачка одной кнопкой; при включении ветка — по последнему улучшению игрока. */
   toggleAutoSkill(): AutoSkillSave {
-    const lin = this.activeLineage;
-    const on = !this.autoSkillCfg(lin).on;
-    const patch: Partial<AutoSkillSave> = { on };
-    if (on) Object.assign(patch, inferBranch(TREES[lin], this.activeLineageSave) ?? {});
-    this.setAutoSkill(patch, lin);
-    return this.autoSkillCfg(lin);
+    return this.parts.automation.toggleAutoSkill();
   }
 
-  /**
-   * Игрок сам купил узел: если автопрокачка включена, запоминаем его ветку (и тип выбора на развилке),
-   * чтобы дальше по этой ветке шло автоматически.
-   */
+  /** Игрок сам купил узел: автопрокачка запоминает его ветку. */
   noteManualBuy(n: TreeNode): void {
-    const lin = this.activeLineage;
-    if (!this.autoSkillCfg(lin).on) return;
-    const patch = branchOf(n);
-    if (Object.keys(patch).length) this.setAutoSkill(patch, lin);
+    this.parts.automation.noteManualBuy(n);
   }
 
-  /**
-   * Автопрокачка: тратит души на ветку активной линейки — вниз по цепочке, на весь опыт душ. Вызывается при входе
-   * в хаб и дерево, после комнаты, при включении и после каждой ручной покупки. Пока игрок не сделал первое
-   * улучшение сам, не работает (обучение).
-   */
+  /** Автопрокачка тратит души на ветку активной линейки (после первого ручного улучшения). */
   runAutoSkill(): AutoSkillPlan | null {
-    const lin = this.activeLineage;
-    const cfg = this.autoSkillCfg(lin);
-    if (!cfg.on || !this.doc.tutorial.skill) return null;
-    const tree = TREES[lin];
-    const ls = this.activeLineageSave;
-    const plan = planAutoSkill(tree, ls, this.souls, cfg);
-    for (const n of plan.buys) {
-      this.spendSouls(costOf(ls, n));
-      applyBuy(tree, ls, n);
-    }
-    if (plan.buys.length) this.touch();
-    return plan;
+    return this.parts.automation.runAutoSkill();
   }
 
   // ------------------------------------------------------------------ герои
 
-  /**
-   * Герой линейки: прогресс дерева и класс. Один экземпляр на открытую линейку — метаморфоза
-   * меняет его класс, но не его самого. У закрытой линейки герой собирается на пустом прогрессе.
-   */
+  /** Герой линейки: прогресс дерева и класс — один экземпляр на открытую линейку. */
   hero(lin: LineageId): Hero {
-    const save = this.doc.lineages[lin];
-    if (!save) return new Hero(lin, newLineageSave(TREES[lin]));
-    let h = this.heroes.get(lin);
-    if (!h || h.save !== save) {
-      h = new Hero(lin, save, () => this.touch());
-      this.heroes.set(lin, h);
-    }
-    return h;
+    return this.parts.heroes.hero(lin);
   }
 
   /** Герой, которым сейчас играет игрок. */
   get activeHero(): Hero {
-    return this.hero(this.activeLineage);
+    return this.parts.heroes.activeHero;
   }
-
-  // ------------------------------------------------------------------ кошелёк
-
-  /** Всё своё у активного героя (кошелёк, расходники, доспех, рекорд); у нового героя — с нулями. */
-  get heroSave(): HeroSave {
-    return this.heroSaveOf(this.activeLineage);
-  }
-
-  heroSaveOf(lin: LineageId): HeroSave {
-    return (this.doc.heroes[lin] ??= Profile.emptyHero());
-  }
-
-  /** Рекорд героя линейки — без заведения пустого кошелька, если героя ещё нет. */
-  bestOf(lin: LineageId): number {
-    return this.doc.heroes[lin]?.best ?? 0;
-  }
-
-  /** Кошелёк активного героя. */
-  private get wallet(): Wallet {
-    return new Wallet(this.heroSave);
-  }
-
-  get gold(): Gold {
-    return this.wallet.gold;
-  }
-
-  get souls(): Souls {
-    return this.wallet.souls;
-  }
-
-  addGold(n: Gold, track = true): void {
-    this.wallet.addGold(n);
-    if (track && n > 0) this.doc.stats.goldEarned += n;
-    this.walletChanged.emit();
-    this.checkAchievements();
-    this.touch();
-  }
-
-  addSouls(n: Souls, track = true): void {
-    this.wallet.addSouls(n);
-    if (track && n > 0) this.doc.stats.soulsEarned += n;
-    this.walletChanged.emit();
-    this.checkAchievements();
-    this.touch();
-  }
-
-  spendGold(n: Gold): boolean {
-    if (!this.wallet.spendGold(n)) return false;
-    this.walletChanged.emit();
-    this.touch();
-    return true;
-  }
-
-  spendSouls(n: Souls): boolean {
-    if (!this.wallet.spendSouls(n)) return false;
-    this.walletChanged.emit();
-    this.touch();
-    return true;
-  }
-
-  // ------------------------------------------------------------------ классы
 
   get isFirstRun(): boolean {
-    return this.doc.activeClass === null;
+    return this.parts.heroes.isFirstRun;
   }
 
-  /**
-   * Класс, за который играет активный герой. Выводится из прогресса дерева (метаморфоза заменяет
-   * класс), а сохранённый `activeClass` лишь выбирает, какой герой — какая линейка — сейчас в игре.
-   */
+  /** Класс активного героя — выводится из прогресса дерева. */
   get activeClass(): ClassId {
-    return this.activeHero.classId;
+    return this.parts.heroes.activeClass;
   }
 
   get activeLineage(): LineageId {
-    return CLASSES[this.doc.activeClass ?? 'warrior'].lineage;
+    return this.parts.heroes.activeLineage;
   }
 
   lineageSave(l: LineageId): LineageSave | null {
-    return this.doc.lineages[l] ?? null;
+    return this.parts.heroes.lineageSave(l);
   }
 
   get activeLineageSave(): LineageSave {
-    return this.lineageSave(this.activeLineage) ?? this.unlockLineage(this.activeLineage);
+    return this.parts.heroes.activeLineageSave;
   }
 
   isLineageUnlocked(l: LineageId): boolean {
-    return !!this.doc.lineages[l];
+    return this.parts.heroes.isLineageUnlocked(l);
   }
 
   unlockLineage(l: LineageId): LineageSave {
-    if (!this.doc.lineages[l]) this.doc.lineages[l] = newLineageSave(TREES[l]);
-    this.touch();
-    return this.doc.lineages[l]!;
+    return this.parts.heroes.unlockLineage(l);
   }
 
   buyLineage(l: LineageId): boolean {
-    if (this.isLineageUnlocked(l)) return true;
-    if (!this.spendGold(ProgressionBalance.heroUnlockCost)) return false;
-    this.unlockLineage(l);
-    return true;
+    return this.parts.heroes.buyLineage(l);
   }
 
   setActiveClass(c: ClassId): void {
-    this.doc.activeClass = c;
-    // у каждого героя свой кошелёк — полоска валют должна показать новый
-    this.walletChanged.emit();
-    this.touch();
+    this.parts.heroes.setActiveClass(c);
   }
 
   /** Характеристики активного героя для боя: класс, таланты и снаряжение (сломанное не в счёт). */
   playerStats(): PlayerStats {
-    return this.activeHero.combatStats(
-      this.doc.weapon[this.activeLineage] ?? null,
-      this.heroSave.armor,
-    );
+    return this.parts.heroes.playerStats();
   }
 
-  // ------------------------------------------------------------------ экипировка и расходники
+  // ------------------------------------------------------------------ кошелёк, снаряжение, рекорд
+
+  /** Всё своё у активного героя (кошелёк, расходники, доспех, рекорд); у нового героя — с нулями. */
+  get heroSave(): HeroSave {
+    return this.parts.wallets.heroSave;
+  }
+
+  heroSaveOf(lin: LineageId): HeroSave {
+    return this.parts.wallets.heroSaveOf(lin);
+  }
+
+  /** Рекорд героя линейки — без заведения пустого кошелька, если героя ещё нет. */
+  bestOf(lin: LineageId): number {
+    return this.parts.wallets.bestOf(lin);
+  }
+
+  get gold(): Gold {
+    return this.parts.wallets.gold;
+  }
+
+  get souls(): Souls {
+    return this.parts.wallets.souls;
+  }
+
+  addGold(n: Gold, track = true): void {
+    this.parts.wallets.addGold(n, track);
+  }
+
+  addSouls(n: Souls, track = true): void {
+    this.parts.wallets.addSouls(n, track);
+  }
+
+  spendGold(n: Gold): boolean {
+    return this.parts.wallets.spendGold(n);
+  }
+
+  spendSouls(n: Souls): boolean {
+    return this.parts.wallets.spendSouls(n);
+  }
 
   equipped(slot: 'weapon' | 'armor'): EquipmentSave | null {
-    const e =
-      slot === 'weapon' ? (this.doc.weapon[this.activeLineage] ?? null) : this.heroSave.armor;
-    return e && e.durability > 0 ? e : null;
+    return this.parts.wallets.equipped(slot);
   }
 
   repairCost(item: ItemDef): Gold {
-    return REPAIR_PRICING.repairCost(item, this.equipped(item.slot));
+    return this.parts.wallets.repairCost(item);
   }
 
   buyItem(item: ItemDef): ItemPurchase {
-    const cur = this.equipped(item.slot);
-    const action = ShopRules.itemAction(item, cur);
-    if (action === 'equipped') return 'full';
-    if (action === 'weaker') return 'weaker';
-    if (action === 'repair') return this.repair(item, cur!);
-    if (!this.spendGold(item.price)) return 'gold';
-    const save: EquipmentSave = { id: item.id, durability: item.durability };
-    if (item.slot === 'weapon') this.doc.weapon[this.activeLineage] = save;
-    else this.heroSave.armor = save;
-    this.touch();
-    return 'bought';
-  }
-
-  private repair(item: ItemDef, worn: EquipmentSave): ItemPurchase {
-    if (!this.spendGold(this.repairCost(item))) return 'gold';
-    worn.durability = item.durability;
-    this.touch();
-    return 'repaired';
+    return this.parts.wallets.buyItem(item);
   }
 
   /** Лавка не продаёт сверх предела; 'max' — уже полный запас. */
   buyConsumable(id: ConsumableId, count = 1): ConsumablePurchase {
-    const def = CONSUMABLES[id];
-    if (!def.sold) return 'gold';
-    if (!ShopRules.canStock(def, this.heroSave.consumables[id], count)) return 'max';
-    if (!this.spendGold(Gold.of(def.price * count))) return 'gold';
-    this.heroSave.consumables[id] += count;
-    this.touch();
-    return 'bought';
+    return this.parts.wallets.buyConsumable(id, count);
   }
 
   /** Расходники героя такими, какими их оставил бой. */
   keepConsumables(consumables: Readonly<Record<ConsumableId, number>>): void {
-    this.heroSave.consumables = { ...consumables };
-    this.touch();
+    this.parts.wallets.keepConsumables(consumables);
   }
 
   /** Записывает износ экипировки и расходники после комнаты. */
@@ -436,115 +310,72 @@ export class Profile {
     armor: EquipmentSave | null,
     consumables: Readonly<Record<ConsumableId, number>>,
   ): void {
-    const lin = this.activeLineage;
-    if (weapon) this.doc.weapon[lin] = weapon.durability > 0 ? weapon : null;
-    if (armor) this.heroSave.armor = armor.durability > 0 ? armor : null;
-    this.heroSave.consumables = { ...consumables };
-    this.touch();
+    this.parts.wallets.commitBattle(weapon, armor, consumables);
   }
-
-  // ------------------------------------------------------------------ рекорды и счётчики
 
   /** Рекорд активного героя: сколько комнат он прошёл за один забег. */
   get best(): number {
-    return this.heroSave.best;
+    return this.parts.wallets.best;
   }
 
   /** Записывает итог забега. true — если это новый рекорд. */
   recordRun(rooms: number): boolean {
-    if (rooms <= this.heroSave.best) return false;
-    this.heroSave.best = rooms;
-    this.touch();
-    return true;
+    return this.parts.wallets.recordRun(rooms);
   }
 
   /** Лучший забег среди всех героев — для таблицы рекордов. */
   get bestClimb(): number {
-    return LINEAGE_ORDER.reduce((best, l) => Math.max(best, this.doc.heroes[l]?.best ?? 0), 0);
+    return this.parts.wallets.bestClimb;
   }
 
+  // ------------------------------------------------------------------ счётчики и достижения
+
   get stats(): Readonly<SaveData['stats']> {
-    return this.doc.stats;
+    return this.parts.achievements.stats;
   }
 
   bump(key: keyof SaveData['stats'], n = 1): void {
-    this.doc.stats[key] += n;
-    this.checkAchievements();
-    this.touch();
+    this.parts.achievements.bump(key, n);
   }
 
   get roomsPlayedTotal(): number {
-    return this.doc.stats.roomsCleared + this.doc.stats.deaths;
+    return this.parts.achievements.roomsPlayedTotal;
   }
 
-  // ------------------------------------------------------------------ достижения
-
   get achievements(): readonly string[] {
-    return this.doc.achievements;
+    return this.parts.achievements.achievements;
   }
 
   /** Прогресс достижения по сохранению — не больше его цели. */
   achievementProgress(a: AchievementDef): number {
-    return Math.min(a.target, a.progress(this.doc));
+    return this.parts.achievements.progress(a);
   }
 
-  private checkAchievements(): void {
-    for (const a of ACHIEVEMENTS) {
-      if (this.doc.achievements.includes(a.id)) continue;
-      if (a.progress(this.doc) >= a.target) {
-        this.doc.achievements.push(a.id);
-        this.achievementUnlocked.emit(a.id);
-      }
-    }
-  }
-
+  /** Открыть достигнутые достижения и сохранить. */
   checkNow(): void {
-    this.checkAchievements();
-    this.touch();
+    this.parts.achievements.check();
+    this.state.touch();
   }
 
-  // ------------------------------------------------------------------ ежедневная награда и подарок
+  // ------------------------------------------------------------------ награда дня и «Дар башни»
 
   dailyStatus(): DailyStatus {
-    const today = this.calendar.today();
-    const { lastClaim, streak } = this.doc.daily;
-    const week = DAILY_REWARDS.length;
-    if (lastClaim === today) return { available: false, dayIndex: streak % week, streak };
-    const cont = !!lastClaim && DayKey.daysBetween(lastClaim, today) === 1;
-    const eff = cont ? streak : 0;
-    return { available: true, dayIndex: eff % week, streak: eff };
+    return this.parts.daily.status();
   }
 
   claimDaily(multiplier = 1): DailyReward | null {
-    const st = this.dailyStatus();
-    if (!st.available) return null;
-    const r = DAILY_REWARDS[st.dayIndex];
-    if (r.gold) this.addGold(Gold.of(r.gold * multiplier));
-    if (r.souls) this.addSouls(Souls.of(r.souls * multiplier));
-    if (r.heal) this.heroSave.consumables.potion_heal += r.heal * multiplier;
-    if (r.regen) this.heroSave.consumables.potion_regen += r.regen * multiplier;
-    this.doc.daily = { lastClaim: this.calendar.today(), streak: st.streak + 1 };
-    this.touch();
-    return r;
+    return this.parts.daily.claim(multiplier);
   }
 
   giftReady(): boolean {
-    return this.now() >= this.doc.gift.readyAt;
+    return this.parts.gift.ready();
   }
 
   giftRemainingMs(): number {
-    return Math.max(0, this.doc.gift.readyAt - this.now());
+    return this.parts.gift.remainingMs();
   }
 
   claimGift(multiplier = 1): typeof GIFT_REWARD {
-    const gift = {
-      gold: Gold.of(GIFT_REWARD.gold * multiplier),
-      souls: Souls.of(GIFT_REWARD.souls * multiplier),
-    };
-    this.addGold(gift.gold);
-    this.addSouls(gift.souls);
-    this.doc.gift.readyAt = this.now() + GIFT_COOLDOWN_MS;
-    this.touch();
-    return gift;
+    return this.parts.gift.claim(multiplier);
   }
 }

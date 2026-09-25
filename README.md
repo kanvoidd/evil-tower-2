@@ -46,7 +46,7 @@ src/
     economy/           кошелёк героя, правила лавки, цена починки
     expedition/        забег: подъём по комнатам башни, оплата пройденной комнаты, рекорд, состояние между комнатами (RunCarry)
     rewards/           награда дня, «Дар башни», достижения
-    account/           профиль игрока (profile/Profile) и формат сохранения (save/)
+    account/           профиль игрока (profile/Profile — фасад над частями: настройки, автоматизация, герои, кошельки, достижения, награды по времени) и формат сохранения (save/)
   application/         потоки экранов и операции: бой (game/), хаб (hub/), лавка (shop/), дерево навыков (skill-tree/), выбор героя (class-select/), настройки (settings/), награды (rewards/), реклама (ads/); ports/ — что приложению нужно от платформы
   presentation/        Phaser: сцены-координаторы (scenes/), виды экранов (views/), поле и HUD боя (board/, hud/), анимации (animations/), общие компоненты (components/), окна (dialogs/), переходы (navigation/), порты на Phaser (phaser/), текстуры (textures/), тема (theme/)
   infrastructure/      SDK Яндекс Игр и заглушка (sdk/YandexPlatform), сохранения (store/ProfileStore), процедурный звук (audio/WebAudioPlayer), зёрна случайностей боя (random/MathRandomSeeds), день игрока по местному времени (time/LocalCalendar)
