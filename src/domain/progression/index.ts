@@ -3,6 +3,6 @@ export * from './auto-skill';
 export * from './balance';
 export * from './hero';
 export * from './skill-tree';
-export * from './soul-prices/soulPrices';
+export * from './soul-prices';
 export * from './stats/stats';
 export * from './traits/traits';

@@ -133,7 +133,11 @@ import {
   type TreeNode,
   TREES,
 } from '../src/domain/progression/skill-tree';
-import { perkCost, talentRankCost } from '../src/domain/progression/soul-prices/soulPrices';
+import {
+  SOUL_PRICING,
+  type SoulPriceTable,
+  StageTablePricing,
+} from '../src/domain/progression/soul-prices';
 import { buildPlayerStats, CAPS } from '../src/domain/progression/stats/stats';
 import { classTraits, type TraitId } from '../src/domain/progression/traits/traits';
 import { ACHIEVEMENTS } from '../src/domain/rewards';
@@ -377,9 +381,53 @@ for (const lin of LINEAGE_ORDER) {
   ok(costOf(ls, t1) === 0, `${lin}: у прокачанного до конца таланта нет цены`);
 
   // цена ранга растёт
-  ok(talentRankCost(lin, 1, 2) > talentRankCost(lin, 1, 1), `${lin}: второй ранг дороже первого`);
-  ok(perkCost(lin, 'p3') > perkCost(lin, 'p2'), `${lin}: третья способность дороже второй`);
-  ok(perkCost(lin, 'start') === 0, `${lin}: стартовая способность бесплатна`);
+  ok(
+    SOUL_PRICING.talentRank(lin, 1, 2) > SOUL_PRICING.talentRank(lin, 1, 1),
+    `${lin}: второй ранг дороже первого`,
+  );
+  ok(
+    SOUL_PRICING.perk(lin, 'p3') > SOUL_PRICING.perk(lin, 'p2'),
+    `${lin}: третья способность дороже второй`,
+  );
+  ok(SOUL_PRICING.perk(lin, 'start') === 0, `${lin}: стартовая способность бесплатна`);
+}
+
+// ---------------------------------------------------------------- цены в душах по таблице ступеней
+{
+  const table: SoulPriceTable = {
+    talentBase: [
+      [10, 20, 30],
+      [100, 200, 300],
+      [1000, 2000, 3000],
+    ],
+    rankStep: 0.5,
+    perkMul: { start: 0, p2: 2, p3: 3, legend: 4 },
+    metamorphosis: { second: 500, final: 5000 },
+  };
+  const pr = new StageTablePricing(table, Ratio.of(0.5));
+  const ofStage = (stage: number): ClassId =>
+    (Object.keys(CLASSES) as ClassId[]).find((c) => CLASSES[c].stage === stage)!;
+  const [base, second, final] = [ofStage(0), ofStage(1), ofStage(2)];
+  ok(
+    pr.talentRank(base, 1, 1) === 10 &&
+      pr.talentRank(base, 1, 3) === 20 &&
+      pr.talentRank(second, 2, 1) === 200 &&
+      pr.talentRank(final, 3, 2) === 4500,
+    'цена ранга: база ступени и яруса, каждый ранг дороже на долю базы',
+  );
+  ok(pr.talentTotal(base, 1, 3) === 10 + 15 + 20, 'полная цена таланта — сумма его рангов');
+  ok(
+    pr.perk(base, 'start') === 0 &&
+      pr.perk(base, 'p2') === 20 &&
+      pr.perk(base, 'p3') === 60 &&
+      pr.perk(second, 'legend') === 1200,
+    'цена способности кратна базе яруса, после которого она открывается',
+  );
+  ok(
+    pr.metamorphosis(second) === 500 && pr.metamorphosis(final) === 5000,
+    'метаморфоза: во вторую ступень и в финальный класс',
+  );
+  ok(pr.refund(101) === 50, 'возврат — доля вложенного с округлением вниз');
 }
 
 // ---------------------------------------------------------------- метаморфоза

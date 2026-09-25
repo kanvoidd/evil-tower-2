@@ -16,8 +16,7 @@ import {
   talentValue2,
 } from '../../catalog';
 import { Souls } from '../../shared';
-import { ProgressionBalance } from '../balance';
-import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';
+import { SOUL_PRICING } from '../soul-prices/soulPricing';
 import type { BuyResult } from './interfaces/BuyResult';
 import type { LineageSave } from './interfaces/LineageSave';
 import type { NodeState } from './interfaces/NodeState';
@@ -114,10 +113,10 @@ export const costOf = (s: LineageSave, n: TreeNode): Souls => {
   if (n.kind === 'talent') {
     const next = rankOf(s, n.id) + 1;
     if (next > maxRankOf(n)) return Souls.of(0);
-    return talentRankCost(n.owner, n.tier!, next);
+    return SOUL_PRICING.talentRank(n.owner, n.tier!, next);
   }
-  if (n.kind === 'perk') return perkCost(n.owner, n.slot!);
-  if (n.kind === 'class') return classCost(n.classId!);
+  if (n.kind === 'perk') return SOUL_PRICING.perk(n.owner, n.slot!);
+  if (n.kind === 'class') return SOUL_PRICING.metamorphosis(n.classId!);
   return Souls.of(0);
 };
 
@@ -147,18 +146,18 @@ export const applyCancelMetamorphosis = (
   s: LineageSave,
   classId: ClassId,
 ): { refund: Souls } => {
-  let spent: number = classCost(classId);
+  let spent: number = SOUL_PRICING.metamorphosis(classId);
   for (const n of tree.nodes) {
     if (n.owner !== classId) continue;
     const rank = rankOf(s, n.id);
     if (rank <= 0) continue;
-    if (n.kind === 'talent') spent += talentTotalCost(n.owner, n.tier!, rank);
-    else if (n.kind === 'perk' && n.slot !== 'start') spent += perkCost(n.owner, n.slot!);
+    if (n.kind === 'talent') spent += SOUL_PRICING.talentTotal(n.owner, n.tier!, rank);
+    else if (n.kind === 'perk' && n.slot !== 'start') spent += SOUL_PRICING.perk(n.owner, n.slot!);
     delete s.ranks[n.id];
   }
   delete s.ranks[tree.classNode[classId].id];
   s.last = tree.classNode[CLASSES[classId].parent!].id;
-  return { refund: Souls.of(Math.floor(spent * ProgressionBalance.cancelMetamorphosisRefund)) };
+  return { refund: SOUL_PRICING.refund(spent) };
 };
 
 // ------------------------------------------------------------------ бонусы и способности
