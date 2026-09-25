@@ -88,7 +88,9 @@ export class PerkActions extends RoomPart {
     const ready = this.perkReady(p);
     if (!ready.ok) return { ok: false, reason: ready.reason, events: this.state.engine.flush() };
     if (p.target === 'self') {
-      this.parts.flow.beginTurn();
+      // «Откат времени» возвращает к началу прошлого хода: снимок своего хода его бы затёр.
+      // Если отматывать нечего (первый ход комнаты), снимок берётся — откат вернёт и свою цену.
+      this.parts.flow.beginTurn(p.ability !== 'rewind' || !this.state.snapshot);
       this.payPerk(p);
       this.state.emit({ type: 'perk', id: p.id, ability: p.ability });
       this.runAbility(p, Grid.NO_CELL);

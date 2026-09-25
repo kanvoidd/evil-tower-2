@@ -51,8 +51,9 @@ export class RoomFlow extends RoomPart {
     return { ok: true, events: this.state.engine.flush() };
   }
 
-  beginTurn(): void {
-    this.parts.rewind.takeSnapshot();
+  /** Начало хода; `snapshot` — запомнить состояние для «Отката времени». */
+  beginTurn(snapshot = true): void {
+    if (snapshot) this.parts.rewind.takeSnapshot();
     this.state.engine.resetVacated();
     this.state.engaged.clear();
     this.state.exposed = false;

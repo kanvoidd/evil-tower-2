@@ -905,4 +905,37 @@ const aim = (battle: RoomBattle, label: string): void => {
     };
     ok(hit(strong) > hit(weak), 'талант «способности сильнее» повышает урон способности');
   }
+
+  // BUG-002: «Откат времени» отматывает прошлый ход целиком — поле, здоровье, ресурс
+  {
+    // без уворота и парирования: ответ врага в первый ход должен дойти
+    const stats = build('magister', { dodge: 0, parry: 0, block: 0 });
+    const rewind = stats.abilities.find((p) => p.ability === 'rewind')!;
+    const bolt = stats.abilities.find((p) => p.target === 'adjacent')!;
+    const battle = RoomBattleFactory.standard().create({
+      room: ROOMS[20],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(11),
+    });
+    battle.start();
+    battle.cards.fill(null);
+    battle.playerCell = CellIndex.of(4);
+    battle.hp = 1000;
+    battle.res = battle.stats.resMax;
+    battle.cards[1] = enemy(1000, 30);
+    const before = { hero: battle.hp, foe: battle.cards[1]!.hp, res: battle.res };
+    ok(battle.usePerk(bolt.id).ok && battle.tap(CellIndex.of(1)).ok, 'откат: первый ход сделан');
+    ok(
+      battle.hp < before.hero && battle.cards[1]!.hp < before.foe,
+      'откат: за первый ход обе стороны ранены',
+    );
+    ok(battle.usePerk(rewind.id).ok, 'откат: способность применяется');
+    ok(
+      battle.hp === before.hero && battle.cards[1]?.hp === before.foe && battle.res === before.res,
+      `откат: здоровье, враг и ресурс — как до прошлого хода (${battle.hp}/${battle.cards[1]?.hp}/${battle.res})`,
+    );
+  }
 }
