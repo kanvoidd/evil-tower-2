@@ -4,16 +4,16 @@
  * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
  * RUNS=<n> — сколько забегов максимум.
  */
-import { CLASSES } from '../src/data/classes';
-import { ITEMS, type ItemDef } from '../src/data/items';
-import { ROOMS } from '../src/data/levels';
-import { FULL_BAR, type PerkDef } from '../src/data/perks';
-import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/types';
-import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/logic/skillTree';
-import { buildPlayerStats } from '../src/logic/stats';
-import { makeRng } from '../src/logic/rng';
-import { RunFactory, type Run, type RunCarryStats } from '../src/logic/run';
-import { needsRegen } from '../src/logic/autoUse';
+import { CLASSES } from '../src/domain/data/classes';
+import { ITEMS, type ItemDef } from '../src/domain/data/items';
+import { ROOMS } from '../src/domain/data/levels';
+import { FULL_BAR, type PerkDef } from '../src/domain/data/perks';
+import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
+import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/domain/logic/skillTree';
+import { buildPlayerStats } from '../src/domain/logic/stats';
+import { makeRng } from '../src/domain/logic/rng';
+import { RunFactory, type Run, type RunCarryStats } from '../src/domain/logic/run';
+import { needsRegen } from '../src/domain/logic/autoUse';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
 const N = Number(process.argv[3] ?? 20);
@@ -111,7 +111,7 @@ const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'sw
  * без маны в окружении значит погибнуть, поэтому цену молнии бот держит в запасе.
  */
 const reserveOf = (run: Run): { perkId: string; cost: number } | null => {
-  if (run.stats.melee) return null;
+  if (run.stats.attack.melee) return null;
   const basic = (run.stats.abilities as PerkDef[]).find((p) => p.target === 'adjacent');
   return basic ? { perkId: basic.id, cost: basic.cost ?? 0 } : null;
 };

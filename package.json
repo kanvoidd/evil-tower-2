@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "sim": "tsx tools/sim.ts",
     "selftest": "tsx tools/selftest.ts",
+    "archtest": "tsx tools/archtest.ts",
     "store": "tsx tools/store-assets.ts && python store/render.py",
     "zip": "node tools/zip-dist.mjs",
     "apk:assets": "vite build --mode apk && node tools/apk-assets.mjs",

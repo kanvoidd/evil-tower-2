@@ -1,0 +1,17 @@
+import type { GIFT_REWARD } from '../../domain/data/economy';
+import type { Profile } from '../../domain/logic/profile';
+import type { AdService } from '../ads/AdService';
+import type { RewardChoice } from './interfaces/RewardChoice';
+
+/**
+ * Забрать «Дар башни» — бесплатный подарок раз в несколько минут. Удвоение — только за досмотренное
+ * видео; без него игрок получает обычный подарок.
+ */
+export class ClaimTowerGift {
+  constructor(private readonly profile: Profile, private readonly ads: AdService) {}
+
+  async execute(choice: RewardChoice): Promise<typeof GIFT_REWARD> {
+    const multiplier = choice === 'double' && (await this.ads.rewarded()) ? 2 : 1;
+    return this.profile.claimGift(multiplier);
+  }
+}

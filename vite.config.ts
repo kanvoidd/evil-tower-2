@@ -1,7 +1,7 @@
 import { defineConfig, type Plugin } from 'vite';
 
 // SDK Яндекс Игр подключается только в сборке: в локальной разработке /sdk.js не существует,
-// и игра автоматически работает на заглушке (см. src/sdk/YandexSDK.ts).
+// и игра автоматически работает на заглушке (см. src/infrastructure/sdk/YandexPlatform.ts).
 const yandexSdkTag = (): Plugin => ({
   name: 'yandex-sdk-tag',
   apply: 'build',
