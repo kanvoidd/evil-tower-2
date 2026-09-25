@@ -1,4 +1,5 @@
 /** Бой в одной комнате — публичный API области (docs/DOMAIN.md). */
+export * from './abilities';
 export * from './attack';
 export * from './auto-use';
 export * from './balance';

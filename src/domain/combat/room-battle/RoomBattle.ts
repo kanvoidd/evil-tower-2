@@ -6,7 +6,6 @@ import {
   type EnemyDef,
   type EquipmentSave,
   FULL_BAR,
-  isHolyTarget,
   ITEM_BY_ID,
   type LineageDef,
   PERK_BY_ABILITY,
@@ -16,7 +15,8 @@ import {
   type RoomModifier,
   type RoomPlan,
 } from '../../catalog';
-import { CellIndex, Gold, Percent, Ratio, type Rng, Souls } from '../../shared';
+import { CellIndex, Gold, Percent, type Rng, Souls } from '../../shared';
+import { ABILITIES, type AbilityContext, type IAbility } from '../abilities';
 import { CombatBalance, ConsumableBalance, LootBalance } from '../balance';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
@@ -105,6 +105,8 @@ export class RoomBattle implements IBattleSession {
   private readonly rng: Rng;
   /** Герой глазами правил урона и защиты — живые значения этого боя. */
   private readonly hero: HeroView;
+  /** Бой глазами способностей. */
+  private readonly abilities: AbilityContext;
   /** Кто решает крит: правила героя на этот бой (у некоторых — своё состояние). */
   private readonly crit: CritPolicy;
   private readonly engine: IEngine;
@@ -142,6 +144,70 @@ export class RoomBattle implements IBattleSession {
     this.quota = deck.quota;
     this.bossLeft = deck.boss;
     this.hero = this.heroView();
+    this.abilities = this.abilityContext();
+  }
+
+  private abilityContext(): AbilityContext {
+    const battle = this;
+    return {
+      get cards() {
+        return battle.cards;
+      },
+      get playerCell() {
+        return battle.playerCell;
+      },
+      engine: this.engine,
+      enemies: this.enemies,
+      get stats() {
+        return battle.stats;
+      },
+      rng: this.rng,
+      get swapFirst() {
+        return battle.swapFirst;
+      },
+      enemyCells: () => battle.enemyCells(),
+      behindCell: (from, to) => battle.behindCell(from, to),
+      nearestEnemy: (from) => battle.nearestEnemy(from),
+      emit: (ev) => battle.emit(ev),
+      spellDamage: (ratio) => battle.spellDamage(ratio),
+      rollCrit: (enemy, ranged) => battle.rollCrit(enemy, ranged),
+      rollCritMul: () => battle.rollCritMul(),
+      pp: (value, cap) => battle.pp(value, cap),
+      strike: (cell, raw, crit) => battle.strike(cell, raw, crit),
+      damageEnemy: (cell, dmg, crit, direct) => battle.damageEnemy(cell, dmg, crit, direct),
+      killEnemy: (cell) => battle.killEnemy(cell),
+      splashNeighbors: (cell, dmg) => battle.splashNeighbors(cell, dmg),
+      stepInto: (cell) => battle.stepInto(cell),
+      take: (cell) => battle.take(cell),
+      applyStun: (cell, turns) => battle.applyStun(cell, turns),
+      applyBurn: (cell, dmg, turns) => battle.applyBurn(cell, dmg, turns),
+      reapMarked: (cell, share) => battle.reapMarked(cell, share),
+      get warCry() {
+        return battle.warCry;
+      },
+      set warCry(v) {
+        battle.warCry = v;
+      },
+      get madness() {
+        return battle.madness;
+      },
+      set madness(v) {
+        battle.madness = v;
+      },
+      get reaping() {
+        return battle.reaping;
+      },
+      set reaping(v) {
+        battle.reaping = v;
+      },
+      get noCounter() {
+        return battle.noCounter;
+      },
+      set noCounter(v) {
+        battle.noCounter = v;
+      },
+      restoreSnapshot: () => battle.restoreSnapshot(),
+    };
   }
 
   private heroView(): HeroView {
@@ -341,16 +407,7 @@ export class RoomBattle implements IBattleSession {
 
   /** Держится ли уже эффект этой способности. */
   private buffActive(p: PerkDef): boolean {
-    switch (p.ability) {
-      case 'madness':
-        return this.madness > 0;
-      case 'reaper':
-        return this.reaping > 0;
-      case 'smoke_screen':
-        return this.noCounter > 0;
-      default:
-        return false;
-    }
+    return (ABILITIES[p.ability] as IAbility | undefined)?.active?.(this.abilities) ?? false;
   }
 
   /** Цена способности с учётом «первый перк в комнате бесплатен» и «Жнеца». */
@@ -411,11 +468,7 @@ export class RoomBattle implements IBattleSession {
     // Клеймо, приговор и кукла вуду держатся до смерти цели — вешать их второй раз
     // значит выбросить ход, поэтому такая цель просто не подсвечивается.
     if (card.kind === 'exit' || card.kind === 'ghost') return false;
-    if (p.ability === 'corpse_blast' && card.corpse) return false;
-    if (p.ability === 'ghosts' && card.haunt) return false;
-    if (p.ability === 'sentence' && card.vuln > 0) return false;
-    if (p.ability === 'voodoo' && card.link) return false;
-    if (p.ability === 'death_mark' && card.mark > 0) return false;
+    if ((ABILITIES[p.ability] as IAbility | undefined)?.targetable?.(card) === false) return false;
     switch (p.target) {
       case 'enemy':
         return card.kind === 'enemy';
@@ -1179,491 +1232,15 @@ export class RoomBattle implements IBattleSession {
       });
   }
 
+  /** Способность делает своё дело — реестр способностей; цель и поле — на момент применения. */
   private applyAbility(p: PerkDef, cell: CellIndex): void {
-    const enemies = this.enemyCells();
-    const target = cell >= 0 ? this.cards[cell] : null;
-
-    switch (p.ability) {
-      // ---------------- воин
-      case 'power_strike': {
-        const enemy = target!;
-        let dmg = this.spellDamage(p.params.dmg);
-        const crit = this.rollCrit(enemy, false);
-        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: false, by: 'player' });
-        const before = enemy.hp;
-        const killed = this.strike(cell, dmg, crit);
-        // излишек проламывает цель и бьёт врага за ней по той же линии
-        const over = dmg - before;
-        if (killed && over > 0) {
-          const behind = this.behindCell(this.playerCell, cell);
-          if (behind >= 0 && this.cards[behind]?.kind === 'enemy')
-            this.damageEnemy(behind, over, false);
-        }
-        if (killed) this.stepInto(cell);
-        break;
-      }
-      case 'earthquake': {
-        const hit = enemies.filter(
-          (c) =>
-            Grid.row(c) === Grid.row(this.playerCell) || Grid.col(c) === Grid.col(this.playerCell),
-        );
-        this.emit({ type: 'fx', cells: hit, style: 'quake' });
-        const dmg = this.spellDamage(p.params.dmg);
-        for (const c of hit) {
-          this.applyStun(c, p.params.stun);
-          this.damageEnemy(c, dmg, false);
-        }
-        break;
-      }
-      // ---------------- рыцарь
-      case 'shield_bash': {
-        const behind = this.behindCell(this.playerCell, cell);
-        const dmg = this.spellDamage(p.params.dmg);
-        this.emit({ type: 'fx', cells: [cell], style: 'quake' });
-        this.applyStun(cell, p.params.stun);
-        if (behind < 0) {
-          // у края поля удар о стену вдвое сильнее
-          this.damageEnemy(cell, dmg * p.params.wallMul, false);
-        } else {
-          this.damageEnemy(cell, dmg, false);
-          if (this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, dmg, false);
-          if (this.cards[cell] && this.cards[behind]) this.engine.swap(cell, behind);
-        }
-        break;
-      }
-      case 'war_cry': {
-        this.warCry = Math.min(p.params.cap, this.warCry + this.pp(p.params.weaken, p.params.cap));
-        this.emit({ type: 'fx', cells: enemies, style: 'banner' });
-        for (const c of enemies) {
-          const e = this.cards[c]!;
-          this.emit({ type: 'status', cell: c, uid: e.uid, kind: 'weak', turns: 99 });
-        }
-        break;
-      }
-      case 'duel': {
-        let best = Grid.NO_CELL;
-        let bestAtk = -1;
-        for (const c of enemies) {
-          if (this.cards[c]!.atk > bestAtk) {
-            bestAtk = this.cards[c]!.atk;
-            best = c;
-          }
-        }
-        if (best < 0) break;
-        this.emit({ type: 'fx', cells: [best], style: 'swap' });
-        const free =
-          Grid.neighbors(this.playerCell).find((n) => !this.cards[n]) ??
-          Grid.neighbors(this.playerCell)[0];
-        if (free !== best) this.engine.swap(best, free);
-        this.applyStun(free, p.params.stun);
-        break;
-      }
-      // ---------------- берсерк
-      case 'whirlwind': {
-        const near = Grid.neighbors(this.playerCell).filter((c) => this.cards[c]?.kind === 'enemy');
-        this.emit({ type: 'fx', cells: near, style: 'blades' });
-        const dmg = this.spellDamage(p.params.dmg);
-        for (const c of near) this.damageEnemy(c, dmg, this.rollCrit(this.cards[c], false), true);
-        break;
-      }
-      case 'madness': {
-        this.madness = p.params.turns;
-        this.emit({ type: 'fx', cells: enemies, style: 'blades' });
-        break;
-      }
-      // ---------------- паладин
-      case 'holy_wrath': {
-        const enemy = target!;
-        const holy = isHolyTarget(this.enemies[enemy.defId].tag);
-        let dmg = this.spellDamage(holy ? p.params.holyDmg : p.params.dmg);
-        const crit = this.rollCrit(enemy, false);
-        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.emit({ type: 'fx', cells: [cell], style: 'holy' });
-        const killed = this.strike(cell, dmg, crit);
-        if (killed) this.stepInto(cell);
-        break;
-      }
-      case 'justice_beam': {
-        const col = Grid.col(cell);
-        const hit = enemies.filter((c) => Grid.col(c) === col);
-        this.emit({ type: 'fx', cells: hit, style: 'beam' });
-        for (const c of hit) {
-          const e = this.cards[c]!;
-          const holy = isHolyTarget(this.enemies[e.defId].tag);
-          this.damageEnemy(c, this.spellDamage(holy ? p.params.holyDmg : p.params.dmg), false);
-        }
-        break;
-      }
-      case 'verdict': {
-        const limit = this.spellDamage(p.params.limit);
-        this.emit({ type: 'fx', cells: enemies, style: 'holy' });
-        for (const c of enemies) {
-          const e = this.cards[c];
-          if (e && !this.enemies[e.defId].boss && e.hp <= limit) this.killEnemy(c);
-        }
-        break;
-      }
-      case 'heavens_wrath': {
-        this.emit({ type: 'fx', cells: enemies, style: 'holy' });
-        for (const c of enemies) {
-          const e = this.cards[c];
-          if (!e) continue;
-          const holy = isHolyTarget(this.enemies[e.defId].tag);
-          this.applyStun(c, p.params.stun);
-          this.damageEnemy(c, this.spellDamage(holy ? p.params.holyDmg : p.params.dmg), false);
-        }
-        break;
-      }
-      // ---------------- маг
-      // Удар молнии — единственный удар мага, и он стоит маны. Пустая шкала в окружении
-      // врагов — не тупик, а приговор: см. `cornered()` и «Растерзание» в finishTurn.
-      case 'lightning': {
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'bolt',
-        });
-        const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(p.params.dmg * (1 + this.stats.lightningPower));
-        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        const killed = this.strike(cell, dmg, crit);
-        // «Раздвоение молнии»: второй разряд бьёт ту же цель, а не соседа
-        const { echoChance, echoDmg } = this.stats;
-        if (!killed && echoChance > 0 && this.rng.chance(echoChance)) {
-          this.emit({ type: 'fx', cells: [cell], style: 'bolt' });
-          this.strike(cell, Math.max(1, Math.round(dmg * echoDmg)), false);
-        }
-        break;
-      }
-      case 'magic_shot': {
-        this.emit({ type: 'fx', cells: [cell], style: 'arcane' });
-        const crit = this.rollCrit(target, true);
-        let dmg = this.spellDamage(p.params.dmg * (1 + this.stats.shotPower));
-        if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.strike(cell, dmg, crit);
-        break;
-      }
-      case 'chain_lightning': {
-        const chain: CellIndex[] = [cell];
-        const seen = new Set<CellIndex>([cell]);
-        for (const n of Grid.neighbors(cell)) {
-          if (
-            this.cards[n]?.kind === 'enemy' &&
-            !seen.has(n) &&
-            chain.length < p.params.falloff.length
-          ) {
-            chain.push(n);
-            seen.add(n);
-          }
-        }
-        this.emit({ type: 'fx', cells: chain, style: 'chain' });
-        const power = 1 + this.stats.chainPower;
-        const mul = p.params.falloff;
-        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i] * power), false));
-        break;
-      }
-      // ---------------- магистр
-      case 'swap': {
-        const a = this.swapFirst!;
-        const b = cell;
-        if (a === b) break;
-        this.emit({ type: 'fx', cells: [a, b], style: 'swap' });
-        this.engine.swap(a, b);
-        break;
-      }
-      case 'deck_draw': {
-        const c = this.cards[cell];
-        if (!c) break;
-        if (c.kind === 'enemy' && this.enemies[c.defId].boss) break;
-        this.emit({ type: 'fx', cells: [cell], style: 'arcane' });
-        this.engine.discard(cell);
-        this.engine.deck.push(c);
-        const next = this.engine.draw();
-        if (next) this.engine.put(cell, next);
-        else this.engine.vacate(cell);
-        break;
-      }
-      case 'rewind': {
-        this.restoreSnapshot();
-        this.emit({ type: 'rewind' });
-        break;
-      }
-      // ---------------- некромант
-      case 'corpse_blast': {
-        const e = target!;
-        e.corpse = true;
-        this.emit({ type: 'fx', cells: [cell], style: 'corpse' });
-        this.emit({ type: 'status', cell, uid: e.uid, kind: 'corpse', turns: 99 });
-        break;
-      }
-      case 'ghosts': {
-        const e = target!;
-        e.haunt = true;
-        this.emit({ type: 'fx', cells: [cell], style: 'ghost' });
-        this.emit({ type: 'status', cell, uid: e.uid, kind: 'haunt', turns: 99 });
-        break;
-      }
-      case 'voodoo': {
-        const e = target!;
-        e.link = true;
-        this.emit({ type: 'status', cell, uid: e.uid, kind: 'link', turns: 99 });
-        break;
-      }
-      case 'dead_harvest': {
-        this.emit({ type: 'fx', cells: enemies, style: 'soul' });
-        const bonus = this.stats.soulBonus;
-        this.stats.soulBonus = Ratio.of(bonus + p.params.soulBonus);
-        for (const c of enemies) {
-          const e = this.cards[c];
-          if (!e) continue;
-          const boss = this.enemies[e.defId].boss;
-          this.damageEnemy(
-            c,
-            Math.max(
-              1,
-              Math.round(
-                e.hp * this.pp(boss ? p.params.bossHpShare : p.params.hpShare, p.params.cap),
-              ),
-            ),
-            false,
-          );
-        }
-        this.stats.soulBonus = bonus;
-        break;
-      }
-      // ---------------- пиромант
-      case 'ignite': {
-        this.emit({ type: 'fx', cells: [cell], style: 'fire' });
-        this.applyBurn(cell, this.spellDamage(p.params.burn), p.params.turns);
-        break;
-      }
-      case 'fireball': {
-        const near = Grid.neighbors(cell).filter((c) => this.cards[c]?.kind === 'enemy');
-        this.emit({ type: 'fx', cells: [cell, ...near], style: 'explosion' });
-        const burn = this.spellDamage(p.params.burn);
-        this.applyBurn(cell, burn, p.params.turns);
-        for (const c of near) this.applyBurn(c, burn, p.params.turns);
-        this.strike(cell, this.spellDamage(p.params.dmg), false);
-        for (const c of near) this.damageEnemy(c, this.spellDamage(p.params.splash), false);
-        break;
-      }
-      case 'detonate': {
-        const burning = enemies.filter((c) => (this.cards[c]?.burn ?? 0) > 0);
-        this.emit({ type: 'fx', cells: burning, style: 'explosion' });
-        for (const c of burning) {
-          const e = this.cards[c];
-          if (!e) continue;
-          const blast = Math.max(1, e.burnDmg * p.params.blastMul);
-          this.splashNeighbors(c, Math.max(1, e.burnDmg * p.params.splashMul));
-          this.damageEnemy(c, blast, false);
-        }
-        break;
-      }
-      case 'inferno': {
-        this.emit({ type: 'fx', cells: enemies, style: 'fire' });
-        const burn = this.spellDamage(p.params.burn);
-        for (const c of enemies) this.applyBurn(c, burn, p.params.turns);
-        break;
-      }
-      // ---------------- лучник
-      case 'ricochet': {
-        const chain = [cell];
-        for (const n of Grid.neighbors(cell)) {
-          if (this.cards[n]?.kind === 'enemy' && chain.length < p.params.falloff.length)
-            chain.push(n);
-        }
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'shot',
-        });
-        const mul = p.params.falloff;
-        chain.forEach((c, i) =>
-          this.strike(c, this.spellDamage(mul[i]), i === 0 && this.rollCrit(this.cards[c], true)),
-        );
-        break;
-      }
-      case 'falcon_hunt': {
-        this.emit({ type: 'fx', cells: [cell], style: 'arrows' });
-        this.applyStun(cell, p.params.stun);
-        this.strike(cell, this.spellDamage(p.params.dmg), this.rollCrit(target, true));
-        break;
-      }
-      case 'falcon_courier': {
-        this.take(cell);
-        this.engine.vacate(cell);
-        break;
-      }
-      case 'double_shot': {
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'shot',
-        });
-        const killed = this.strike(
-          cell,
-          this.spellDamage(p.params.dmg),
-          this.rollCrit(target, true),
-        );
-        let second = cell;
-        if (killed) {
-          second = this.nearestEnemy(this.playerCell);
-          if (second < 0) break;
-        }
-        this.strike(
-          second,
-          this.spellDamage(p.params.dmg),
-          this.rollCrit(this.cards[second], true),
-        );
-        break;
-      }
-      case 'arrow_rain': {
-        if (!enemies.length) break;
-        this.emit({ type: 'fx', cells: enemies, style: 'arrows' });
-        for (let i = 0; i < p.params.arrows; i++) {
-          const live = this.enemyCells();
-          if (!live.length) break;
-          const c = live[this.rng.int(0, live.length - 1)];
-          this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
-        }
-        break;
-      }
-      case 'starfall': {
-        this.emit({ type: 'fx', cells: enemies, style: 'arrows' });
-        for (let i = 0; i < p.params.waves; i++) {
-          for (const c of this.enemyCells()) {
-            this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
-          }
-        }
-        break;
-      }
-      // ---------------- снайпер
-      case 'rail_shot': {
-        const line = enemies.filter(
-          (c) => Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell),
-        );
-        line.sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b));
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'shot',
-        });
-        line.forEach((c, i) =>
-          this.strike(c, this.spellDamage(Math.pow(1 - p.params.stepLoss, i)), i === 0),
-        );
-        break;
-      }
-      case 'armor_piercing': {
-        const e = target!;
-        this.emit({
-          type: 'attack',
-          from: this.playerCell,
-          to: cell,
-          ranged: true,
-          by: 'player',
-          style: 'shot',
-        });
-        const bonus = Math.round(e.maxHp * this.pp(p.params.hpShare, p.params.cap));
-        this.strike(cell, this.spellDamage(p.params.dmg) + bonus, this.rollCrit(e, true));
-        break;
-      }
-      case 'one_shot': {
-        this.emit({ type: 'fx', cells: [cell], style: 'beam' });
-        const line = [
-          cell,
-          ...enemies.filter(
-            (c) => c !== cell && (Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell)),
-          ),
-        ];
-        let kills = 0;
-        for (const c of line) {
-          const e = this.cards[c];
-          if (!e) continue;
-          if (this.enemies[e.defId].boss) {
-            const share = this.pp(p.params.bossHpShare, p.params.cap);
-            this.damageEnemy(c, Math.max(1, Math.round(e.maxHp * share)), true);
-          } else if (kills < p.params.kills) {
-            this.killEnemy(c);
-            kills++;
-          }
-        }
-        break;
-      }
-      // ---------------- наёмник
-      case 'bribe': {
-        const e = target!;
-        if (this.enemies[e.defId].boss) break;
-        this.emit({ type: 'fx', cells: [cell], style: 'smoke' });
-        this.emit({ type: 'kill', cell, uid: e.uid });
-        this.engine.clear(cell);
-        this.engine.vacate(cell);
-        break;
-      }
-      case 'sentence': {
-        const e = target!;
-        e.vuln = Math.max(e.vuln, this.pp(p.params.vuln, p.params.cap));
-        this.emit({ type: 'status', cell, uid: e.uid, kind: 'vuln', turns: 99 });
-        break;
-      }
-      // ---------------- тёмный ассасин
-      case 'death_mark': {
-        const e = target!;
-        e.mark = p.params.turns;
-        this.emit({ type: 'status', cell, uid: e.uid, kind: 'mark', turns: e.mark });
-        break;
-      }
-      case 'shadow_reap': {
-        const marked = enemies.filter((c) => (this.cards[c]?.mark ?? 0) > 0);
-        this.emit({ type: 'fx', cells: marked, style: 'dark' });
-        for (const c of marked) this.reapMarked(c, p.params.bossHpShare);
-        break;
-      }
-      case 'reaper': {
-        this.reaping = p.params.turns;
-        this.emit({ type: 'fx', cells: enemies, style: 'dark' });
-        break;
-      }
-      // ---------------- ниндзя
-      case 'shuriken_fan': {
-        const list = [...enemies]
-          .sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b))
-          .slice(0, p.params.targets);
-        this.emit({ type: 'fx', cells: list, style: 'blades' });
-        for (const c of list)
-          this.strike(c, this.spellDamage(p.params.dmg), this.rollCrit(this.cards[c], true));
-        break;
-      }
-      case 'smoke_screen': {
-        this.noCounter = p.params.turns;
-        this.emit({ type: 'fx', cells: [this.playerCell], style: 'smoke' });
-        break;
-      }
-      case 'wind_shadow': {
-        this.emit({ type: 'fx', cells: enemies, style: 'blades' });
-        for (const c of this.enemyCells()) {
-          if (this.strike(c, this.spellDamage(p.params.dmg), false)) continue;
-          let dmg = this.spellDamage(p.params.dmg);
-          dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-          this.strike(c, dmg, true);
-        }
-        break;
-      }
-      default:
-        break;
-    }
+    const ability = ABILITIES[p.ability] as IAbility | undefined;
+    ability?.apply(this.abilities, {
+      perk: p,
+      cell,
+      target: cell >= 0 ? this.cards[cell] : null,
+      enemies: this.enemyCells(),
+    });
   }
 
   /** Клетка «за» целью по линии от героя. */

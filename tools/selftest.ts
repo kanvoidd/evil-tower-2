@@ -57,7 +57,7 @@ import {
   talentsOfClass,
   talentsOfTier,
 } from '../src/domain/catalog/talents';
-import { CombatBalance } from '../src/domain/combat';
+import { ABILITIES, CombatBalance } from '../src/domain/combat';
 import { ATTACK_STRATEGIES, SpellAttack } from '../src/domain/combat/attack';
 import {
   needsHeal,
@@ -236,6 +236,11 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
+// у каждой способности с кнопкой — класс в реестре боя; пассивки и базовые действия работают в правилах боя
+ok(
+  PERKS.every((p) => (ABILITIES[p.ability] !== undefined) === hasButton(p)),
+  'реализация в бою есть ровно у способностей с кнопкой',
+);
 // у каждой способности одна запись в каталоге: по ней бой берёт числа пассивок и состояний
 ok(
   new Set(PERKS.map((p) => p.ability)).size === PERKS.length &&
