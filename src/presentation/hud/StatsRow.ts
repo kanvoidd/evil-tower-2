@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { PlayerStats } from '../../domain/logic/stats';
+import type { PlayerStats } from '../../domain/progression/stats/stats';
 import { statChip } from '../components';
 
 /** Ряд характеристик героя под полосой ресурса: урон, защита, крит, уворот, парирование. */

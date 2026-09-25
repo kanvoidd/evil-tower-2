@@ -28,14 +28,14 @@ import type { ISkillTreeView } from '../src/application/skill-tree/interfaces/IS
 import { Metamorphose } from '../src/application/skill-tree/Metamorphose';
 import { SkillTreeController } from '../src/application/skill-tree/SkillTreeController';
 import { SkillTreeQuery } from '../src/application/skill-tree/SkillTreeQuery';
-import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/data/classes';
-import { CONSUMABLES } from '../src/domain/data/consumables';
-import { DAILY_REWARDS, GIFT_REWARD, perkCost, talentRankCost } from '../src/domain/data/economy';
-import { ENEMY_LIST } from '../src/domain/data/enemies';
-import { FLOORS } from '../src/domain/data/floors';
-import { LINEAGE_ORDER, LINEAGES } from '../src/domain/data/heroes';
-import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../src/domain/data/levels';
-import type { AbilityId } from '../src/domain/data/perks';
+import { Profile } from '../src/domain/account/profile';
+import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/catalog/classes';
+import { CONSUMABLES } from '../src/domain/catalog/consumables';
+import { ENEMY_LIST } from '../src/domain/catalog/enemies';
+import { FLOORS } from '../src/domain/catalog/floors';
+import { LINEAGE_ORDER, LINEAGES } from '../src/domain/catalog/heroes';
+import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../src/domain/catalog/levels';
+import type { AbilityId } from '../src/domain/catalog/perks';
 import {
   FULL_BAR,
   hasButton,
@@ -44,7 +44,7 @@ import {
   PERKS,
   perksOfClass,
   VFX_STYLES,
-} from '../src/domain/data/perks';
+} from '../src/domain/catalog/perks';
 import {
   maxRank,
   PATH_ORDER,
@@ -53,15 +53,23 @@ import {
   TALENTS,
   talentsOfClass,
   talentsOfTier,
-} from '../src/domain/data/talents';
-import { Card } from '../src/domain/game-data/card';
+} from '../src/domain/catalog/talents';
+import { SpellAttack } from '../src/domain/combat/attack';
+import {
+  needsHeal,
+  needsRegen,
+  pickAutoUse,
+  worthArtifact,
+} from '../src/domain/combat/auto-use/autoUse';
+import { Card } from '../src/domain/combat/card';
+import { type Run, type RunCarryStats, RunFactory } from '../src/domain/combat/room-battle';
 import { GAMEPLAY } from '../src/domain/gameplay';
-import { branchOf, inferBranch, planAutoSkill } from '../src/domain/logic/autoSkill';
-import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/domain/logic/autoUse';
-import { HeroClassState, SpellAttack } from '../src/domain/logic/hero';
-import { Profile } from '../src/domain/logic/profile';
-import { makeRng } from '../src/domain/logic/rng';
-import { type Run, type RunCarryStats, RunFactory } from '../src/domain/logic/run';
+import {
+  branchOf,
+  inferBranch,
+  planAutoSkill,
+} from '../src/domain/progression/auto-skill/autoSkill';
+import { HeroClassState } from '../src/domain/progression/hero';
 import {
   activePerkIds,
   applyBuy,
@@ -80,9 +88,13 @@ import {
   talentBonuses,
   type TreeNode,
   TREES,
-} from '../src/domain/logic/skillTree';
-import { buildPlayerStats, CAPS } from '../src/domain/logic/stats';
-import { classTraits, type TraitId } from '../src/domain/logic/traits';
+} from '../src/domain/progression/skill-tree/skillTree';
+import { perkCost, talentRankCost } from '../src/domain/progression/soul-prices/soulPrices';
+import { buildPlayerStats, CAPS } from '../src/domain/progression/stats/stats';
+import { classTraits, type TraitId } from '../src/domain/progression/traits/traits';
+import { DAILY_REWARDS } from '../src/domain/rewards/daily';
+import { GIFT_REWARD } from '../src/domain/rewards/tower-gift';
+import { makeRng } from '../src/domain/shared/rng/rng';
 import type { AutoSkillSave, ClassId, Lang, LineageId, TalentPath } from '../src/domain/types';
 import { en } from '../src/i18n/en';
 import { ru } from '../src/i18n/ru';

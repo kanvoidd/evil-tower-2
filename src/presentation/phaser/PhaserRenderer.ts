@@ -2,8 +2,8 @@ import type { CellRejection } from '../../application/game/interfaces/CellReject
 import type { IGameRenderer } from '../../application/game/interfaces/IGameRenderer';
 import type { TutorialStep } from '../../application/game/interfaces/TutorialStep';
 import type { ISoundPlayer } from '../../application/ports';
-import type { PerkDef } from '../../domain/data/perks';
-import type { IRunState } from '../../domain/logic/run';
+import type { PerkDef } from '../../domain/catalog/perks';
+import type { IRunState } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';

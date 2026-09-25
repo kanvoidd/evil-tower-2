@@ -1,9 +1,9 @@
 import type { IAnimationPlayer } from '../../application/game/interfaces/IAnimationPlayer';
 import type { ISoundPlayer, SfxName } from '../../application/ports';
-import { CONSUMABLES } from '../../domain/data/consumables';
-import { PERK_BY_ID } from '../../domain/data/perks';
-import type { GameEvent } from '../../domain/game-data/events';
-import type { IRunState } from '../../domain/logic/run';
+import { CONSUMABLES } from '../../domain/catalog/consumables';
+import { PERK_BY_ID } from '../../domain/catalog/perks';
+import type { GameEvent } from '../../domain/combat/events';
+import type { IRunState } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { perkName, t, type TKey } from '../../i18n';
 import { BoardLayout } from '../board/BoardLayout';

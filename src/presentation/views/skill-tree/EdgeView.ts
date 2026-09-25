@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { NodeState } from '../../../domain/logic/skillTree';
+import type { NodeState } from '../../../domain/progression/skill-tree/skillTree';
 
 /**
  * Связь двух узлов дерева. Пройденная — цвета пути (у талантов) или золотая, ведущая к доступному

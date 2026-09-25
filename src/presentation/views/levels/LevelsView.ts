@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
-import { FLOORS } from '../../../domain/data/floors';
-import { ROOMS, ROOMS_PER_FLOOR } from '../../../domain/data/levels';
+import { FLOORS } from '../../../domain/catalog/floors';
+import { ROOMS, ROOMS_PER_FLOOR } from '../../../domain/catalog/levels';
 import { t, type TKey } from '../../../i18n';
 import {
   background,

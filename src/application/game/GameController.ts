@@ -1,9 +1,9 @@
-import { CONSUMABLES } from '../../domain/data/consumables';
-import { PERK_BY_ID, type PerkDef } from '../../domain/data/perks';
-import { Grid } from '../../domain/engine/grid/Grid';
-import type { GameEvent } from '../../domain/game-data/events';
-import { pickAutoUse } from '../../domain/logic/autoUse';
-import type { IRunSession } from '../../domain/logic/run';
+import { CONSUMABLES } from '../../domain/catalog/consumables';
+import { PERK_BY_ID, type PerkDef } from '../../domain/catalog/perks';
+import { pickAutoUse } from '../../domain/combat/auto-use/autoUse';
+import { Grid } from '../../domain/combat/engine/grid/Grid';
+import type { GameEvent } from '../../domain/combat/events';
+import type { IRunSession } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import { GameCommandHandler } from './GameCommandHandler';
 import type { CellRejection } from './interfaces/CellRejection';

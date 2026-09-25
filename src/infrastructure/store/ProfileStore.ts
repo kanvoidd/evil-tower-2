@@ -1,8 +1,8 @@
 import type { IProfileStorage } from '../../application/ports/IProfileStorage';
-import { CLASSES } from '../../domain/data/classes';
-import { LINEAGE_ORDER } from '../../domain/data/heroes';
-import { DEFAULT_AUTO_USE } from '../../domain/logic/autoUse';
-import { Profile } from '../../domain/logic/profile';
+import { Profile } from '../../domain/account/profile';
+import { CLASSES } from '../../domain/catalog/classes';
+import { LINEAGE_ORDER } from '../../domain/catalog/heroes';
+import { DEFAULT_AUTO_USE } from '../../domain/combat/auto-use/autoUse';
 import type { AutoUseSave, EquipmentSave, HeroSave, LineageId, SaveData } from '../../domain/types';
 import type { CloudSaves } from './interfaces/CloudSaves';
 

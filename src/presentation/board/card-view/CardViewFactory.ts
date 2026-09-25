@@ -1,8 +1,8 @@
 import type Phaser from 'phaser';
 
-import { ENEMIES } from '../../../domain/data/enemies';
-import type { Card } from '../../../domain/game-data/card/Card';
-import type { PlayerStats } from '../../../domain/logic/stats';
+import { ENEMIES } from '../../../domain/catalog/enemies';
+import type { Card } from '../../../domain/combat/card/Card';
+import type { PlayerStats } from '../../../domain/progression/stats/stats';
 import type { TKey } from '../../../i18n';
 import { t, tr } from '../../../i18n';
 import { plateTexture, statPill, txt } from '../../components';

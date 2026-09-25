@@ -1,5 +1,5 @@
-import type { Profile } from '../../domain/logic/profile';
-import type { BuyResult, TreeNode } from '../../domain/logic/skillTree';
+import type { Profile } from '../../domain/account/profile';
+import type { BuyResult, TreeNode } from '../../domain/progression/skill-tree/skillTree';
 
 /**
  * Выучить талант (следующий ранг) или способность за души. Первая такая покупка завершает

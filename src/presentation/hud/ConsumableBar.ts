@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 
 import type { ISoundPlayer } from '../../application/ports';
-import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/data/consumables';
-import { needsHeal, needsRegen, worthArtifact } from '../../domain/logic/autoUse';
-import type { IRunState } from '../../domain/logic/run';
+import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/catalog/consumables';
+import { needsHeal, needsRegen, worthArtifact } from '../../domain/combat/auto-use/autoUse';
+import type { IRunState } from '../../domain/combat/room-battle';
 import type { ConsumableId, LineageId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';

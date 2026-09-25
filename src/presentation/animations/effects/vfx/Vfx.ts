@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { VfxStyle } from '../../../../domain/data/perks';
+import type { VfxStyle } from '../../../../domain/catalog/perks';
 import type { Point } from '../../interfaces/Point';
 
 /**

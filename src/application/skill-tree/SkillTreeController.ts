@@ -1,7 +1,7 @@
-import { CLASSES } from '../../domain/data/classes';
+import { CLASSES } from '../../domain/catalog/classes';
 import { GAMEPLAY } from '../../domain/gameplay';
-import type { AutoSkillPlan } from '../../domain/logic/autoSkill';
-import type { TreeNode } from '../../domain/logic/skillTree';
+import type { AutoSkillPlan } from '../../domain/progression/auto-skill/autoSkill';
+import type { TreeNode } from '../../domain/progression/skill-tree/skillTree';
 import type { SkillTreeCommand } from './interfaces/SkillTreeCommand';
 import type { SkillTreeControllerDeps } from './interfaces/SkillTreeControllerDeps';
 

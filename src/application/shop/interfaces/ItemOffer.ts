@@ -1,4 +1,4 @@
-import type { ItemDef } from '../../../domain/data/items';
+import type { ItemDef } from '../../../domain/catalog/items';
 
 /** Строка снаряжения в лавке: вещь и что с ней можно сделать. */
 export interface ItemOffer {

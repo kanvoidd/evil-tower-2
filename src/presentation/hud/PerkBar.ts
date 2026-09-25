@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
-import { FULL_BAR, type PerkDef } from '../../domain/data/perks';
-import type { IRunState } from '../../domain/logic/run';
+import { FULL_BAR, type PerkDef } from '../../domain/catalog/perks';
+import type { IRunState } from '../../domain/combat/room-battle';
 import { perkDesc, perkName } from '../../i18n';
 import type { Animations } from '../animations/Animations';
 import { outlineTexture, PlateButton, tipOnHover, txt } from '../components';

@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account/profile';
 import type { ClassId } from '../../domain/types';
 
 /**

@@ -1,6 +1,6 @@
-import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/data/consumables';
-import { ITEM_BY_ID, type ItemDef, ITEMS } from '../../domain/data/items';
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account/profile';
+import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/catalog/consumables';
+import { ITEM_BY_ID, type ItemDef, ITEMS } from '../../domain/catalog/items';
 import type { LineageId } from '../../domain/types';
 import type { ConsumableOffer } from './interfaces/ConsumableOffer';
 import type { ItemOffer } from './interfaces/ItemOffer';

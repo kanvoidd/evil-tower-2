@@ -1,5 +1,5 @@
-import type { DailyReward } from '../../domain/data/economy';
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account/profile';
+import type { DailyReward } from '../../domain/rewards/daily';
 import type { AdService } from '../ads/AdService';
 import type { RewardChoice } from './interfaces/RewardChoice';
 

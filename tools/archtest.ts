@@ -5,7 +5,8 @@
  *    слой файла — первая папка после `src/`, импорт разрешён только в перечисленные слои и пакеты.
  * 2. Домен и приложение не трогают браузер (window, document, localStorage…) — время и платформа
  *    приходят через порты.
- * 3. Внутри домена движок (`domain/engine`) не знает правил (`domain/logic`).
+ * 3. Внутри боя поле и колода (`domain/combat/engine`) не знают правил боя (`room-battle`, `attack`,
+ *    `auto-use`) и прогресса героя.
  * 4. Все относительные импорты в `src` и `tools` ведут в существующие файлы (tools не проверяет tsc).
  * 5. Нет циклов среди импортов, которые остаются после сборки (`import type` не считается).
  */
@@ -166,7 +167,12 @@ for (const file of [...srcFiles, ...toolFiles]) {
         `${where} — infrastructure может брать из application только порты (${rel(target)})`,
       );
     }
-    if (rel(file).startsWith('src/domain/engine/') && rel(target).startsWith('src/domain/logic/')) {
+    if (
+      rel(file).startsWith('src/domain/combat/engine/') &&
+      /^src\/domain\/(combat\/(room-battle|attack|auto-use)|progression|account)\//.test(
+        rel(target),
+      )
+    ) {
       problems.push(`${where} — движок не должен знать правил боя (${rel(target)})`);
     }
   }

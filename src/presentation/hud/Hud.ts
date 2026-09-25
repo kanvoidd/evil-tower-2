@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import type { ISoundPlayer } from '../../application/ports';
-import type { IRunState } from '../../domain/logic/run';
+import type { IRunState } from '../../domain/combat/room-battle';
 import type { ConsumableId } from '../../domain/types';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';

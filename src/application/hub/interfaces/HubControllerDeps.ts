@@ -1,4 +1,4 @@
-import type { Profile } from '../../../domain/logic/profile';
+import type { Profile } from '../../../domain/account/profile';
 import type { IClock } from '../../ports';
 import type { ClaimDailyReward } from '../../rewards/ClaimDailyReward';
 import type { ClaimTowerGift } from '../../rewards/ClaimTowerGift';

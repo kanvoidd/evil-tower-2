@@ -4,13 +4,12 @@
  * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
  * RUNS=<n> — сколько забегов максимум.
  */
-import { CLASSES } from '../src/domain/data/classes';
-import { type ItemDef, ITEMS } from '../src/domain/data/items';
-import { ROOMS } from '../src/domain/data/levels';
-import { FULL_BAR, type PerkDef } from '../src/domain/data/perks';
-import { needsRegen } from '../src/domain/logic/autoUse';
-import { makeRng } from '../src/domain/logic/rng';
-import { type Run, type RunCarryStats, RunFactory } from '../src/domain/logic/run';
+import { CLASSES } from '../src/domain/catalog/classes';
+import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
+import { ROOMS } from '../src/domain/catalog/levels';
+import { FULL_BAR, type PerkDef } from '../src/domain/catalog/perks';
+import { needsRegen } from '../src/domain/combat/auto-use/autoUse';
+import { type Run, type RunCarryStats, RunFactory } from '../src/domain/combat/room-battle';
 import {
   applyBuy,
   canInvest,
@@ -18,8 +17,9 @@ import {
   isPurchasable,
   newLineageSave,
   TREES,
-} from '../src/domain/logic/skillTree';
-import { buildPlayerStats } from '../src/domain/logic/stats';
+} from '../src/domain/progression/skill-tree/skillTree';
+import { buildPlayerStats } from '../src/domain/progression/stats/stats';
+import { makeRng } from '../src/domain/shared/rng/rng';
 import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;

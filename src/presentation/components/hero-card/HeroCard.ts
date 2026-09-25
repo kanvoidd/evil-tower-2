@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
-import { CLASSES } from '../../../domain/data/classes';
-import { LINEAGES } from '../../../domain/data/heroes';
-import { ITEM_BY_ID } from '../../../domain/data/items';
+import { CLASSES } from '../../../domain/catalog/classes';
+import { LINEAGES } from '../../../domain/catalog/heroes';
+import { ITEM_BY_ID } from '../../../domain/catalog/items';
 import type { EquipmentSave } from '../../../domain/types';
 import { t, type TKey } from '../../../i18n';
 import { LINEAGE_COLOR } from '../../textures/Textures';

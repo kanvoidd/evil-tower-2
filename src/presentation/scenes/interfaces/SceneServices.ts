@@ -6,7 +6,7 @@ import type {
   IProfileStorage,
   ISoundPlayer,
 } from '../../../application/ports';
-import type { Profile } from '../../../domain/logic/profile';
+import type { Profile } from '../../../domain/account/profile';
 
 /**
  * Всё, что сцены получают от корня композиции: профиль игрока и службы платформы за портами.

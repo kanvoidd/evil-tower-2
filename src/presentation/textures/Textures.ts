@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
 
-import { CLASS_ORDER, CLASSES } from '../../domain/data/classes';
-import { ENEMIES } from '../../domain/data/enemies';
-import { ITEMS } from '../../domain/data/items';
-import { PERKS, type VfxStyle } from '../../domain/data/perks';
+import { CLASS_ORDER, CLASSES } from '../../domain/catalog/classes';
+import { ENEMIES } from '../../domain/catalog/enemies';
+import { ITEMS } from '../../domain/catalog/items';
+import { PERKS, type VfxStyle } from '../../domain/catalog/perks';
 import { armorArt, type Draw, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt } from './PixelArt';
 import { SVG_ICONS } from './SvgIcons';
 

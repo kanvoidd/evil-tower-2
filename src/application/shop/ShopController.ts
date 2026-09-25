@@ -1,5 +1,5 @@
-import { CONSUMABLES } from '../../domain/data/consumables';
-import type { ItemDef } from '../../domain/data/items';
+import { CONSUMABLES } from '../../domain/catalog/consumables';
+import type { ItemDef } from '../../domain/catalog/items';
 import type { ConsumableId } from '../../domain/types';
 import type { ShopCommand } from './interfaces/ShopCommand';
 import type { ShopControllerDeps } from './interfaces/ShopControllerDeps';

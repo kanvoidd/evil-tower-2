@@ -1,7 +1,7 @@
-import type { PerkDef } from '../domain/data/perks';
-import type { TalentDef, TalentFx } from '../domain/data/talents';
-import { talentValue, talentValue2 } from '../domain/data/talents';
-import type { Trait } from '../domain/logic/traits';
+import type { PerkDef } from '../domain/catalog/perks';
+import type { TalentDef, TalentFx } from '../domain/catalog/talents';
+import { talentValue, talentValue2 } from '../domain/catalog/talents';
+import type { Trait } from '../domain/progression/traits/traits';
 import type { Lang } from '../domain/types';
 import { en } from './en';
 import { ru, type TKey } from './ru';

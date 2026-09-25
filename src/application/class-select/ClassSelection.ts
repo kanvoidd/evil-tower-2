@@ -1,9 +1,9 @@
-import { CLASSES } from '../../domain/data/classes';
-import { LINEAGE_ORDER } from '../../domain/data/heroes';
-import { ROOMS } from '../../domain/data/levels';
+import type { Profile } from '../../domain/account/profile';
+import { CLASSES } from '../../domain/catalog/classes';
+import { LINEAGE_ORDER } from '../../domain/catalog/heroes';
+import { ROOMS } from '../../domain/catalog/levels';
 import { GAMEPLAY } from '../../domain/gameplay';
-import type { Profile } from '../../domain/logic/profile';
-import { classStartStats, classTraits } from '../../domain/logic/traits';
+import { classStartStats, classTraits } from '../../domain/progression/traits/traits';
 import type { ClassId, LineageId } from '../../domain/types';
 import type { ClassSelectMode } from './interfaces/ClassSelectMode';
 import type { HeroChoice } from './interfaces/HeroChoice';

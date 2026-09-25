@@ -1,6 +1,6 @@
-import { ROOMS, ROOMS_PER_FLOOR } from '../../domain/data/levels';
-import type { Profile } from '../../domain/logic/profile';
-import { anyAffordable, TREES } from '../../domain/logic/skillTree';
+import type { Profile } from '../../domain/account/profile';
+import { ROOMS, ROOMS_PER_FLOOR } from '../../domain/catalog/levels';
+import { anyAffordable, TREES } from '../../domain/progression/skill-tree/skillTree';
 import type { ShopCatalog } from '../shop/ShopCatalog';
 import type { HubHint } from './interfaces/HubHint';
 import type { HubState } from './interfaces/HubState';

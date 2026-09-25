@@ -1,4 +1,4 @@
-import type { PlayerStats } from '../../../../domain/logic/stats';
+import type { PlayerStats } from '../../../../domain/progression/stats/stats';
 import type { ClassId, EquipmentSave } from '../../../../domain/types';
 
 /** Что показывает карточка героя: класс, характеристики и надетое снаряжение. */

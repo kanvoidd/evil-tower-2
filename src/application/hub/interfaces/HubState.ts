@@ -1,4 +1,4 @@
-import type { DailyStatus } from '../../../domain/logic/profile';
+import type { DailyStatus } from '../../../domain/account/profile';
 import type { GiftState } from './GiftState';
 import type { HubHint } from './HubHint';
 import type { HubRecord } from './HubRecord';

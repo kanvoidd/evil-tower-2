@@ -1,4 +1,4 @@
-import type { IRunSession, TurnResult } from '../../domain/logic/run';
+import type { IRunSession, TurnResult } from '../../domain/combat/room-battle';
 import type { BattleCommand } from './interfaces/BattleCommand';
 
 /**

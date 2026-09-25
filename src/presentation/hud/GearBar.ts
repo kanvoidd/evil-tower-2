@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { ITEM_BY_ID } from '../../domain/data/items';
+import { ITEM_BY_ID } from '../../domain/catalog/items';
 import type { EquipmentSave } from '../../domain/types';
 import { icon, txt } from '../components';
 import { HEX } from '../theme';

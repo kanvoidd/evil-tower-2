@@ -1,4 +1,4 @@
-import type { Signal } from '../../../../domain/logic/signal/Signal';
+import type { Signal } from '../../../../domain/shared/signal/Signal';
 
 /** Кошелёк, за которым следит полоса валют: текущие суммы и сигнал об их изменении. */
 export interface IWalletSource {

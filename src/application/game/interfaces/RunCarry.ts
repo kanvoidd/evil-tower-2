@@ -1,4 +1,4 @@
-import type { RunCarryStats } from '../../../domain/logic/run';
+import type { RunCarryStats } from '../../../domain/combat/room-battle';
 
 /**
  * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет

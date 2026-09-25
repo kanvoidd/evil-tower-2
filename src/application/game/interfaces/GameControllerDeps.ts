@@ -1,5 +1,5 @@
-import type { Profile } from '../../../domain/logic/profile';
-import type { IRunSession } from '../../../domain/logic/run';
+import type { Profile } from '../../../domain/account/profile';
+import type { IRunSession } from '../../../domain/combat/room-battle';
 import type { AdService } from '../../ads/AdService';
 import type { IClock } from '../../ports/IClock';
 import type { IPlatform } from '../../ports/IPlatform';

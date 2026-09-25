@@ -1,6 +1,6 @@
-import type { AutoSkillPlan } from '../../domain/logic/autoSkill';
-import type { Profile } from '../../domain/logic/profile';
-import type { TreeNode } from '../../domain/logic/skillTree';
+import type { Profile } from '../../domain/account/profile';
+import type { AutoSkillPlan } from '../../domain/progression/auto-skill/autoSkill';
+import type { TreeNode } from '../../domain/progression/skill-tree/skillTree';
 import type { AutoSkillToggle } from './interfaces/AutoSkillToggle';
 
 /**

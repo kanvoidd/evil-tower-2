@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import type { RoomDef, RoomModifier } from '../../domain/data/levels';
+import type { RoomDef, RoomModifier } from '../../domain/catalog/levels';
 import { t, type TKey } from '../../i18n';
 import { tipOnHover, txt } from '../components';
 import { GAME_W, HEX } from '../theme';

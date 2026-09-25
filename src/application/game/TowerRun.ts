@@ -1,8 +1,8 @@
-import { type RoomDef, ROOMS } from '../../domain/data/levels';
-import type { GameEvent } from '../../domain/game-data/events';
-import type { Profile } from '../../domain/logic/profile';
-import { makeRng, randomSeed, type Rng } from '../../domain/logic/rng';
-import { type IRunSession, RunFactory } from '../../domain/logic/run';
+import type { Profile } from '../../domain/account/profile';
+import { type RoomDef, ROOMS } from '../../domain/catalog/levels';
+import type { GameEvent } from '../../domain/combat/events';
+import { type IRunSession, RunFactory } from '../../domain/combat/room-battle';
+import { makeRng, randomSeed, type Rng } from '../../domain/shared/rng/rng';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
 import type { RunCarry } from './interfaces/RunCarry';

@@ -1,4 +1,4 @@
-import type { ItemDef } from '../../../domain/data/items';
+import type { ItemDef } from '../../../domain/catalog/items';
 import type { ConsumableId } from '../../../domain/types';
 
 /** Что игрок сделал в лавке. */

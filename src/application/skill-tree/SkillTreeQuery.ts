@@ -1,7 +1,7 @@
-import { LINEAGES } from '../../domain/data/heroes';
-import { PERK_BY_ID, type PerkDef } from '../../domain/data/perks';
-import type { TalentDef } from '../../domain/data/talents';
-import type { Profile } from '../../domain/logic/profile';
+import type { Profile } from '../../domain/account/profile';
+import { LINEAGES } from '../../domain/catalog/heroes';
+import { PERK_BY_ID, type PerkDef } from '../../domain/catalog/perks';
+import type { TalentDef } from '../../domain/catalog/talents';
 import {
   type BuyResult,
   canBuy,
@@ -18,7 +18,7 @@ import {
   type Tree,
   type TreeNode,
   TREES,
-} from '../../domain/logic/skillTree';
+} from '../../domain/progression/skill-tree/skillTree';
 import type { ClassId, LineageSave, ResourceKind } from '../../domain/types';
 
 /**

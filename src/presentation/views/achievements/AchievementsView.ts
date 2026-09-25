@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 
-import { ACHIEVEMENTS } from '../../../domain/data/achievements';
+import { ACHIEVEMENTS } from '../../../domain/rewards/achievements';
 import { fmt, t, tr } from '../../../i18n';
 import {
   background,
