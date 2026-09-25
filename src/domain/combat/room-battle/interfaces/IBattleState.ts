@@ -7,6 +7,7 @@ import type {
   RoomDef,
   RoomModifier,
 } from '../../../catalog';
+import type { CellIndex } from '../../../shared';
 import type { Card } from '../../card/Card';
 import type { PlayerStats } from '../../player';
 import type { Action } from './Action';
@@ -22,7 +23,7 @@ export interface IBattleState {
   readonly lineage: LineageId;
   readonly lineageDef: LineageDef;
   readonly cards: ReadonlyArray<Card | null>;
-  readonly playerCell: number;
+  readonly playerCell: CellIndex;
   readonly hp: number;
   readonly shield: number;
   readonly res: number;
@@ -39,10 +40,10 @@ export interface IBattleState {
   readonly killsLeft: number;
   readonly exitOpen: boolean;
 
-  actionFor(cell: number): Action;
-  wouldKill(cell: number): boolean;
+  actionFor(cell: CellIndex): Action;
+  wouldKill(cell: CellIndex): boolean;
   perkReady(p: PerkDef): PerkReadiness;
-  perkTargetOk(p: PerkDef, cell: number): boolean;
+  perkTargetOk(p: PerkDef, cell: CellIndex): boolean;
   perkCostOf(p: PerkDef): number;
   cooldownOf(p: PerkDef): number;
   strikeDamage(atk: number): number;

@@ -1,3 +1,4 @@
+import { Gold } from '../../shared';
 import type { LineageId } from '../heroes/interfaces/LineageId';
 import type { ItemDef } from '../items/interfaces/ItemDef';
 import type { ItemTier } from '../items/interfaces/ItemTier';
@@ -78,7 +79,7 @@ export const WEAPONS: ItemDef[] = (Object.keys(WEAPON_NAMES) as LineageId[]).fla
       defense: 0,
       health: 0,
       durability: t.dur,
-      price: t.price,
+      price: Gold.of(t.price),
     };
   }),
 );

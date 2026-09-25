@@ -13,7 +13,7 @@
 
 | Область | Папка | Что внутри | Язык области |
 |---|---|---|---|
-| Общее ядро | `shared/` | генератор случайных чисел (`rng/`), доменный сигнал (`signal/`); позже — id и типы значений | — |
+| Общее ядро | `shared/` | генератор случайных чисел (`rng/`), доменный сигнал (`signal/`), язык текстов (`lang/`), типы значений (`value/`: проценты, доли, золото, души, ходы, клетки) | — |
 | Каталог | `catalog/` | содержимое игры, которое выпускают фабрики: линейки, классы, способности и таланты (`heroes/`, `HeroFactory`), этажи, враги и комнаты (`floors/`, `enemies/`, `levels/`, `FloorFactory`), вещи (`items/`, `weapons/`, `armor/`), расходники (`consumables/`) | линейка, класс, способность, талант, этаж, враг, комната, вещь, расходник |
 | Бой | `combat/` | бой в одной комнате (`room-battle/`): поле 3×3 и колода (`engine/`), карты (`card/`), события боя (`events/`), стиль атаки линейки (`attack/`), герой глазами боя (`player/`), автоприменение расходников (`auto-use/`) | комната, ход, удар, статус, способность, добыча |
 | Прогресс героя | `progression/` | герой и его класс (`hero/`), дерево талантов (`skill-tree/`), сборка характеристик (`stats/`), цены в душах (`soul-prices/`), автопрокачка (`auto-skill/`), сводка класса (`traits/`) | герой, класс, метаморфоза, талант, ярус, путь |
@@ -82,7 +82,7 @@
 
 | Область | Что даёт |
 |---|---|
-| `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal`, язык `Lang` |
+| `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal`, язык `Lang`, типы значений `Percent`, `Ratio`, `Gold`, `Souls`, `Turns`, `CellIndex` |
 | `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath`, `CardKind` …), надетая вещь `EquipmentSave`, типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
 | `combat` | бой в комнате (`RoomBattle`, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
 | `progression` | `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах, автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
@@ -109,7 +109,7 @@
 | расходник (зелья, артефакт) | `ConsumableId`, `ConsumableDef` | каталог |
 | бой в комнате | `RoomBattle`; команды — `IBattleSession`, чтение — `IBattleState` | бой |
 | ход | `TurnResult`, `Action` | бой |
-| поле 3×3, клетка | `Engine`, `Grid`, индекс клетки 0–8 | бой |
+| поле 3×3, клетка | `Engine`, `Grid`; клетка — `CellIndex` (0–8, `Grid.CELLS`) | бой |
 | карта на поле | `Card` | бой |
 | вид карты (враг, золото, сундук …) | `CardKind` | каталог |
 | колода комнаты | `RoomCardFactory`, `IDeckSupply`, `DeckPlan` | бой |
@@ -117,7 +117,7 @@
 | событие боя | `GameEvent` | бой |
 | добыча комнаты | `Loot`, `BattleTotals` | бой |
 | стиль атаки линейки | `IAttackStrategy`: `HandAttack`, `SpellAttack`, `ShotAttack`, `BackstabAttack` | бой |
-| характеристики героя в бою | `PlayerStats` | бой |
+| характеристики героя в бою | `PlayerStats` (шансы — `Percent`, доли — `Ratio`) | бой |
 | автоприменение расходников | `pickAutoUse`, `AutoUseSave` | бой |
 | герой | `Hero` | прогресс |
 | класс, за который играет герой | `HeroClassState` | прогресс |
@@ -127,7 +127,7 @@
 | цена прокачки в душах | `talentRankCost`, `perkCost`, `classCost` | прогресс |
 | автопрокачка | `planAutoSkill`, `AutoSkillSave` | прогресс |
 | сводка класса | `classTraits`, `Trait` | прогресс |
-| золото, души, кошелёк героя | `HeroSave` (`gold`, `souls`), `Profile.heroSaveOf()` | экономика (пока — в `Profile`) |
+| золото, души, кошелёк героя | `Gold`, `Souls`; кошелёк — `HeroSave` (`gold`, `souls`), `Profile.heroSaveOf()` | экономика (пока — в `Profile`) |
 | прочность, починка | `EquipmentSave.durability`, `REPAIR_RATIO` | экономика |
 | награда дня, серия | `DAILY_REWARDS`, `DailyReward`, `DailyStatus` | награды |
 | «Дар башни» | `GIFT_REWARD`, `GIFT_COOLDOWN_MS` | награды |

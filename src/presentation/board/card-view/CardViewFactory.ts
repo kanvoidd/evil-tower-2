@@ -2,6 +2,7 @@ import type Phaser from 'phaser';
 
 import { ENEMIES } from '../../../domain/catalog';
 import type { Card, PlayerStats } from '../../../domain/combat';
+import type { CellIndex } from '../../../domain/shared';
 import type { TKey } from '../../../i18n';
 import { t, tr } from '../../../i18n';
 import { plateTexture, statPill, txt } from '../../components';
@@ -36,7 +37,7 @@ export class CardViewFactory {
 
   constructor(private readonly scene: Phaser.Scene) {}
 
-  createCard(card: Card, cell: number, at: { x: number; y: number }): CardView {
+  createCard(card: Card, cell: CellIndex, at: { x: number; y: number }): CardView {
     const s = this.scene;
     const { ART_Y, LABEL_Y, PILL_Y } = CardViewFactory;
     const c = s.add.container(at.x, at.y).setDepth(1);
@@ -145,7 +146,12 @@ export class CardViewFactory {
     return view;
   }
 
-  createHero(stats: PlayerStats, hp: number, cell: number, at: { x: number; y: number }): CardView {
+  createHero(
+    stats: PlayerStats,
+    hp: number,
+    cell: CellIndex,
+    at: { x: number; y: number },
+  ): CardView {
     const s = this.scene;
     const { ART_Y, LABEL_Y, PILL_Y } = CardViewFactory;
     const c = s.add.container(at.x, at.y).setDepth(5);

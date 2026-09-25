@@ -2,3 +2,4 @@
 export * from './lang/Lang';
 export * from './rng/rng';
 export * from './signal/Signal';
+export * from './value';

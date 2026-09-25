@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -8,7 +9,7 @@ export class ForgeFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('imp', 'Бес', 'Imp', 'weak', 'demon', { evade: 14 }),
+      this.enemy('imp', 'Бес', 'Imp', 'weak', 'demon', { evade: Percent.of(14) }),
       this.enemy('hellhound', 'Адская гончая', 'Hellhound', 'normal', 'demon', { venom: 0.25 }),
       this.enemy('magma_golem', 'Магмовый голем', 'Magma Golem', 'tough', 'construct', {
         armor: 12,

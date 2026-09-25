@@ -35,7 +35,7 @@ import {
   GIFT_COOLDOWN_MS,
   GIFT_REWARD,
 } from '../../rewards';
-import { type Lang, Signal } from '../../shared';
+import { Gold, type Lang, Signal, Souls } from '../../shared';
 import type { HeroSave } from '../save/interfaces/HeroSave';
 import type { SaveData } from '../save/interfaces/SaveData';
 import type { ConsumablePurchase } from './interfaces/ConsumablePurchase';
@@ -104,8 +104,8 @@ export class Profile {
   /** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
   static emptyHero(): HeroSave {
     return {
-      gold: 0,
-      souls: 0,
+      gold: Gold.of(0),
+      souls: Souls.of(0),
       consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 },
       armor: null,
       best: 0,
@@ -274,41 +274,41 @@ export class Profile {
     return this.doc.heroes[lin]?.best ?? 0;
   }
 
-  get gold(): number {
+  get gold(): Gold {
     return this.heroSave.gold;
   }
 
-  get souls(): number {
+  get souls(): Souls {
     return this.heroSave.souls;
   }
 
-  addGold(n: number, track = true): void {
-    this.heroSave.gold += n;
+  addGold(n: Gold, track = true): void {
+    this.heroSave.gold = Gold.of(this.heroSave.gold + n);
     if (track && n > 0) this.doc.stats.goldEarned += n;
     this.walletChanged.emit();
     this.checkAchievements();
     this.touch();
   }
 
-  addSouls(n: number, track = true): void {
-    this.heroSave.souls += n;
+  addSouls(n: Souls, track = true): void {
+    this.heroSave.souls = Souls.of(this.heroSave.souls + n);
     if (track && n > 0) this.doc.stats.soulsEarned += n;
     this.walletChanged.emit();
     this.checkAchievements();
     this.touch();
   }
 
-  spendGold(n: number): boolean {
+  spendGold(n: Gold): boolean {
     if (this.heroSave.gold < n) return false;
-    this.heroSave.gold -= n;
+    this.heroSave.gold = Gold.of(this.heroSave.gold - n);
     this.walletChanged.emit();
     this.touch();
     return true;
   }
 
-  spendSouls(n: number): boolean {
+  spendSouls(n: Souls): boolean {
     if (this.heroSave.souls < n) return false;
-    this.heroSave.souls -= n;
+    this.heroSave.souls = Souls.of(this.heroSave.souls - n);
     this.walletChanged.emit();
     this.touch();
     return true;
@@ -352,7 +352,7 @@ export class Profile {
 
   buyLineage(l: LineageId): boolean {
     if (this.isLineageUnlocked(l)) return true;
-    if (!this.spendGold(GAMEPLAY.classUnlockCost)) return false;
+    if (!this.spendGold(Gold.of(GAMEPLAY.classUnlockCost))) return false;
     this.unlockLineage(l);
     return true;
   }
@@ -380,11 +380,11 @@ export class Profile {
     return e && e.durability > 0 ? e : null;
   }
 
-  repairCost(item: ItemDef): number {
+  repairCost(item: ItemDef): Gold {
     const e = this.equipped(item.slot);
-    if (!e || e.id !== item.id) return 0;
+    if (!e || e.id !== item.id) return Gold.of(0);
     const missing = 1 - e.durability / item.durability;
-    return Math.ceil(item.price * REPAIR_RATIO * missing);
+    return Gold.of(Math.ceil(item.price * REPAIR_RATIO * missing));
   }
 
   buyItem(item: ItemDef): ItemPurchase {
@@ -411,7 +411,7 @@ export class Profile {
     const def = CONSUMABLES[id];
     if (!def.sold) return 'gold';
     if (def.max !== undefined && this.heroSave.consumables[id] + count > def.max) return 'max';
-    if (!this.spendGold(def.price * count)) return 'gold';
+    if (!this.spendGold(Gold.of(def.price * count))) return 'gold';
     this.heroSave.consumables[id] += count;
     this.touch();
     return 'bought';
@@ -512,8 +512,8 @@ export class Profile {
     const st = this.dailyStatus();
     if (!st.available) return null;
     const r = DAILY_REWARDS[st.dayIndex];
-    if (r.gold) this.addGold(r.gold * multiplier);
-    if (r.souls) this.addSouls(r.souls * multiplier);
+    if (r.gold) this.addGold(Gold.of(r.gold * multiplier));
+    if (r.souls) this.addSouls(Souls.of(r.souls * multiplier));
     if (r.heal) this.heroSave.consumables.potion_heal += r.heal * multiplier;
     if (r.regen) this.heroSave.consumables.potion_regen += r.regen * multiplier;
     this.doc.daily = { lastClaim: Profile.dayKey(new Date(this.now())), streak: st.streak + 1 };
@@ -530,11 +530,15 @@ export class Profile {
   }
 
   claimGift(multiplier = 1): typeof GIFT_REWARD {
-    this.addGold(GIFT_REWARD.gold * multiplier);
-    this.addSouls(GIFT_REWARD.souls * multiplier);
+    const gift = {
+      gold: Gold.of(GIFT_REWARD.gold * multiplier),
+      souls: Souls.of(GIFT_REWARD.souls * multiplier),
+    };
+    this.addGold(gift.gold);
+    this.addSouls(gift.souls);
     this.doc.gift.readyAt = this.now() + GIFT_COOLDOWN_MS;
     this.touch();
-    return { gold: GIFT_REWARD.gold * multiplier, souls: GIFT_REWARD.souls * multiplier };
+    return gift;
   }
 
   /** Календарный день по местному времени: награда дня меняется в полночь игрока. */

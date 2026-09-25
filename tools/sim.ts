@@ -10,6 +10,7 @@ import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
 import { ROOMS } from '../src/domain/catalog/levels';
 import { FULL_BAR, type PerkDef } from '../src/domain/catalog/perks';
 import { needsRegen } from '../src/domain/combat/auto-use/autoUse';
+import { Grid } from '../src/domain/combat/engine';
 import {
   type BattleCarryStats,
   type RoomBattle,
@@ -180,9 +181,9 @@ const tryPerk = (battle: RoomBattle, dud: Set<string>): boolean => {
       return true;
     }
     // ищем цель: самый опасный достижимый враг
-    let best = -1;
+    let best = Grid.NO_CELL;
     let bestScore = -1e9;
-    for (let cell = 0; cell < 9; cell++) {
+    for (const cell of Grid.CELLS) {
       const card = battle.cards[cell];
       if (!card) continue;
       if (!battle.perkTargetOk(perk, cell)) continue;
@@ -234,9 +235,9 @@ const bot = (battle: RoomBattle): void => {
     if (exitCell >= 0) loot--;
     if (leaving) {
       // идём к переходу: любое действие оценивается тем, насколько оно к нему приближает
-      let best = -1;
+      let best = Grid.NO_CELL;
       let bestScore = -1e9;
-      for (let cell = 0; cell < 9; cell++) {
+      for (const cell of Grid.CELLS) {
         if (battle.actionFor(cell).kind === 'none') continue;
         const score =
           cell === exitCell
@@ -266,9 +267,9 @@ const bot = (battle: RoomBattle): void => {
     // как у игрока с автоприменением: ресурса нет на основной удар, а шкала почти пуста
     if (needsRegen(battle) && battle.useItem('potion_regen').ok) continue;
     if (tryPerk(battle, dud)) continue;
-    let bestCell = -1;
+    let bestCell = Grid.NO_CELL;
     let bestScore = -1e9;
-    for (let cell = 0; cell < 9; cell++) {
+    for (const cell of Grid.CELLS) {
       const card = battle.cards[cell];
       if (!card) continue;
       const a = battle.actionFor(cell);
@@ -288,7 +289,7 @@ const bot = (battle: RoomBattle): void => {
     // Ни одной карты под рукой (так живёт маг: рукой он не бьёт вовсе) — шагаем на пустую
     // клетку поближе к врагу. Ход по пустому полю теперь разрешён и считается полноценным.
     if (bestCell < 0) {
-      for (let cell = 0; cell < 9; cell++) {
+      for (const cell of Grid.CELLS) {
         if (battle.cards[cell] || battle.actionFor(cell).kind !== 'move') continue;
         // выход открыт — идём к переходу, а не к врагам
         const score = battle.exitOpen

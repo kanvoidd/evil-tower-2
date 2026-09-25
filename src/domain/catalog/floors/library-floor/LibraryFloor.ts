@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -11,7 +12,9 @@ export class LibraryFloor extends FloorFactory {
       this.enemy('cursed_tome', 'Проклятый том', 'Cursed Tome', 'weak', 'construct', {
         magic: true,
       }),
-      this.enemy('shadow', 'Тень чтеца', 'Reader’s Shadow', 'normal', 'undead', { evade: 25 }),
+      this.enemy('shadow', 'Тень чтеца', 'Reader’s Shadow', 'normal', 'undead', {
+        evade: Percent.of(25),
+      }),
       this.enemy('gargoyle', 'Горгулья', 'Gargoyle', 'tough', 'construct', { armor: 16 }),
       this.enemy('lich_scribe', 'Лич-переписчик', 'Lich Scribe', 'tough', 'undead', {
         magic: true,

@@ -1,5 +1,6 @@
 import type { ClassId, EquipmentSave, LineageId } from '../../catalog';
 import type { PlayerStats } from '../../combat';
+import { Souls } from '../../shared';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
@@ -57,27 +58,28 @@ export class Hero {
   }
 
   /** Можно ли выучить талант или способность (узел дерева, но не класс): узел открыт и хватает душ. */
-  canLearn(node: TreeNode, souls: number): BuyResult {
+  canLearn(node: TreeNode, souls: Souls): BuyResult {
     if (node.kind === 'class') return { ok: false, reason: 'state' };
     return canBuy(this.tree, this.progress, node, souls);
   }
 
   /** Выучить талант (следующий ранг) или способность. Классы — только через метаморфозу. */
   learn(node: TreeNode): void {
-    if (!this.canLearn(node, Infinity).ok) throw new Error(`узел ${node.id} сейчас не выучить`);
+    if (!this.canLearn(node, Souls.of(Infinity)).ok)
+      throw new Error(`узел ${node.id} сейчас не выучить`);
     applyBuy(this.tree, this.progress, node);
     this.onChange();
   }
 
   /** Можно ли стать классом `to` прямо сейчас: следующая ступень, ворота яруса пройдены, хватает душ. */
-  canMetamorphose(to: ClassId, souls: number): BuyResult {
+  canMetamorphose(to: ClassId, souls: Souls): BuyResult {
     if (!this.classState.canBecome(to)) return { ok: false, reason: 'state' };
     return canBuy(this.tree, this.progress, this.tree.classNode[to], souls);
   }
 
   /** Метаморфоза: тот же герой становится классом `to`. Ничего не отнимает — способности и таланты остаются. */
   metamorphose(to: ClassId): void {
-    if (!this.canMetamorphose(to, Infinity).ok)
+    if (!this.canMetamorphose(to, Souls.of(Infinity)).ok)
       throw new Error(`метаморфоза ${this.classId} → ${to} недоступна`);
     applyBuy(this.tree, this.progress, this.tree.classNode[to]);
     this.onChange();
@@ -89,7 +91,7 @@ export class Hero {
   }
 
   /** Ветка финального класса сбрасывается, часть душ возвращается; герой снова — класс-родитель. */
-  cancelMetamorphosis(): { refund: number; to: ClassId } {
+  cancelMetamorphosis(): { refund: Souls; to: ClassId } {
     const from = this.classState;
     if (!this.canCancelMetamorphosis || !from.parent)
       throw new Error(`метаморфозу ${from.id} не отменить`);

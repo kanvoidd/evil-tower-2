@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -10,7 +11,9 @@ export class FloodedFloor extends FloorFactory {
     return [
       this.enemy('mudcrab', 'Грязевой краб', 'Mudcrab', 'weak', 'beast', { armor: 2 }),
       this.enemy('drowned', 'Утопленник', 'Drowned', 'normal', 'undead'),
-      this.enemy('deep_hound', 'Глубинный пёс', 'Deep Hound', 'normal', 'beast', { evade: 12 }),
+      this.enemy('deep_hound', 'Глубинный пёс', 'Deep Hound', 'normal', 'beast', {
+        evade: Percent.of(12),
+      }),
       this.enemy('tide_wraith', 'Дух прилива', 'Tide Wraith', 'tough', 'undead', { magic: true }),
       this.enemy('kraken_spawn', 'Отродье кракена', 'Kraken Spawn', 'elite', 'beast', {
         thorns: 0.2,

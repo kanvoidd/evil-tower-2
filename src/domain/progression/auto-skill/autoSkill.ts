@@ -1,4 +1,5 @@
 import type { TalentPath } from '../../catalog';
+import { Souls } from '../../shared';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
@@ -31,7 +32,7 @@ export type AutoStop = 'souls' | 'meta' | 'done';
 
 export interface AutoSkillPlan {
   buys: TreeNode[];
-  spent: number;
+  spent: Souls;
   stop: AutoStop;
 }
 
@@ -46,12 +47,12 @@ const onBranch = (n: TreeNode, path: TalentPath): boolean =>
 export const planAutoSkill = (
   tree: Tree,
   save: LineageSave,
-  souls: number,
+  souls: Souls,
   cfg: AutoSkillSave,
 ): AutoSkillPlan => {
   const sim: LineageSave = { ranks: { ...save.ranks }, last: save.last };
   const buys: TreeNode[] = [];
-  let left = souls;
+  let left: number = souls;
   let spent = 0;
   for (let guard = 0; guard < 900; guard++) {
     const cands = tree.nodes.filter(
@@ -59,7 +60,7 @@ export const planAutoSkill = (
     );
     if (!cands.length) {
       const meta = tree.nodes.some((n) => n.kind === 'class' && canInvest(tree, sim, n));
-      return { buys, spent, stop: meta ? 'meta' : 'done' };
+      return { buys, spent: Souls.of(spent), stop: meta ? 'meta' : 'done' };
     }
     // самый верхний узел; на одном уровне — самый дешёвый
     const top = Math.min(...cands.map((n) => n.y));
@@ -67,11 +68,11 @@ export const planAutoSkill = (
       .filter((n) => n.y === top)
       .sort((a, b) => costOf(sim, a) - costOf(sim, b))[0];
     const cost = costOf(sim, pick);
-    if (cost > left) return { buys, spent, stop: 'souls' };
+    if (cost > left) return { buys, spent: Souls.of(spent), stop: 'souls' };
     left -= cost;
     spent += cost;
     applyBuy(tree, sim, pick);
     buys.push(pick);
   }
-  return { buys, spent, stop: 'souls' };
+  return { buys, spent: Souls.of(spent), stop: 'souls' };
 };

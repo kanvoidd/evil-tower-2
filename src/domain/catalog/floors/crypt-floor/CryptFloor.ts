@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -9,7 +10,7 @@ export class CryptFloor extends FloorFactory {
   createEnemies(): EnemyDef[] {
     return [
       this.enemy('skeleton', 'Скелет', 'Skeleton', 'weak', 'undead'),
-      this.enemy('bat', 'Летучая мышь', 'Bat', 'weak', 'beast', { evade: 15 }),
+      this.enemy('bat', 'Летучая мышь', 'Bat', 'weak', 'beast', { evade: Percent.of(15) }),
       this.enemy('slime', 'Слизень', 'Slime', 'normal', 'beast'),
       this.enemy('skeleton_horned', 'Рогатый скелет', 'Horned Skeleton', 'tough', 'undead'),
       this.enemy('zombie', 'Зомби', 'Zombie', 'elite', 'undead', { regen: 0.08 }),

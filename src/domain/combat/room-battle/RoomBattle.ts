@@ -14,7 +14,7 @@ import {
   type RoomPlan,
 } from '../../catalog';
 import { GAMEPLAY } from '../../gameplay';
-import type { Rng } from '../../shared';
+import { CellIndex, Gold, Percent, Ratio, type Rng, Souls } from '../../shared';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
 import { Grid } from '../engine/grid/Grid';
@@ -56,7 +56,13 @@ export class RoomBattle implements IBattleSession {
   weapon: EquipmentSave | null;
   armor: EquipmentSave | null;
   consumables: Record<ConsumableId, number>;
-  totals: BattleTotals = { gold: 0, souls: 0, kills: 0, damageTaken: 0, turns: 0 };
+  totals: BattleTotals = {
+    gold: Gold.of(0),
+    souls: Souls.of(0),
+    kills: 0,
+    damageTaken: 0,
+    turns: 0,
+  };
   readonly room: RoomDef;
   readonly plan: RoomPlan;
   readonly mod: RoomModifier;
@@ -65,7 +71,7 @@ export class RoomBattle implements IBattleSession {
   /** Заряженная способность: следующее касание поля применит её. */
   armed: PerkDef | null = null;
   /** Первая из двух карт для «Перестановки». */
-  private swapFirst: number | null = null;
+  private swapFirst: CellIndex | null = null;
   /** Уже потраченные «один раз за комнату» способности. */
   private usedOnce = new Set<string>();
 
@@ -144,12 +150,12 @@ export class RoomBattle implements IBattleSession {
     return this.engine.deck;
   }
 
-  get playerCell(): number {
+  get playerCell(): CellIndex {
     return this.engine.playerCell;
   }
 
   /** Только для тестов и отладки: поставить героя на клетку без хода. */
-  set playerCell(cell: number) {
+  set playerCell(cell: CellIndex) {
     this.engine.playerCell = cell;
   }
 
@@ -201,7 +207,7 @@ export class RoomBattle implements IBattleSession {
     this.shield = Math.round(
       this.stats.maxHp * (this.stats.startShieldPct + (this.mod.shieldPct ?? 0)),
     );
-    for (let i = 0; i < 9; i++) {
+    for (const i of Grid.CELLS) {
       if (i === this.playerCell) continue;
       const card = this.engine.draw();
       if (!card) break;
@@ -214,7 +220,7 @@ export class RoomBattle implements IBattleSession {
   // ------------------------------------------------------------------ действия
 
   /** Что произойдёт при нажатии на клетку (для подсветки и подсказок). */
-  actionFor(cell: number): Action {
+  actionFor(cell: CellIndex): Action {
     if (this.over || cell === this.playerCell) return { kind: 'none', reason: 'invalid' };
     if (this.armed)
       return this.perkTargetOk(this.armed, cell)
@@ -243,7 +249,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Убьёт ли ближайшая атака врага — для подсветки карточки. */
-  wouldKill(cell: number): boolean {
+  wouldKill(cell: CellIndex): boolean {
     const card = this.cards[cell];
     if (!card || card.kind !== 'enemy') return false;
     const a = this.actionFor(cell);
@@ -258,7 +264,7 @@ export class RoomBattle implements IBattleSession {
     return this.afterArmor(dmg, card) >= card.hp;
   }
 
-  tap(cell: number): TurnResult {
+  tap(cell: CellIndex): TurnResult {
     if (this.armed) return this.aimPerk(cell);
     const action = this.actionFor(cell);
     if (action.kind === 'none')
@@ -340,7 +346,7 @@ export class RoomBattle implements IBattleSession {
       this.beginTurn();
       this.payPerk(p);
       this.emit({ type: 'perk', id: p.id, ability: p.ability });
-      this.runAbility(p, -1);
+      this.runAbility(p, Grid.NO_CELL);
       this.afterPerk();
       this.finishTurn();
       return { ok: true, events: this.engine.flush() };
@@ -359,7 +365,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Подходит ли клетка под заряженную способность. */
-  perkTargetOk(p: PerkDef, cell: number): boolean {
+  perkTargetOk(p: PerkDef, cell: CellIndex): boolean {
     if (cell === this.playerCell) return false;
     const card = this.cards[cell];
     if (!card) return false;
@@ -394,7 +400,7 @@ export class RoomBattle implements IBattleSession {
     }
   }
 
-  private aimPerk(cell: number): TurnResult {
+  private aimPerk(cell: CellIndex): TurnResult {
     const p = this.armed!;
     if (!this.perkTargetOk(p, cell))
       return { ok: false, reason: 'range', events: this.engine.flush() };
@@ -420,7 +426,7 @@ export class RoomBattle implements IBattleSession {
     if (p.cooldown) this.cooldowns[p.id] = p.cooldown + 1;
     if (p.goldCost !== undefined) {
       const pay = Math.max(5, Math.round(this.totals.gold * p.goldCost));
-      this.totals.gold = Math.max(0, this.totals.gold - pay);
+      this.totals.gold = Gold.of(Math.max(0, this.totals.gold - pay));
       this.emit({ type: 'spend', amount: pay });
       return;
     }
@@ -501,12 +507,13 @@ export class RoomBattle implements IBattleSession {
       return true;
     }
     if (s.passives.has('hunters_mark') && ranged && enemy && enemy.hits === 0) return true;
-    if (this.inAbility && s.abilityCrit > 0 && this.rng.chance(s.abilityCrit / 100)) return true;
+    if (this.inAbility && s.abilityCrit > 0 && this.rng.chance(Percent.toRatio(s.abilityCrit)))
+      return true;
     if (s.everyThird) {
       this.hitCounter++;
       if (this.hitCounter % 3 === 0) return true;
     }
-    return this.rng.chance(s.crit / 100);
+    return this.rng.chance(Percent.toRatio(s.crit));
   }
 
   // ------------------------------------------------------------------ удары героя
@@ -550,7 +557,7 @@ export class RoomBattle implements IBattleSession {
     }
   }
 
-  private melee(cell: number): void {
+  private melee(cell: CellIndex): void {
     const enemy = this.cards[cell]!;
     const s = this.stats;
     let dmg = this.currentDamage();
@@ -564,7 +571,7 @@ export class RoomBattle implements IBattleSession {
     this.wearWeapon();
     let killed = this.strike(cell, dmg, crit);
     // «Двойной удар» / «Град стрел»
-    if (!killed && s.doubleStrike > 0 && this.rng.chance(s.doubleStrike / 100)) {
+    if (!killed && s.doubleStrike > 0 && this.rng.chance(Percent.toRatio(s.doubleStrike))) {
       killed = this.strike(cell, dmg, this.rollCrit(this.cards[cell], false));
     }
     if (this.madness > 0) this.splashNeighbors(cell, Math.round(dmg * 0.6));
@@ -573,7 +580,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Базовое действие линейки: выстрел через карту, удар молнии, удар в спину. */
-  private basicRanged(cell: number): void {
+  private basicRanged(cell: CellIndex): void {
     const s = this.stats;
     const free = this.reaping > 0 && this.backstabs;
     if (!free) this.spend(s.rangedCost);
@@ -610,7 +617,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** «Раздвоение молнии» / «Двойной наконечник»: основной удар с шансом цепляет ещё одного врага. */
-  private splitStrike(cell: number, dmg: number): void {
+  private splitStrike(cell: CellIndex, dmg: number): void {
     const { splitChance, splitDmg } = this.stats;
     if (splitChance <= 0 || splitDmg <= 0) return;
     if (!this.rng.chance(splitChance)) return;
@@ -624,12 +631,12 @@ export class RoomBattle implements IBattleSession {
   /** «Танец теней»: убийство ударом в спину переносит героя к слабейшему врагу, цепь до трёх ударов. */
   private shadowChain(): void {
     for (let i = 0; i < 2; i++) {
-      let best = -1;
+      let best = Grid.NO_CELL;
       let bestHp = Infinity;
       this.cards.forEach((c, idx) => {
         if (c?.kind === 'enemy' && c.hp < bestHp) {
           bestHp = c.hp;
-          best = idx;
+          best = CellIndex.of(idx);
         }
       });
       if (best < 0) return;
@@ -648,12 +655,12 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Один удар по врагу. Возвращает true, если враг погиб. */
-  private strike(cell: number, raw: number, crit: boolean): boolean {
+  private strike(cell: CellIndex, raw: number, crit: boolean): boolean {
     const enemy = this.cards[cell];
     if (!enemy || enemy.kind !== 'enemy') return false;
     if (this.acting) this.engaged.add(enemy.uid);
     const def = this.enemies[enemy.defId];
-    if (def?.evade && this.rng.chance(def.evade / 100)) {
+    if (def?.evade && this.rng.chance(Percent.toRatio(def.evade))) {
       this.emit({ type: 'miss', cell, kind: 'evade' });
       return false;
     }
@@ -667,12 +674,12 @@ export class RoomBattle implements IBattleSession {
    * Таланты-синергии: они меняют уже полученные способности, поэтому «Живое пламя» пироманта
    * заставляет поджигать даже цепную молнию, взятую ещё магом.
    */
-  private abilityRiders(cell: number, enemy: Card, dmg: number): void {
+  private abilityRiders(cell: CellIndex, enemy: Card, dmg: number): void {
     const s = this.stats;
-    if (s.abilityIgnite > 0 && this.rng.chance(s.abilityIgnite / 100)) {
+    if (s.abilityIgnite > 0 && this.rng.chance(Percent.toRatio(s.abilityIgnite))) {
       this.applyBurn(cell, Math.max(1, Math.round(dmg * 0.3)), 3);
     }
-    if (s.abilityStun > 0 && this.rng.chance(s.abilityStun / 100)) this.applyStun(cell);
+    if (s.abilityStun > 0 && this.rng.chance(Percent.toRatio(s.abilityStun))) this.applyStun(cell);
     if (s.abilityPoison > 0) {
       this.applyPoison(cell, Math.max(1, Math.round(enemy.maxHp * s.abilityPoison)), 3);
     }
@@ -694,7 +701,7 @@ export class RoomBattle implements IBattleSession {
    * Наносит врагу уже посчитанный урон. `direct` — удар героя (работают вампиризм, шипы врага, ярость врага).
    * Возвращает true, если враг погиб.
    */
-  private damageEnemy(cell: number, dmg: number, crit: boolean, direct = false): boolean {
+  private damageEnemy(cell: CellIndex, dmg: number, crit: boolean, direct = false): boolean {
     const enemy = this.cards[cell];
     if (!enemy || enemy.kind !== 'enemy' || this.over) return false;
     if (this.acting) this.engaged.add(enemy.uid);
@@ -726,7 +733,7 @@ export class RoomBattle implements IBattleSession {
     // кукла вуду: половина урона расходится по остальным врагам
     if (enemy.link && dealt > 0) {
       const share = Math.max(1, Math.round(dealt * 0.5));
-      for (let i = 0; i < 9; i++) {
+      for (const i of Grid.CELLS) {
         const other = this.cards[i];
         if (i !== cell && other?.kind === 'enemy') this.damageEnemy(i, share, false);
       }
@@ -738,7 +745,7 @@ export class RoomBattle implements IBattleSession {
     return false;
   }
 
-  private killEnemy(cell: number): void {
+  private killEnemy(cell: CellIndex): void {
     const enemy = this.cards[cell];
     if (!enemy || enemy.kind !== 'enemy') return;
     const def = this.enemies[enemy.defId];
@@ -759,11 +766,11 @@ export class RoomBattle implements IBattleSession {
     );
     const souls = Math.round(def.souls * eliteMul * (this.mod.soulMul ?? 1) * (1 + s.soulBonus));
     if (gold > 0) {
-      this.totals.gold += gold;
+      this.totals.gold = Gold.of(this.totals.gold + gold);
       this.emit({ type: 'gold', cell, amount: gold });
     }
     if (souls > 0) {
-      this.totals.souls += souls;
+      this.totals.souls = Souls.of(this.totals.souls + souls);
       this.emit({ type: 'souls', cell, amount: souls });
     }
     if (s.killHp > 0 && this.totals.kills % 10 === 0) {
@@ -807,13 +814,14 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Призрак встаёт на месте заражённого врага и три хода бьёт соседей. */
-  private raiseGhost(cell: number): void {
+  private raiseGhost(cell: CellIndex): void {
     this.engine.put(cell, this.factory.createGhost(3));
   }
 
   /** Каждый призрак бьёт одного врага крестом (вверх, вниз, влево, вправо), потом тает на ход. */
   private tickGhosts(): void {
-    for (let i = 0; i < 9 && !this.over; i++) {
+    for (const i of Grid.CELLS) {
+      if (this.over) break;
       const g = this.cards[i];
       if (g?.kind !== 'ghost') continue;
       const targets = Grid.neighbors(i).filter((n) => this.cards[n]?.kind === 'enemy');
@@ -833,44 +841,44 @@ export class RoomBattle implements IBattleSession {
     }
   }
 
-  private splashNeighbors(cell: number, dmg: number): void {
+  private splashNeighbors(cell: CellIndex, dmg: number): void {
     for (const n of Grid.neighbors(cell)) {
       if (this.cards[n]?.kind === 'enemy') this.damageEnemy(n, dmg, false);
     }
   }
 
-  private stepInto(cell: number): void {
+  private stepInto(cell: CellIndex): void {
     if (this.cards[cell]) return;
     this.engine.moveHero(cell);
   }
 
   // ------------------------------------------------------------------ статусы
 
-  private applyBurn(cell: number, dmg: number, turns: number): void {
+  private applyBurn(cell: CellIndex, dmg: number, turns: number): void {
     const c = this.cards[cell];
     if (!c || c.kind !== 'enemy' || dmg <= 0) return;
     c.ignite(dmg, turns);
     this.emit({ type: 'status', cell, uid: c.uid, kind: 'burn', turns: c.burn });
   }
 
-  private applyPoison(cell: number, dmg: number, turns: number): void {
+  private applyPoison(cell: CellIndex, dmg: number, turns: number): void {
     const c = this.cards[cell];
     if (!c || c.kind !== 'enemy' || dmg <= 0) return;
     c.poisonWith(dmg, turns);
     this.emit({ type: 'status', cell, uid: c.uid, kind: 'poison', turns: c.poison });
   }
 
-  private applyStun(cell: number, turns = 1): void {
+  private applyStun(cell: CellIndex, turns = 1): void {
     const c = this.cards[cell];
     if (!c || c.kind !== 'enemy') return;
     c.stunFor(turns);
     this.emit({ type: 'status', cell, uid: c.uid, kind: 'stun', turns: c.stun });
   }
 
-  private jumpMark(from: number): void {
-    let best = -1;
+  private jumpMark(from: CellIndex): void {
+    let best = Grid.NO_CELL;
     let bestD = Infinity;
-    for (let i = 0; i < 9; i++) {
+    for (const i of Grid.CELLS) {
       const c = this.cards[i];
       if (c?.kind !== 'enemy' || c.mark > 0) continue;
       const d = Grid.dist(from, i);
@@ -885,9 +893,9 @@ export class RoomBattle implements IBattleSession {
     this.emit({ type: 'status', cell: best, uid: c.uid, kind: 'mark', turns: c.mark });
   }
 
-  private enemyCells(): number[] {
-    const out: number[] = [];
-    this.cards.forEach((c, i) => c?.kind === 'enemy' && out.push(i));
+  private enemyCells(): CellIndex[] {
+    const out: CellIndex[] = [];
+    this.cards.forEach((c, i) => c?.kind === 'enemy' && out.push(CellIndex.of(i)));
     return out;
   }
 
@@ -967,8 +975,8 @@ export class RoomBattle implements IBattleSession {
       this.exposed = false;
       return;
     }
-    const cells: number[] = [];
-    for (let c = 0; c < 9; c++) {
+    const cells: CellIndex[] = [];
+    for (const c of Grid.CELLS) {
       const card = this.cards[c];
       if (card?.kind !== 'enemy') continue;
       if (!Grid.neighbors(this.playerCell).includes(c)) continue;
@@ -982,7 +990,7 @@ export class RoomBattle implements IBattleSession {
     this.exposed = false;
   }
 
-  private enemyStrike(cell: number): void {
+  private enemyStrike(cell: CellIndex): void {
     const enemy = this.cards[cell];
     if (!enemy || enemy.kind !== 'enemy' || this.over) return;
     const s = this.stats;
@@ -998,7 +1006,7 @@ export class RoomBattle implements IBattleSession {
     const atk = Math.max(1, Math.round(enemy.atk * (1 - this.warCry)));
     this.emit({ type: 'attack', from: cell, to: this.playerCell, ranged: false, by: 'enemy' });
     enemy.swings++;
-    if (this.rng.chance(s.dodge / 100)) {
+    if (this.rng.chance(Percent.toRatio(s.dodge))) {
       this.emit({ type: 'miss', cell: this.playerCell, kind: 'dodge' });
       // «Подмена»: уворот превращается в удар из-за спины
       if (s.passives.has('substitution')) {
@@ -1016,13 +1024,13 @@ export class RoomBattle implements IBattleSession {
       }
       return;
     }
-    if (this.rng.chance(s.parry / 100)) {
+    if (this.rng.chance(Percent.toRatio(s.parry))) {
       this.emit({ type: 'miss', cell: this.playerCell, kind: 'parry' });
       if (s.counterBuff > 0) this.counterReady = true;
       this.strike(cell, Math.round(this.currentDamage() * 0.5), false);
       return;
     }
-    if (s.block > 0 && this.rng.chance(s.block / 100)) {
+    if (s.block > 0 && this.rng.chance(Percent.toRatio(s.block))) {
       this.emit({ type: 'miss', cell: this.playerCell, kind: 'block' });
       return;
     }
@@ -1036,7 +1044,7 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Урон по герою: щит, «первый удар комнаты», мана-щит, обман смерти, шипы. */
-  private hurtPlayer(raw: number, fromCell: number, reflected: boolean): void {
+  private hurtPlayer(raw: number, fromCell: CellIndex, reflected: boolean): void {
     if (this.over) return;
     const s = this.stats;
     let dmg = raw;
@@ -1113,7 +1121,7 @@ export class RoomBattle implements IBattleSession {
       this.emit({ type: 'resource', now: 0, max: this.stats.resMax });
     }
     if (price.goldShare > 0)
-      this.totals.gold = Math.round(this.totals.gold * (1 - price.goldShare));
+      this.totals.gold = Gold.of(Math.round(this.totals.gold * (1 - price.goldShare)));
     if (shock) {
       this.emit({ type: 'fx', cells: this.enemyCells(), style: 'quake' });
       const blast = Math.max(1, dmg * 2);
@@ -1125,7 +1133,7 @@ export class RoomBattle implements IBattleSession {
   // ------------------------------------------------------------------ способности: реализация
 
   /** Применяет способность, пометив урон как «от способности» — тогда работают таланты-синергии. */
-  private runAbility(p: PerkDef, cell: number): void {
+  private runAbility(p: PerkDef, cell: CellIndex): void {
     const target = cell >= 0 ? this.cards[cell] : null;
     if (target?.kind === 'enemy') this.engaged.add(target.uid);
     this.inAbility = true;
@@ -1150,7 +1158,7 @@ export class RoomBattle implements IBattleSession {
       });
   }
 
-  private applyAbility(p: PerkDef, cell: number): void {
+  private applyAbility(p: PerkDef, cell: CellIndex): void {
     const enemies = this.enemyCells();
     const target = cell >= 0 ? this.cards[cell] : null;
 
@@ -1213,7 +1221,7 @@ export class RoomBattle implements IBattleSession {
         break;
       }
       case 'duel': {
-        let best = -1;
+        let best = Grid.NO_CELL;
         let bestAtk = -1;
         for (const c of enemies) {
           if (this.cards[c]!.atk > bestAtk) {
@@ -1319,8 +1327,8 @@ export class RoomBattle implements IBattleSession {
         break;
       }
       case 'chain_lightning': {
-        const chain: number[] = [cell];
-        const seen = new Set<number>([cell]);
+        const chain: CellIndex[] = [cell];
+        const seen = new Set<CellIndex>([cell]);
         for (const n of Grid.neighbors(cell)) {
           if (this.cards[n]?.kind === 'enemy' && !seen.has(n) && chain.length < 3) {
             chain.push(n);
@@ -1383,7 +1391,7 @@ export class RoomBattle implements IBattleSession {
       case 'dead_harvest': {
         this.emit({ type: 'fx', cells: enemies, style: 'soul' });
         const bonus = this.stats.soulBonus;
-        this.stats.soulBonus = bonus + 1;
+        this.stats.soulBonus = Ratio.of(bonus + 1);
         for (const c of enemies) {
           const e = this.cards[c];
           if (!e) continue;
@@ -1617,13 +1625,13 @@ export class RoomBattle implements IBattleSession {
   }
 
   /** Клетка «за» целью по линии от героя. */
-  private behindCell(from: number, to: number): number {
+  private behindCell(from: CellIndex, to: CellIndex): CellIndex {
     const cell = Grid.behind(from, to);
-    return cell === this.playerCell ? -1 : cell;
+    return cell === this.playerCell ? Grid.NO_CELL : cell;
   }
 
-  private nearestEnemy(from: number): number {
-    let best = -1;
+  private nearestEnemy(from: CellIndex): CellIndex {
+    let best = Grid.NO_CELL;
     let bestD = Infinity;
     for (const c of this.enemyCells()) {
       const d = Grid.dist(from, c);
@@ -1635,7 +1643,7 @@ export class RoomBattle implements IBattleSession {
     return best;
   }
 
-  private reapMarked(cell: number): void {
+  private reapMarked(cell: CellIndex): void {
     const e = this.cards[cell];
     if (!e || e.kind !== 'enemy') return;
     if (this.enemies[e.defId].boss)
@@ -1729,7 +1737,7 @@ export class RoomBattle implements IBattleSession {
 
   // ------------------------------------------------------------------ подбор карт
 
-  private collect(cell: number): void {
+  private collect(cell: CellIndex): void {
     // мог ударить — но пошёл мимо: если новая клетка у кого-то под рукой, тот бьёт
     this.exposed = this.canStrike();
     const exit = this.cards[cell]?.kind === 'exit';
@@ -1746,12 +1754,12 @@ export class RoomBattle implements IBattleSession {
     }
   }
 
-  private take(cell: number): void {
+  private take(cell: CellIndex): void {
     const card = this.cards[cell];
     if (!card) return;
     this.engine.discard(cell);
     if (card.kind === 'gold') {
-      this.totals.gold += card.value;
+      this.totals.gold = Gold.of(this.totals.gold + card.value);
       this.emit({ type: 'gold', cell, amount: card.value });
     } else if (card.kind === 'chest') {
       this.openChest(cell, card.defId === 'chest_empty');
@@ -1772,7 +1780,7 @@ export class RoomBattle implements IBattleSession {
     return r < 0.55 ? 'potion_heal' : 'potion_regen';
   }
 
-  private openChest(cell: number, empty = false): void {
+  private openChest(cell: CellIndex, empty = false): void {
     const { rng, stats: s } = this;
     const loot: Loot[] = [];
     // пустой сундук снаружи не отличить: открыл — а там паутина
@@ -1782,7 +1790,7 @@ export class RoomBattle implements IBattleSession {
     }
     const gold = this.factory.rollGold(10, 24);
     loot.push({ kind: 'gold', amount: gold });
-    this.totals.gold += gold;
+    this.totals.gold = Gold.of(this.totals.gold + gold);
     this.emit({ type: 'gold', cell, amount: gold });
     let chance = GAMEPLAY.chestItemChance + s.luck * 0.02;
     for (let i = 0; i < 2 && rng.chance(chance); i++) {
@@ -1809,7 +1817,8 @@ export class RoomBattle implements IBattleSession {
 
   /** Эффекты со временем: горение, яд, клеймо, призраки, лечение врагов. */
   private tickStatuses(): void {
-    for (let i = 0; i < 9 && !this.over; i++) {
+    for (const i of Grid.CELLS) {
+      if (this.over) break;
       const c = this.cards[i];
       if (!c || c.kind !== 'enemy') continue;
       if (c.burn > 0 && c.burnNew) c.burnNew = false;
@@ -1849,7 +1858,7 @@ export class RoomBattle implements IBattleSession {
     // яд на герое
     if (this.playerPoison > 0 && !this.over) {
       this.playerPoison--;
-      this.hurtPlayer(this.playerPoisonDmg, -1, true);
+      this.hurtPlayer(this.playerPoisonDmg, Grid.NO_CELL, true);
     }
   }
 
@@ -1858,10 +1867,10 @@ export class RoomBattle implements IBattleSession {
    * зелье восстановления вернёт ману, артефакт мага разнесёт окружение.
    */
   private hasMove(): boolean {
-    for (let c = 0; c < 9; c++) if (this.actionFor(c).kind !== 'none') return true;
+    for (const c of Grid.CELLS) if (this.actionFor(c).kind !== 'none') return true;
     const usable = (p: PerkDef): boolean => {
       if (p.target === 'self' || p.target === undefined) return true;
-      for (let c = 0; c < 9; c++) if (this.perkTargetOk(p, c)) return true;
+      for (const c of Grid.CELLS) if (this.perkTargetOk(p, c)) return true;
       return false;
     };
     for (const p of this.stats.abilities) if (this.perkReady(p).ok && usable(p)) return true;
@@ -1877,14 +1886,14 @@ export class RoomBattle implements IBattleSession {
    * а маг — молнией, если на неё хватает маны и она не на перезарядке.
    */
   private canStrike(): boolean {
-    for (let c = 0; c < 9; c++) {
+    for (const c of Grid.CELLS) {
       if (this.cards[c]?.kind !== 'enemy') continue;
       const k = this.actionFor(c).kind;
       if (k === 'melee' || k === 'ranged') return true;
     }
     for (const p of this.stats.abilities) {
       if (p.ability !== 'lightning' || !this.perkReady(p).ok) continue;
-      for (let c = 0; c < 9; c++) if (this.perkTargetOk(p, c)) return true;
+      for (const c of Grid.CELLS) if (this.perkTargetOk(p, c)) return true;
     }
     return false;
   }
@@ -1899,9 +1908,9 @@ export class RoomBattle implements IBattleSession {
    * пока герой не падёт. Это не тупик, а расплата за пустую шкалу в окружении.
    */
   private swarm(): void {
-    const order = (): number[] => {
-      const cells: number[] = [];
-      for (let c = 0; c < 9; c++) if (this.cards[c]?.kind === 'enemy') cells.push(c);
+    const order = (): CellIndex[] => {
+      const cells: CellIndex[] = [];
+      for (const c of Grid.CELLS) if (this.cards[c]?.kind === 'enemy') cells.push(c);
       return cells.sort(
         (a, b) => Grid.dist(a, this.playerCell) - Grid.dist(b, this.playerCell) || a - b,
       );

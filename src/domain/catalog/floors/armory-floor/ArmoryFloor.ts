@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -12,7 +13,7 @@ export class ArmoryFloor extends FloorFactory {
         armor: 3,
       }),
       this.enemy('blade_dancer', 'Танцор клинков', 'Blade Dancer', 'normal', 'humanoid', {
-        evade: 18,
+        evade: Percent.of(18),
       }),
       this.enemy('crossbowman', 'Арбалетчик', 'Crossbowman', 'normal', 'humanoid'),
       this.enemy('iron_sentinel', 'Железный страж', 'Iron Sentinel', 'tough', 'construct', {

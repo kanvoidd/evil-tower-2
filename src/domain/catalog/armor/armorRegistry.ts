@@ -1,3 +1,4 @@
+import { Gold } from '../../shared';
 import type { ItemDef } from '../items/interfaces/ItemDef';
 import type { ItemTier } from '../items/interfaces/ItemTier';
 
@@ -37,6 +38,6 @@ export const ARMORS: ItemDef[] = ARMOR_NAMES.map(([ru, en], i): ItemDef => {
     defense: t.def,
     health: t.hp,
     durability: t.dur,
-    price: t.price,
+    price: Gold.of(t.price),
   };
 });

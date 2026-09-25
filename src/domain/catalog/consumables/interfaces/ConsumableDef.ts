@@ -1,10 +1,11 @@
+import type { Gold } from '../../../shared';
 import type { LineageId } from '../../heroes/interfaces/LineageId';
 import type { ConsumableId } from './ConsumableId';
 
 export interface ConsumableDef {
   id: ConsumableId;
   icon: string;
-  price: number;
+  price: Gold;
   /** Можно ли купить в лавке (артефакты только из сундуков). */
   sold: boolean;
   /** Ограничение по линейке (артефакт — только маг). */

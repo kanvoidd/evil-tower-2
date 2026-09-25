@@ -1,5 +1,6 @@
 import { type ConsumableId, CONSUMABLES, PERK_BY_ID, type PerkDef } from '../../domain/catalog';
 import { type GameEvent, Grid, type IBattleSession, pickAutoUse } from '../../domain/combat';
+import type { CellIndex } from '../../domain/shared';
 import { GameCommandHandler } from './GameCommandHandler';
 import type { CellRejection } from './interfaces/CellRejection';
 import type { GameControllerDeps } from './interfaces/GameControllerDeps';
@@ -94,7 +95,7 @@ export class GameController {
     void this.turn(res.events);
   }
 
-  private onCell(cell: number): void {
+  private onCell(cell: CellIndex): void {
     if (!this.idle) return;
     const wasArmed = this.battle.armed;
     const res = this.commands.execute({ type: 'select-cell', cell });

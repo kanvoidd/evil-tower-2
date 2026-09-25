@@ -1,7 +1,7 @@
 import type { Profile } from '../../domain/account';
 import { type RoomDef, ROOMS } from '../../domain/catalog';
 import { type GameEvent, type IBattleSession, RoomBattleFactory } from '../../domain/combat';
-import { makeRng, randomSeed, type Rng } from '../../domain/shared';
+import { Gold, makeRng, randomSeed, type Rng, Souls } from '../../domain/shared';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
 import type { RunCarry } from './interfaces/RunCarry';
@@ -29,7 +29,7 @@ export class TowerRun {
 
   /** Новый забег: всегда с 1-1, рекорд героя запоминается, чтобы в конце сказать «новый рекорд». */
   static start(profile: Profile): RunCarry {
-    return { index: 0, rooms: 0, gold: 0, souls: 0, best: profile.best };
+    return { index: 0, rooms: 0, gold: Gold.of(0), souls: Souls.of(0), best: profile.best };
   }
 
   get state(): RunCarry {
@@ -97,12 +97,12 @@ export class TowerRun {
   }
 
   /** Пройденная комната сразу платит всё: сумку, души и бонус за прохождение. */
-  clearRoom(): { gold: number; souls: number; flawless: boolean } {
+  clearRoom(): { gold: Gold; souls: Souls; flawless: boolean } {
     const battle = this.battle;
     const room = battle.room;
     this.commitRoom();
-    const gold = battle.totals.gold + room.clearGold;
-    const souls = battle.totals.souls + room.clearSouls;
+    const gold = Gold.of(battle.totals.gold + room.clearGold);
+    const souls = Souls.of(battle.totals.souls + room.clearSouls);
     const flawless = battle.totals.damageTaken === 0;
     const p = this.profile;
     p.addGold(gold);
@@ -114,8 +114,8 @@ export class TowerRun {
       ...c,
       index: c.index + 1,
       rooms: c.rooms + 1,
-      gold: c.gold + gold,
-      souls: c.souls + souls,
+      gold: Gold.of(c.gold + gold),
+      souls: Souls.of(c.souls + souls),
       hero: battle.carryOut(),
     };
     // рекорд пишем сразу: закрытая посреди забега вкладка не должна его отнимать

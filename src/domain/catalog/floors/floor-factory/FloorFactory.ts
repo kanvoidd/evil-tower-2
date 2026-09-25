@@ -1,3 +1,4 @@
+import { Gold, Souls } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import type { EnemyRole } from '../../enemies/interfaces/EnemyRole';
 import type { EnemyTag } from '../../enemies/interfaces/EnemyTag';
@@ -176,8 +177,8 @@ export abstract class FloorFactory {
       heal: s.heal,
       regen: s.regen,
       goldScale: Math.round(gold * stepGold * F.RUN_REWARD * 100) / 100,
-      clearGold: Math.round(24 * stepGold * (boss ? 2.6 : 1) * gold * F.RUN_REWARD),
-      clearSouls: Math.round(22 * stepGold * (boss ? 3 : 1) * souls * F.RUN_REWARD),
+      clearGold: Gold.of(Math.round(24 * stepGold * (boss ? 2.6 : 1) * gold * F.RUN_REWARD)),
+      clearSouls: Souls.of(Math.round(22 * stepGold * (boss ? 3 : 1) * souls * F.RUN_REWARD)),
     };
   }
 }

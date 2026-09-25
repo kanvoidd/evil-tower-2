@@ -1,3 +1,4 @@
+import { Percent } from '../../../shared';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import { FloorFactory } from '../floor-factory/FloorFactory';
 
@@ -16,7 +17,7 @@ export class SummitFloor extends FloorFactory {
       }),
       this.enemy('void_herald', 'Вестник пустоты', 'Void Herald', 'elite', 'demon', {
         magic: true,
-        evade: 15,
+        evade: Percent.of(15),
       }),
       this.enemy('boss_demon', 'Владыка башни', 'Tower Lord', 'boss', 'demon', {
         magic: true,

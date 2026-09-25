@@ -1,10 +1,14 @@
 import type { AbilityId, ClassId, LineageId, PerkDef, ResourceKind } from '../../../catalog';
+import type { Percent, Ratio } from '../../../shared';
 import type { IAttackStrategy } from '../../attack/interfaces/IAttackStrategy';
 
 /**
  * Герой глазами боя: характеристики, способности и стиль атаки. Собирает их прогресс героя
  * (`buildPlayerStats`: база линейки, класс, таланты, снаряжение), бой только читает и не знает,
  * откуда взялось число.
+ *
+ * Единицы видны по типу: шанс — в процентах (`Percent`, 25 — это 25 %), прибавки, снижения и доли
+ * здоровья — в долях (`Ratio`, 0,25), остальное — очки характеристик, ресурса и множители.
  */
 export interface PlayerStats {
   classId: ClassId;
@@ -12,9 +16,9 @@ export interface PlayerStats {
   resource: ResourceKind;
   maxHp: number;
   damage: number;
-  crit: number;
-  dodge: number;
-  parry: number;
+  crit: Percent;
+  dodge: Percent;
+  parry: Percent;
   defense: number;
   luck: number;
   resMax: number;
@@ -26,81 +30,81 @@ export interface PlayerStats {
   /** Границы случайного множителя крита. */
   critMin: number;
   critMax: number;
-  goldBonus: number;
-  soulBonus: number;
-  artifactMul: number;
+  goldBonus: Ratio;
+  soulBonus: Ratio;
+  artifactMul: Ratio;
   /** Множитель силы способностей: 1 — базовая, 2 — вдвое сильнее. */
   perkPower: number;
 
   // ---- таланты пути урона
-  execute: number;
-  pierce: number;
-  doubleStrike: number;
-  lowHpDmg: number;
-  fullHpDmg: number;
-  bossDmg: number;
-  ignite: number;
-  killDmg: number;
-  rageDmg: number;
-  goldDmg: number;
-  defDmg: number;
+  execute: Ratio;
+  pierce: Ratio;
+  doubleStrike: Percent;
+  lowHpDmg: Ratio;
+  fullHpDmg: Ratio;
+  bossDmg: Ratio;
+  ignite: Ratio;
+  killDmg: Ratio;
+  rageDmg: Ratio;
+  goldDmg: Ratio;
+  defDmg: Ratio;
   everyThird: boolean;
   roomCrit: boolean;
-  lifesteal: number;
+  lifesteal: Ratio;
 
   // ---- синергии: меняют уже полученные способности
-  abilityIgnite: number;
-  abilityStun: number;
-  abilitySplash: number;
-  abilityPoison: number;
-  abilityVuln: number;
-  abilityCrit: number;
-  abilityLifesteal: number;
-  abilityRefund: number;
-  abilityShield: number;
-  killBlast: number;
+  abilityIgnite: Percent;
+  abilityStun: Percent;
+  abilitySplash: Ratio;
+  abilityPoison: Ratio;
+  abilityVuln: Ratio;
+  abilityCrit: Percent;
+  abilityLifesteal: Ratio;
+  abilityRefund: Ratio;
+  abilityShield: Ratio;
+  killBlast: Ratio;
   /** «Раздвоение молнии»: шанс задеть второго врага и доля урона по нему. */
-  splitChance: number;
-  splitDmg: number;
+  splitChance: Ratio;
+  splitDmg: Ratio;
   perkCostDown: number;
   /** «Раздвоение молнии»: шанс второго разряда по той же цели и его доля урона. */
-  echoChance: number;
-  echoDmg: number;
+  echoChance: Ratio;
+  echoDmg: Ratio;
   /** Усиление отдельных заклинаний мага. */
-  lightningPower: number;
-  shotPower: number;
-  chainPower: number;
+  lightningPower: Ratio;
+  shotPower: Ratio;
+  chainPower: Ratio;
 
   // ---- таланты пути здоровья
-  lowHpDr: number;
-  bigHitCut: number;
-  startShieldPct: number;
-  potionPct: number;
+  lowHpDr: Ratio;
+  bigHitCut: Ratio;
+  startShieldPct: Ratio;
+  potionPct: Ratio;
   cheatDeath: number;
-  reviveHp: number;
-  killHp: number;
-  bossHp: number;
+  reviveHp: Ratio;
+  killHp: Ratio;
+  bossHp: Ratio;
   freePerk: boolean;
-  healShield: number;
-  stepHeal: number;
+  healShield: Ratio;
+  stepHeal: Ratio;
 
   // ---- таланты пути защиты
-  block: number;
-  thorns: number;
-  weaken: number;
-  firstHitDown: number;
-  dotDr: number;
-  bossDr: number;
-  magicDr: number;
-  killDefTurn: number;
-  killDefStack: number;
-  roomGuard: number;
-  counterBuff: number;
-  highHpDef: number;
-  resDef: number;
-  perkDef: number;
-  scarDef: number;
-  manaShield: number;
+  block: Percent;
+  thorns: Ratio;
+  weaken: Ratio;
+  firstHitDown: Ratio;
+  dotDr: Ratio;
+  bossDr: Ratio;
+  magicDr: Ratio;
+  killDefTurn: Ratio;
+  killDefStack: Ratio;
+  roomGuard: Ratio;
+  counterBuff: Ratio;
+  highHpDef: Ratio;
+  resDef: Ratio;
+  perkDef: Ratio;
+  scarDef: Ratio;
+  manaShield: Ratio;
 
   perks: string[];
   /** Способности с кнопкой на поле боя (в порядке слотов). */

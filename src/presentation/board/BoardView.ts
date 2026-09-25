@@ -1,6 +1,7 @@
 import type Phaser from 'phaser';
 
-import type { Card, IBattleState, PlayerStats } from '../../domain/combat';
+import { type Card, Grid, type IBattleState, type PlayerStats } from '../../domain/combat';
+import type { CellIndex } from '../../domain/shared';
 import type { Point } from '../animations/interfaces/Point';
 import { plateTexture } from '../components';
 import { CARD_H, CARD_W } from '../textures/Textures';
@@ -22,7 +23,7 @@ export class BoardView {
     private readonly factory: CardViewFactory,
     stats: PlayerStats,
     hp: number,
-    playerCell: number,
+    playerCell: CellIndex,
   ) {
     for (let i = 0; i < 9; i++) {
       const p = BoardLayout.cellPos(i);
@@ -35,7 +36,7 @@ export class BoardView {
   }
 
   /** Новая карточка на клетке (без анимации появления). */
-  place(card: Card, cell: number): CardView {
+  place(card: Card, cell: CellIndex): CardView {
     const v = this.factory.createCard(card, cell, BoardLayout.cellPos(cell));
     this.views.set(card.uid, v);
     return v;
@@ -64,10 +65,10 @@ export class BoardView {
   }
 
   /** Полная перерисовка поля — нужна после «Отката времени». */
-  rebuild(cards: ReadonlyArray<Card | null>, playerCell: number): void {
+  rebuild(cards: ReadonlyArray<Card | null>, playerCell: CellIndex): void {
     for (const v of this.views.values()) v.c.destroy();
     this.views.clear();
-    for (let i = 0; i < 9; i++) {
+    for (const i of Grid.CELLS) {
       const card = cards[i];
       if (card) this.place(card, i);
     }
@@ -99,7 +100,7 @@ export class BoardView {
   }
 
   /** Рамка «добьёт одним ударом» у врагов. */
-  markKillable(wouldKill: (cell: number) => boolean): void {
+  markKillable(wouldKill: (cell: CellIndex) => boolean): void {
     for (const v of this.views.values()) {
       if (v.kind !== 'enemy') continue;
       v.frame.setTexture(wouldKill(v.cell) ? 'card_kill' : 'card_enemy');

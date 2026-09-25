@@ -1,3 +1,4 @@
+import type { Gold, Souls } from '../../../shared';
 /**
  * Комната задаётся не списком врагов, а «рецептом»: пул врагов этажа и разброс количества.
  * Настоящий состав набирается заново при каждом заходе (`rollRoom`), поэтому одна и та же
@@ -20,6 +21,6 @@ export interface RoomDef {
   /** Множитель денежных наград на этой комнате. */
   goldScale: number;
   /** Премия за прохождение комнаты — платится в каждом забеге. */
-  clearGold: number;
-  clearSouls: number;
+  clearGold: Gold;
+  clearSouls: Souls;
 }

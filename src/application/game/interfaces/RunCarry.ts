@@ -1,4 +1,5 @@
 import type { BattleCarryStats } from '../../../domain/combat';
+import type { Gold, Souls } from '../../../domain/shared';
 
 /**
  * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет
@@ -14,8 +15,8 @@ export interface RunCarry {
   /** Сколько комнат пройдено в этом забеге. */
   rooms: number;
   /** Золото и души, заработанные за пройденные комнаты (уже в кошельке). */
-  gold: number;
-  souls: number;
+  gold: Gold;
+  souls: Souls;
   /** Рекорд героя до начала забега — чтобы в конце сказать «новый рекорд». */
   best: number;
 }

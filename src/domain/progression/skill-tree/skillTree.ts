@@ -23,6 +23,7 @@ import {
   terminalsOf,
 } from '../../catalog';
 import { GAMEPLAY } from '../../gameplay';
+import { Souls } from '../../shared';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';
 import type { LineageSave } from './interfaces/LineageSave';
 
@@ -309,20 +310,20 @@ export const isPurchasable = (n: TreeNode): boolean =>
   n.kind !== 'evo' && !(n.kind === 'perk' && n.slot === 'start');
 
 /** Цена следующего шага: у таланта — очередной ранг, у способности и класса — вся покупка. */
-export const costOf = (s: LineageSave, n: TreeNode): number => {
+export const costOf = (s: LineageSave, n: TreeNode): Souls => {
   if (n.kind === 'talent') {
     const next = rankOf(s, n.id) + 1;
-    if (next > maxRankOf(n)) return 0;
+    if (next > maxRankOf(n)) return Souls.of(0);
     return talentRankCost(n.owner, n.tier!, next);
   }
   if (n.kind === 'perk') return perkCost(n.owner, n.slot!);
   if (n.kind === 'class') return classCost(n.classId!);
-  return 0;
+  return Souls.of(0);
 };
 
-export type BuyResult = { ok: true; cost: number } | { ok: false; reason: 'state' | 'souls' };
+export type BuyResult = { ok: true; cost: Souls } | { ok: false; reason: 'state' | 'souls' };
 
-export const canBuy = (tree: Tree, s: LineageSave, n: TreeNode, souls: number): BuyResult => {
+export const canBuy = (tree: Tree, s: LineageSave, n: TreeNode, souls: Souls): BuyResult => {
   if (!isPurchasable(n) || !canInvest(tree, s, n)) return { ok: false, reason: 'state' };
   const cost = costOf(s, n);
   return souls >= cost ? { ok: true, cost } : { ok: false, reason: 'souls' };
@@ -347,8 +348,8 @@ export const applyCancelMetamorphosis = (
   tree: Tree,
   s: LineageSave,
   classId: ClassId,
-): { refund: number } => {
-  let spent = classCost(classId);
+): { refund: Souls } => {
+  let spent: number = classCost(classId);
   for (const n of tree.nodes) {
     if (n.owner !== classId) continue;
     const rank = rankOf(s, n.id);
@@ -359,7 +360,7 @@ export const applyCancelMetamorphosis = (
   }
   delete s.ranks[tree.classNode[classId].id];
   s.last = tree.classNode[CLASSES[classId].parent!].id;
-  return { refund: Math.floor(spent * GAMEPLAY.cancelMetamorphosisRefund) };
+  return { refund: Souls.of(Math.floor(spent * GAMEPLAY.cancelMetamorphosisRefund)) };
 };
 
 // ------------------------------------------------------------------ бонусы и способности
@@ -421,15 +422,15 @@ export const activePerkIds = (tree: Tree, s: LineageSave, _active: ClassId): str
 };
 
 /** Есть ли что купить прямо сейчас (для красной точки на иконке героя). */
-export const anyAffordable = (tree: Tree, s: LineageSave, souls: number): boolean =>
+export const anyAffordable = (tree: Tree, s: LineageSave, souls: Souls): boolean =>
   tree.nodes.some((n) => isPurchasable(n) && canInvest(tree, s, n) && costOf(s, n) <= souls);
 
-export const cheapestAvailable = (tree: Tree, s: LineageSave): number => {
+export const cheapestAvailable = (tree: Tree, s: LineageSave): Souls => {
   let best = Infinity;
   for (const n of tree.nodes) {
     if (isPurchasable(n) && canInvest(tree, s, n)) best = Math.min(best, costOf(s, n));
   }
-  return best;
+  return Souls.of(best);
 };
 
 /** Таланты класса — для панели дерева. */

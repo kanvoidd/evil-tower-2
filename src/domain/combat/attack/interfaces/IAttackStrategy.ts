@@ -1,4 +1,5 @@
 import type { AbilityId } from '../../../catalog';
+import type { CellIndex } from '../../../shared';
 import type { BasicMode } from './BasicMode';
 
 /**
@@ -18,5 +19,5 @@ export interface IAttackStrategy {
   /** Как удар выглядит на поле. */
   readonly style: 'shot' | 'backstab' | 'bolt';
   /** Достаёт ли базовое действие от клетки героя до клетки несоседнего врага. */
-  reaches(from: number, to: number, passives: ReadonlySet<AbilityId>): boolean;
+  reaches(from: CellIndex, to: CellIndex, passives: ReadonlySet<AbilityId>): boolean;
 }

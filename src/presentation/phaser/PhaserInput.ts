@@ -3,6 +3,7 @@ import Phaser from 'phaser';
 import type { IInput } from '../../application/game/interfaces/IInput';
 import type { PlayerCommand } from '../../application/game/interfaces/PlayerCommand';
 import type { ConsumableId } from '../../domain/catalog';
+import { CellIndex } from '../../domain/shared';
 import { BoardLayout } from '../board/BoardLayout';
 
 /**
@@ -40,7 +41,7 @@ export class PhaserInput implements IInput {
     scene.input.on('pointerup', (p: Phaser.Input.Pointer) => {
       if (Phaser.Math.Distance.Between(p.x, p.y, p.downX, p.downY) > PhaserInput.TAP_SLOP) return;
       const cell = BoardLayout.cellAt(p.x, p.y);
-      if (cell >= 0) this.emit({ type: 'select-cell', cell });
+      if (cell >= 0) this.emit({ type: 'select-cell', cell: CellIndex.of(cell) });
     });
     const kb = scene.input.keyboard;
     for (const [key, [dx, dy]] of Object.entries(PhaserInput.STEPS))
@@ -64,6 +65,6 @@ export class PhaserInput implements IInput {
     const col = (pc % 3) + dx;
     const row = Math.floor(pc / 3) + dy;
     if (col < 0 || col > 2 || row < 0 || row > 2) return;
-    this.emit({ type: 'select-cell', cell: row * 3 + col });
+    this.emit({ type: 'select-cell', cell: CellIndex.of(row * 3 + col) });
   }
 }

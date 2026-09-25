@@ -1,3 +1,4 @@
+import type { CellIndex } from '../../../shared';
 import type { Card } from '../../card/Card';
 import type { GameEvent } from '../../events';
 import type { EngineSnapshot } from './EngineSnapshot';
@@ -15,25 +16,25 @@ export interface IEngine {
   readonly board: Array<Card | null>;
   /** Колода: первой тянется карта с начала. */
   readonly deck: Card[];
-  playerCell: number;
+  playerCell: CellIndex;
 
   // ---- поле
   /** Положить карту на клетку (событие `spawn`). */
-  put(cell: number, card: Card): void;
+  put(cell: CellIndex, card: Card): void;
   /** Снять карту без события — её уход правила объявят сами (например, `kill`). */
-  clear(cell: number): Card | null;
+  clear(cell: CellIndex): Card | null;
   /** Убрать карту с поля (событие `remove`). */
-  discard(cell: number): void;
+  discard(cell: CellIndex): void;
   /** Поменять содержимое двух клеток (событие `swap`). */
-  swap(a: number, b: number): void;
+  swap(a: CellIndex, b: CellIndex): void;
   /** Шаг героя на клетку (событие `move`); клетка, откуда он ушёл, освобождается. */
-  moveHero(to: number): void;
+  moveHero(to: CellIndex): void;
 
   // ---- колода
   /** Вытянуть верхнюю карту колоды. */
   draw(): Card | undefined;
   /** Отметить клетку освободившейся: в конце хода на неё придёт новая карта. */
-  vacate(cell: number): void;
+  vacate(cell: CellIndex): void;
   /** Забыть освободившиеся клетки (начало хода). */
   resetVacated(): void;
   /** Разложить колоду на освободившиеся клетки. */

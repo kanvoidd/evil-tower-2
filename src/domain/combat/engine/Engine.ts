@@ -1,3 +1,4 @@
+import { CellIndex } from '../../shared';
 import type { Card } from '../card/Card';
 import type { GameEvent } from '../events';
 import { Grid } from './grid/Grid';
@@ -9,39 +10,39 @@ import type { IEngine } from './interfaces/IEngine';
 export class Engine implements IEngine {
   readonly board: Array<Card | null> = Array(Grid.SIZE).fill(null);
   readonly deck: Card[] = [];
-  playerCell = 4;
+  playerCell = CellIndex.of(4);
   /** Клетки, освободившиеся за ход. */
-  private vacated: number[] = [];
+  private vacated: CellIndex[] = [];
   private log: GameEvent[] = [];
 
   constructor(private readonly supply: IDeckSupply) {}
 
-  put(cell: number, card: Card): void {
+  put(cell: CellIndex, card: Card): void {
     this.board[cell] = card;
     this.emit({ type: 'spawn', cell, card });
   }
 
-  clear(cell: number): Card | null {
+  clear(cell: CellIndex): Card | null {
     const card = this.board[cell];
     this.board[cell] = null;
     return card;
   }
 
-  discard(cell: number): void {
+  discard(cell: CellIndex): void {
     const card = this.board[cell];
     if (!card) return;
     this.board[cell] = null;
     this.emit({ type: 'remove', cell, uid: card.uid });
   }
 
-  swap(a: number, b: number): void {
+  swap(a: CellIndex, b: CellIndex): void {
     const t = this.board[a];
     this.board[a] = this.board[b];
     this.board[b] = t;
     this.emit({ type: 'swap', a, b });
   }
 
-  moveHero(to: number): void {
+  moveHero(to: CellIndex): void {
     const from = this.playerCell;
     this.vacated = this.vacated.filter((c) => c !== to);
     this.emit({ type: 'move', from, to });
@@ -53,7 +54,7 @@ export class Engine implements IEngine {
     return this.deck.shift();
   }
 
-  vacate(cell: number): void {
+  vacate(cell: CellIndex): void {
     this.vacated.push(cell);
   }
 

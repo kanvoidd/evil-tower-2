@@ -2,6 +2,7 @@ import type { IProfileStorage } from '../../application/ports/IProfileStorage';
 import { type HeroSave, Profile, type SaveData } from '../../domain/account';
 import { CLASSES, type EquipmentSave, LINEAGE_ORDER, type LineageId } from '../../domain/catalog';
 import { type AutoUseSave, DEFAULT_AUTO_USE } from '../../domain/combat';
+import { Gold, Souls } from '../../domain/shared';
 import type { CloudSaves } from './interfaces/CloudSaves';
 
 /**
@@ -94,8 +95,8 @@ export class ProfileStore implements IProfileStorage {
         out.heroes[lin] =
           lin === active
             ? {
-                gold: old.gold ?? 0,
-                souls: old.souls ?? 0,
+                gold: Gold.of(old.gold ?? 0),
+                souls: Souls.of(old.souls ?? 0),
                 consumables: { ...Profile.emptyHero().consumables, ...old.consumables },
                 armor: old.armor ?? null,
                 best: done,

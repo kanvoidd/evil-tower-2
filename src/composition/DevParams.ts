@@ -1,5 +1,6 @@
 import { CLASSES, type ClassId, ROOMS } from '../domain/catalog';
 import { applyBuy, canInvest, costOf, isPurchasable, TREES } from '../domain/progression';
+import { Gold, Souls } from '../domain/shared';
 import type { ProfileStore } from '../infrastructure/store/ProfileStore';
 
 /** Покупает до `steps` самых дешёвых доступных узлов (приоритет: способности, класс, таланты). */
@@ -46,8 +47,8 @@ export const applyDevParams = (store: ProfileStore): void => {
   }
   const gold = Number(q.get('gold') ?? 0);
   const souls = Number(q.get('souls') ?? 0);
-  if (gold) store.profile.addGold(gold, false);
-  if (souls) store.profile.addSouls(souls, false);
+  if (gold) store.profile.addGold(Gold.of(gold), false);
+  if (souls) store.profile.addSouls(Souls.of(souls), false);
   const clear = Number(q.get('clear') ?? -1);
   if (clear >= 0) {
     store.profile.heroSave.best = Math.min(clear, ROOMS.length);

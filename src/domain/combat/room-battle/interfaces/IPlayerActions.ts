@@ -1,4 +1,5 @@
 import type { ConsumableId } from '../../../catalog';
+import type { CellIndex } from '../../../shared';
 import type { GameEvent } from '../../events';
 import type { TurnResult } from './TurnResult';
 
@@ -10,7 +11,7 @@ export interface IPlayerActions {
   /** Войти в комнату: на поле ложатся первые карты. */
   start(): GameEvent[];
   /** Нажатие на клетку: удар, выстрел, шаг, подбор — или наведение заряженной способности. */
-  tap(cell: number): TurnResult;
+  tap(cell: CellIndex): TurnResult;
   /** Кнопка способности: применить сразу или зарядить (повторное нажатие снимает заряд). */
   usePerk(id: string): TurnResult;
   cancelPerk(): GameEvent[];
