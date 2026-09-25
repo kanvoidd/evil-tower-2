@@ -52,8 +52,8 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const armorHp = a ? ITEM_BY_ID[a.id].health * armorMul : 0;
   const weaponDmg = w ? ITEM_BY_ID[w.id].damage : 0;
 
-  const rawDamage = lin.base.damage + (cls.mods.damage ?? 0) + weaponDmg;
-  const rawHp = lin.base.health + (cls.mods.health ?? 0) + armorHp;
+  const rawDamage = lin.base.damage + (cls.bonuses.damage ?? 0) + weaponDmg;
+  const rawHp = lin.base.health + (cls.bonuses.health ?? 0) + armorHp;
 
   const s: PlayerStats = {
     classId: l.classId,
@@ -61,11 +61,11 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     resource: lin.resource,
     maxHp: Math.max(1, Math.round(rawHp * (1 + asRatio(g('hpPct'))))),
     damage: Math.max(1, Math.round(rawDamage * (1 + asRatio(g('dmgPct'))))),
-    crit: Percent.of(Math.min(CAPS.crit, lin.base.crit + (cls.mods.crit ?? 0) + g('crit'))),
-    dodge: Percent.of(Math.min(CAPS.dodge, lin.base.dodge + (cls.mods.dodge ?? 0) + g('dodge'))),
-    parry: Percent.of(Math.min(CAPS.parry, lin.base.parry + (cls.mods.parry ?? 0) + g('parry'))),
-    defense: Math.round(lin.base.defense + (cls.mods.defense ?? 0) + armorDef + g('def')),
-    luck: lin.base.luck + (cls.mods.luck ?? 0),
+    crit: Percent.of(Math.min(CAPS.crit, lin.base.crit + (cls.bonuses.crit ?? 0) + g('crit'))),
+    dodge: Percent.of(Math.min(CAPS.dodge, lin.base.dodge + (cls.bonuses.dodge ?? 0) + g('dodge'))),
+    parry: Percent.of(Math.min(CAPS.parry, lin.base.parry + (cls.bonuses.parry ?? 0) + g('parry'))),
+    defense: Math.round(lin.base.defense + (cls.bonuses.defense ?? 0) + armorDef + g('def')),
+    luck: lin.base.luck + (cls.bonuses.luck ?? 0),
     resMax: Math.max(1, Math.round(lin.resMax * (1 + asRatio(g('resMaxPct'))))),
     regen: lin.resRegen,
     attack: ATTACK_STRATEGIES[lin.attack],

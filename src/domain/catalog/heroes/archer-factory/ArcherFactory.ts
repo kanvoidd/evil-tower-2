@@ -1,37 +1,11 @@
 import { Ratio, Turns } from '../../../shared';
-import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import { HeroFactory } from '../hero-factory/HeroFactory';
-import type { LineageDef } from '../interfaces/LineageDef';
 
-/** Лучник · концентрация. Пассивка линейки — самый высокий шанс крита. */
+/** Перки и таланты линейки «Лучник» — до переноса в определения (этапы A и D). */
 export class ArcherFactory extends HeroFactory {
-  readonly lineage = 'archer';
-
-  createLineage(): LineageDef {
-    return this.lineageDef({
-      resource: 'concentration',
-      base: { damage: 3, crit: 18, health: 22, dodge: 4, defense: 0, parry: 0, luck: 0 },
-      resMax: 7,
-      resRegen: 2,
-      goldBonus: 0,
-      artifacts: false,
-      attack: 'shot',
-      cheatDeathPrice: { drainsResource: false, goldShare: 0 },
-    });
-  }
-
-  createClasses(): ClassDef[] {
-    return [
-      this.classDef('archer', 0, null),
-      this.classDef('hawkeye', 1, 'archer', { crit: 6, damage: 2, health: 3 }),
-      this.classDef('arrowgod', 2, 'hawkeye', { damage: 4, crit: 8 }),
-      this.classDef('sniper', 2, 'hawkeye', { damage: 6, dodge: 3 }),
-    ];
-  }
-
   createPerks(): PerkDef[] {
     return [
       this.perk('archer', 'start', {

@@ -67,7 +67,7 @@ const namedNumbers = [
  * таблицы наград и цен). Имя числу даёт поле или запись, в которой оно стоит.
  */
 const numberTables = [
-  'src/domain/catalog/heroes/*-factory/**',
+  'src/domain/catalog/heroes/**',
   'src/domain/catalog/floors/**',
   'src/domain/catalog/**/*Registry.ts',
   'src/domain/*/balance/**',

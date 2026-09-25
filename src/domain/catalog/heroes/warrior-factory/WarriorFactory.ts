@@ -1,37 +1,11 @@
 import { Ratio, Turns } from '../../../shared';
-import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import { HeroFactory } from '../hero-factory/HeroFactory';
-import type { LineageDef } from '../interfaces/LineageDef';
 
-/** Воин · выносливость. Пассивка линейки — самый большой запас здоровья. */
+/** Перки и таланты линейки «Воин» — до переноса в определения (этапы A и D). */
 export class WarriorFactory extends HeroFactory {
-  readonly lineage = 'warrior';
-
-  createLineage(): LineageDef {
-    return this.lineageDef({
-      resource: 'stamina',
-      base: { damage: 3, crit: 5, health: 30, dodge: 0, defense: 1, parry: 0, luck: 0 },
-      resMax: 10,
-      resRegen: 1,
-      goldBonus: 0,
-      artifacts: false,
-      attack: 'hand',
-      cheatDeathPrice: { drainsResource: false, goldShare: 0 },
-    });
-  }
-
-  createClasses(): ClassDef[] {
-    return [
-      this.classDef('warrior', 0, null),
-      this.classDef('knight', 1, 'warrior', { health: 10, defense: 2 }),
-      this.classDef('berserk', 2, 'knight', { damage: 4, crit: 5, health: 6 }),
-      this.classDef('paladin', 2, 'knight', { defense: 3, health: 12, parry: 5 }),
-    ];
-  }
-
   createPerks(): PerkDef[] {
     return [
       this.perk('warrior', 'start', {

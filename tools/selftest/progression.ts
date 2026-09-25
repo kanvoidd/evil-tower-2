@@ -434,7 +434,7 @@ for (const lin of LINEAGE_ORDER) {
     const base = def.lineage.base;
     ok(
       (Object.keys(base) as Array<keyof typeof base>).every(
-        (k) => def.baseStats[k] === base[k] + (cls.mods[k] ?? 0),
+        (k) => def.baseStats[k] === base[k] + (cls.bonuses[k] ?? 0),
       ),
       `${id}: база класса = база линейки + бонусы класса`,
     );

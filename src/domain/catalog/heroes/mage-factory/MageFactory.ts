@@ -1,41 +1,11 @@
 import { Ratio, Turns } from '../../../shared';
-import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import { HeroFactory } from '../hero-factory/HeroFactory';
-import type { LineageDef } from '../interfaces/LineageDef';
 
-/**
- * Маг · мана. Пассивка линейки — самый большой запас ресурса и подбор артефактов;
- * рукой маг не бьёт вовсе, только заклинаниями.
- */
+/** Перки и таланты линейки «Маг» — до переноса в определения (этапы A и D). */
 export class MageFactory extends HeroFactory {
-  readonly lineage = 'mage';
-
-  createLineage(): LineageDef {
-    return this.lineageDef({
-      resource: 'mana',
-      base: { damage: 5, crit: 5, health: 18, dodge: 0, defense: 0, parry: 0, luck: 1 },
-      resMax: 14,
-      resRegen: 1,
-      goldBonus: 0,
-      artifacts: true,
-      attack: 'spell',
-      // «Аварийный барьер» сжигает всю ману
-      cheatDeathPrice: { drainsResource: true, goldShare: 0 },
-    });
-  }
-
-  createClasses(): ClassDef[] {
-    return [
-      this.classDef('mage', 0, null),
-      this.classDef('magister', 1, 'mage', { damage: 3, health: 5 }),
-      this.classDef('necromancer', 2, 'magister', { damage: 4, health: 6, luck: 1 }),
-      this.classDef('pyromancer', 2, 'magister', { damage: 6, crit: 5 }),
-    ];
-  }
-
   createPerks(): PerkDef[] {
     return [
       this.perk('mage', 'start', {

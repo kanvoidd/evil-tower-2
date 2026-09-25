@@ -1,38 +1,11 @@
 import { Gold, Ratio, Turns } from '../../../shared';
-import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import { FULL_BAR } from '../../perks/fullBar';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import { HeroFactory } from '../hero-factory/HeroFactory';
-import type { LineageDef } from '../interfaces/LineageDef';
 
-/** Наёмник · осмотрительность. Пассивка линейки — +20% золота. */
+/** Перки и таланты линейки «Наёмник» — до переноса в определения (этапы A и D). */
 export class MercenaryFactory extends HeroFactory {
-  readonly lineage = 'mercenary';
-
-  createLineage(): LineageDef {
-    return this.lineageDef({
-      resource: 'vigilance',
-      base: { damage: 3, crit: 10, health: 22, dodge: 5, defense: 0, parry: 0, luck: 0 },
-      resMax: 7,
-      resRegen: 2,
-      goldBonus: 0.2,
-      artifacts: false,
-      attack: 'backstab',
-      // «Откупиться»: жизнь стоит пятой части кошеля комнаты
-      cheatDeathPrice: { drainsResource: false, goldShare: 0.2 },
-    });
-  }
-
-  createClasses(): ClassDef[] {
-    return [
-      this.classDef('mercenary', 0, null),
-      this.classDef('assassin', 1, 'mercenary', { crit: 8, dodge: 5, health: 3 }),
-      this.classDef('darkassassin', 2, 'assassin', { damage: 4, crit: 10 }),
-      this.classDef('ninja', 2, 'assassin', { dodge: 12, damage: 3 }),
-    ];
-  }
-
   createPerks(): PerkDef[] {
     return [
       this.perk('mercenary', 'start', {

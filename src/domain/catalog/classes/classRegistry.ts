@@ -1,10 +1,13 @@
-import { HERO_FACTORIES } from '../heroes/heroRegistry';
+import { HEROES, LINEAGES } from '../heroes/heroRegistry';
 import type { LineageId } from '../heroes/interfaces/LineageId';
+import type { Stats } from '../heroes/interfaces/Stats';
+import { PERKS } from '../perks/perkRegistry';
+import { TALENTS } from '../talents/talentRegistry';
 import type { ClassDef } from './interfaces/ClassDef';
 import type { ClassDefinition } from './interfaces/ClassDefinition';
 import type { ClassId } from './interfaces/ClassId';
 
-const CLASS_LIST: ClassDef[] = HERO_FACTORIES.flatMap((f) => f.createClasses());
+const CLASS_LIST: readonly ClassDef[] = HEROES.flatMap((h) => h.classes);
 
 export const CLASSES = Object.fromEntries(CLASS_LIST.map((c) => [c.id, c])) as Record<
   ClassId,
@@ -26,7 +29,32 @@ export const terminalsOf = (l: LineageId): ClassId[] =>
 export const secondOf = (l: LineageId): ClassId =>
   classesOfLineage(l).find((id) => CLASSES[id].stage === 1)!;
 
-/** Полные определения классов (база, способности, таланты, метаморфозы) — из фабрик героев. */
+/** База линейки с прибавками класса. */
+const withBonuses = (base: Stats, bonuses: Partial<Stats>): Stats => {
+  const out = { ...base };
+  for (const k of Object.keys(out) as Array<keyof Stats>) out[k] = base[k] + (bonuses[k] ?? 0);
+  return out;
+};
+
+/**
+ * Полные определения классов — что класс даёт любому герою, который им станет: база линейки
+ * плюс прибавки класса, его способности и таланты, и куда из него ведёт метаморфоза.
+ */
 export const CLASS_DEFINITIONS = Object.fromEntries(
-  HERO_FACTORIES.flatMap((f) => f.createClassDefinitions()).map((d) => [d.id, d]),
+  CLASS_LIST.map((c): [ClassId, ClassDefinition] => {
+    const lineage = LINEAGES[c.lineage];
+    return [
+      c.id,
+      {
+        id: c.id,
+        lineage,
+        stage: c.stage,
+        parent: c.parent,
+        baseStats: withBonuses(lineage.base, c.bonuses),
+        abilities: PERKS.filter((p) => p.classId === c.id),
+        talents: TALENTS.filter((t) => t.classId === c.id),
+        next: CLASS_LIST.filter((x) => x.parent === c.id).map((x) => x.id),
+      },
+    ];
+  }),
 ) as Record<ClassId, ClassDefinition>;

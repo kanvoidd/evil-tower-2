@@ -2,12 +2,14 @@ import type { LineageId } from '../../heroes/interfaces/LineageId';
 import type { Stats } from '../../heroes/interfaces/Stats';
 import type { ClassId } from './ClassId';
 
+/** Определение класса: файл `heroes/<линейка>/classes/<класс>.ts`. */
 export interface ClassDef {
-  id: ClassId;
-  lineage: LineageId;
+  readonly id: ClassId;
+  readonly lineage: LineageId;
   /** 0 — базовый, 1 — вторая ступень, 2 — финальный (раздвоение). */
-  stage: 0 | 1 | 2;
-  parent: ClassId | null;
-  /** Аддитивные бонусы класса к базовым характеристикам. */
-  mods: Partial<Stats>;
+  readonly stage: 0 | 1 | 2;
+  /** Из какого класса ведёт метаморфоза в этот (у базового — ни из какого). */
+  readonly parent: ClassId | null;
+  /** Прибавки класса к базовым характеристикам линейки. */
+  readonly bonuses: Partial<Stats>;
 }

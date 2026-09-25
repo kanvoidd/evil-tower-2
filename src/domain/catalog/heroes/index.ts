@@ -1,6 +1,7 @@
 export type { HeroFactory } from './hero-factory/HeroFactory';
-export { HERO_FACTORIES, LINEAGE_ORDER, LINEAGES } from './heroRegistry';
+export { HERO_FACTORIES, HEROES, LINEAGE_ORDER, LINEAGES } from './heroRegistry';
 export type { AttackStyleId } from './interfaces/AttackStyleId';
+export type { HeroContent } from './interfaces/HeroContent';
 export type { LineageDef } from './interfaces/LineageDef';
 export type { LineageId } from './interfaces/LineageId';
 export type { ResourceKind } from './interfaces/ResourceKind';
