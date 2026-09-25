@@ -8,7 +8,10 @@ import type { RewardChoice } from './interfaces/RewardChoice';
  * видео; без него игрок получает обычный подарок.
  */
 export class ClaimTowerGift {
-  constructor(private readonly profile: Profile, private readonly ads: AdService) {}
+  constructor(
+    private readonly profile: Profile,
+    private readonly ads: AdService,
+  ) {}
 
   async execute(choice: RewardChoice): Promise<typeof GIFT_REWARD> {
     const multiplier = choice === 'double' && (await this.ads.rewarded()) ? 2 : 1;

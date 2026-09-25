@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { COLOR, GAME_H, GAME_W } from '../../theme';
 import type { PanBounds } from './interfaces/PanBounds';
 
@@ -58,7 +59,10 @@ export class PanController {
       this.setCenter(this.centerX + (this.axes === 'xy' ? dx : 0), this.centerY + dy);
     });
     if (input.keyboard) {
-      this.keys = input.keyboard.addKeys('UP,DOWN,LEFT,RIGHT,W,A,S,D') as Record<string, Phaser.Input.Keyboard.Key>;
+      this.keys = input.keyboard.addKeys('UP,DOWN,LEFT,RIGHT,W,A,S,D') as Record<
+        string,
+        Phaser.Input.Keyboard.Key
+      >;
     }
     this.buildBars();
   }
@@ -108,7 +112,10 @@ export class PanController {
 
   update(dt: number): void {
     if (!this.start && (Math.abs(this.vel.x) > 8 || Math.abs(this.vel.y) > 8)) {
-      this.setCenter(this.centerX + (this.vel.x * dt) / 1000, this.centerY + (this.vel.y * dt) / 1000);
+      this.setCenter(
+        this.centerX + (this.vel.x * dt) / 1000,
+        this.centerY + (this.vel.y * dt) / 1000,
+      );
       const f = Math.pow(0.0025, dt / 1000);
       this.vel.x *= f;
       this.vel.y *= f;
@@ -121,19 +128,36 @@ export class PanController {
       const lf = k.LEFT.isDown || k.A.isDown;
       const rt = k.RIGHT.isDown || k.D.isDown;
       if (up || dn || lf || rt) {
-        this.setCenter(this.centerX + ((rt ? 1 : 0) - (lf ? 1 : 0)) * (this.axes === 'xy' ? sp : 0), this.centerY + ((dn ? 1 : 0) - (up ? 1 : 0)) * sp);
+        this.setCenter(
+          this.centerX + ((rt ? 1 : 0) - (lf ? 1 : 0)) * (this.axes === 'xy' ? sp : 0),
+          this.centerY + ((dn ? 1 : 0) - (up ? 1 : 0)) * sp,
+        );
       }
     }
   }
 
   private buildBars(): void {
     const s = this.scene;
-    this.vTrack = s.add.rectangle(GAME_W - 8, 0, 4, 100, 0xffffff, 0.06).setScrollFactor(0).setDepth(900);
-    this.vThumb = s.add.rectangle(GAME_W - 8, 0, 6, 60, COLOR.scrollbar, 0.55).setScrollFactor(0).setDepth(901).setInteractive({ useHandCursor: true });
+    this.vTrack = s.add
+      .rectangle(GAME_W - 8, 0, 4, 100, 0xffffff, 0.06)
+      .setScrollFactor(0)
+      .setDepth(900);
+    this.vThumb = s.add
+      .rectangle(GAME_W - 8, 0, 6, 60, COLOR.scrollbar, 0.55)
+      .setScrollFactor(0)
+      .setDepth(901)
+      .setInteractive({ useHandCursor: true });
     this.vThumb.on('pointerdown', () => (this.thumbDrag = 'v'));
     if (this.axes === 'xy') {
-      this.hTrack = s.add.rectangle(0, GAME_H - 8, 100, 4, 0xffffff, 0.06).setScrollFactor(0).setDepth(900);
-      this.hThumb = s.add.rectangle(0, GAME_H - 8, 60, 6, COLOR.scrollbar, 0.55).setScrollFactor(0).setDepth(901).setInteractive({ useHandCursor: true });
+      this.hTrack = s.add
+        .rectangle(0, GAME_H - 8, 100, 4, 0xffffff, 0.06)
+        .setScrollFactor(0)
+        .setDepth(900);
+      this.hThumb = s.add
+        .rectangle(0, GAME_H - 8, 60, 6, COLOR.scrollbar, 0.55)
+        .setScrollFactor(0)
+        .setDepth(901)
+        .setInteractive({ useHandCursor: true });
       this.hThumb.on('pointerdown', () => (this.thumbDrag = 'h'));
     }
     this.updateBars();
@@ -163,7 +187,9 @@ export class PanController {
         this.vTrack.setPosition(GAME_W - 8, this.zone.y + zh / 2).setSize(4, zh);
         const th = Math.max(50, (zh * GAME_H) / wh);
         const t = (this.cam.scrollY - b.minY) / (wh - GAME_H);
-        this.vThumb.setSize(6, th).setPosition(GAME_W - 8, this.zone.y + th / 2 + Phaser.Math.Clamp(t, 0, 1) * (zh - th));
+        this.vThumb
+          .setSize(6, th)
+          .setPosition(GAME_W - 8, this.zone.y + th / 2 + Phaser.Math.Clamp(t, 0, 1) * (zh - th));
       }
     }
     if (this.hTrack && this.hThumb) {
@@ -174,7 +200,9 @@ export class PanController {
         this.hTrack.setPosition(GAME_W / 2, GAME_H - 8).setSize(GAME_W - 40, 4);
         const tw = Math.max(50, ((GAME_W - 40) * GAME_W) / ww);
         const t = (this.cam.scrollX - b.minX) / (ww - GAME_W);
-        this.hThumb.setSize(tw, 6).setPosition(20 + tw / 2 + Phaser.Math.Clamp(t, 0, 1) * (GAME_W - 40 - tw), GAME_H - 8);
+        this.hThumb
+          .setSize(tw, 6)
+          .setPosition(20 + tw / 2 + Phaser.Math.Clamp(t, 0, 1) * (GAME_W - 40 - tw), GAME_H - 8);
       }
     }
   }

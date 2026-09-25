@@ -12,7 +12,15 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
-type Layer = 'domain' | 'application' | 'presentation' | 'infrastructure' | 'composition' | 'i18n' | 'entry' | 'tools';
+type Layer =
+  | 'domain'
+  | 'application'
+  | 'presentation'
+  | 'infrastructure'
+  | 'composition'
+  | 'i18n'
+  | 'entry'
+  | 'tools';
 
 interface ImportRef {
   spec: string;
@@ -30,7 +38,10 @@ const ALLOWED: Record<Exclude<Layer, 'tools'>, { layers: Layer[]; packages: RegE
   application: { layers: ['domain', 'application'], packages: null },
   presentation: { layers: ['domain', 'application', 'presentation', 'i18n'], packages: /^phaser$/ },
   infrastructure: { layers: ['domain', 'application', 'infrastructure'], packages: null },
-  composition: { layers: ['domain', 'application', 'presentation', 'infrastructure', 'composition', 'i18n'], packages: /^phaser$/ },
+  composition: {
+    layers: ['domain', 'application', 'presentation', 'infrastructure', 'composition', 'i18n'],
+    packages: /^phaser$/,
+  },
   i18n: { layers: ['domain', 'i18n'], packages: null },
   entry: { layers: ['composition'], packages: /^@fontsource\// },
 };
@@ -39,7 +50,8 @@ const ALLOWED: Record<Exclude<Layer, 'tools'>, { layers: Layer[]; packages: RegE
  * Браузерные API, которых не должно быть в домене и приложении. Считается только обращение
  * к глобальному имени: `this.d.navigator.close()` — это порт, а не `window.navigator`.
  */
-const BROWSER = /(?<![.\w$])(window|document|localStorage|sessionStorage|navigator)\s*\.|(?<![.\w$])(setTimeout|setInterval|requestAnimationFrame)\s*\(/;
+const BROWSER =
+  /(?<![.\w$])(window|document|localStorage|sessionStorage|navigator)\s*\.|(?<![.\w$])(setTimeout|setInterval|requestAnimationFrame)\s*\(/;
 
 const walk = (dir: string, ext: RegExp): string[] =>
   readdirSync(dir).flatMap((name) => {
@@ -66,11 +78,22 @@ const importsOf = (src: string): ImportRef[] => {
     const clause = m[3];
     const named = /^\{([\s\S]*)\}$/.exec(clause.trim());
     // `import { type A, type B }` без значений тоже стирается при сборке
-    const allTypes = !!named && named[1].split(',').map((x) => x.trim()).filter(Boolean).every((x) => x.startsWith('type '));
-    out.push({ spec: m[4], line: lineAt(m.index + m[0].indexOf(m[1])), typeOnly: !!m[2] || allTypes });
+    const allTypes =
+      !!named &&
+      named[1]
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .every((x) => x.startsWith('type '));
+    out.push({
+      spec: m[4],
+      line: lineAt(m.index + m[0].indexOf(m[1])),
+      typeOnly: !!m[2] || allTypes,
+    });
   }
   const bare = /(?:^|\n)\s*import\s+['"]([^'"]+)['"]/g;
-  while ((m = bare.exec(src))) out.push({ spec: m[1], line: lineAt(m.index + m[0].indexOf('import')), typeOnly: false });
+  while ((m = bare.exec(src)))
+    out.push({ spec: m[1], line: lineAt(m.index + m[0].indexOf('import')), typeOnly: false });
   const dyn = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
   while ((m = dyn.exec(src))) out.push({ spec: m[1], line: lineAt(m.index), typeOnly: false });
   return out;
@@ -101,7 +124,7 @@ for (const file of [...srcFiles, ...toolFiles]) {
   const edges = new Set<string>();
   graph.set(file, edges);
 
-  if ((layer === 'domain' || layer === 'application')) {
+  if (layer === 'domain' || layer === 'application') {
     text.split('\n').forEach((line, i) => {
       const code = line.replace(/\/\/.*$/, '');
       if (!/^\s*(\*|\/\*)/.test(line) && BROWSER.test(code)) {
@@ -115,7 +138,8 @@ for (const file of [...srcFiles, ...toolFiles]) {
     if (!imp.spec.startsWith('.')) {
       if (layer === 'tools' || imp.spec.startsWith('node:')) continue;
       const rule = ALLOWED[layer];
-      if (!rule.packages || !rule.packages.test(imp.spec)) problems.push(`${where} — ${layer} не может импортировать пакет «${imp.spec}»`);
+      if (!rule.packages || !rule.packages.test(imp.spec))
+        problems.push(`${where} — ${layer} не может импортировать пакет «${imp.spec}»`);
       continue;
     }
     const target = resolveImport(file, imp.spec);
@@ -133,8 +157,14 @@ for (const file of [...srcFiles, ...toolFiles]) {
       continue;
     }
     // инфраструктура знает о приложении только его порты
-    if (layer === 'infrastructure' && to === 'application' && !rel(target).startsWith('src/application/ports/')) {
-      problems.push(`${where} — infrastructure может брать из application только порты (${rel(target)})`);
+    if (
+      layer === 'infrastructure' &&
+      to === 'application' &&
+      !rel(target).startsWith('src/application/ports/')
+    ) {
+      problems.push(
+        `${where} — infrastructure может брать из application только порты (${rel(target)})`,
+      );
     }
     if (rel(file).startsWith('src/domain/engine/') && rel(target).startsWith('src/domain/logic/')) {
       problems.push(`${where} — движок не должен знать правил боя (${rel(target)})`);
@@ -186,11 +216,24 @@ const summary = [...counts].map(([l, n]) => `${l} ${n}`).join(', ');
 
 // --graph: сколько импортов идёт из слоя (строка) в слой (столбец)
 if (process.argv.includes('--graph')) {
-  const order: Layer[] = ['entry', 'composition', 'presentation', 'infrastructure', 'application', 'domain', 'i18n'];
+  const order: Layer[] = [
+    'entry',
+    'composition',
+    'presentation',
+    'infrastructure',
+    'application',
+    'domain',
+    'i18n',
+  ];
   const w = 16;
   console.log(['из \\ в'.padEnd(w), ...order.map((l) => l.padStart(w))].join(''));
   for (const from of order) {
-    console.log([from.padEnd(w), ...order.map((to) => String(matrix.get(`${from}>${to}`) ?? '·').padStart(w))].join(''));
+    console.log(
+      [
+        from.padEnd(w),
+        ...order.map((to) => String(matrix.get(`${from}>${to}`) ?? '·').padStart(w)),
+      ].join(''),
+    );
   }
 }
 if (problems.length) {
@@ -198,4 +241,6 @@ if (problems.length) {
   console.error(`Архитектура: нарушений ${problems.length} (файлов: ${summary}).`);
   process.exit(1);
 }
-console.log(`Архитектура в порядке: слои, импорты и циклы проверены (файлов: ${summary}; tools ${toolFiles.length}).`);
+console.log(
+  `Архитектура в порядке: слои, импорты и циклы проверены (файлов: ${summary}; tools ${toolFiles.length}).`,
+);

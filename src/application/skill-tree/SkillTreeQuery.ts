@@ -3,8 +3,21 @@ import { PERK_BY_ID, type PerkDef } from '../../domain/data/perks';
 import type { TalentDef } from '../../domain/data/talents';
 import type { Profile } from '../../domain/logic/profile';
 import {
-  canBuy, canCancelMetamorphosis, costOf, isMaxed, maxRankOf, nodeState, perkIdOfNode, rankOf, talentOfNode,
-  talentPointsSpent, TREES, type BuyResult, type NodeState, type Tree, type TreeNode,
+  type BuyResult,
+  canBuy,
+  canCancelMetamorphosis,
+  costOf,
+  isMaxed,
+  maxRankOf,
+  type NodeState,
+  nodeState,
+  perkIdOfNode,
+  rankOf,
+  talentOfNode,
+  talentPointsSpent,
+  type Tree,
+  type TreeNode,
+  TREES,
 } from '../../domain/logic/skillTree';
 import type { ClassId, LineageSave, ResourceKind } from '../../domain/types';
 

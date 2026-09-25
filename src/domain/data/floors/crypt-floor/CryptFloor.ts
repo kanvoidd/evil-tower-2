@@ -13,7 +13,9 @@ export class CryptFloor extends FloorFactory {
       this.enemy('slime', 'Слизень', 'Slime', 'normal', 'beast'),
       this.enemy('skeleton_horned', 'Рогатый скелет', 'Horned Skeleton', 'tough', 'undead'),
       this.enemy('zombie', 'Зомби', 'Zombie', 'elite', 'undead', { regen: 0.08 }),
-      this.enemy('boss_skeleton_king', 'Король скелетов', 'Skeleton King', 'boss', 'undead', { armor: 1 }),
+      this.enemy('boss_skeleton_king', 'Король скелетов', 'Skeleton King', 'boss', 'undead', {
+        armor: 1,
+      }),
     ];
   }
 }

@@ -5,7 +5,18 @@ import type { TalentFx } from './interfaces/TalentFx';
  * характеристику). В дереве они помечены значком молнии, чтобы их было видно среди обычных.
  */
 export const SYNERGY_FX = new Set<TalentFx>([
-  'abilityIgnite', 'abilityStun', 'abilitySplash', 'abilityPoison', 'abilityVuln', 'abilityCrit',
-  'abilityLifesteal', 'abilityRefund', 'abilityShield', 'killBlast', 'basicSplit', 'perkCostDown', 'stepHeal',
+  'abilityIgnite',
+  'abilityStun',
+  'abilitySplash',
+  'abilityPoison',
+  'abilityVuln',
+  'abilityCrit',
+  'abilityLifesteal',
+  'abilityRefund',
+  'abilityShield',
+  'killBlast',
+  'basicSplit',
+  'perkCostDown',
+  'stepHeal',
   'boltEcho',
 ]);

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { HubOrigin } from '../../application/hub/interfaces/HubOrigin';
 import { UiSound } from '../components';
 import { leaveMenu } from './SceneTransitions';
@@ -10,7 +11,10 @@ import { leaveMenu } from './SceneTransitions';
 export class MenuExit {
   private leaving = false;
 
-  constructor(private readonly scene: Phaser.Scene, private readonly from: HubOrigin) {}
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly from: HubOrigin,
+  ) {}
 
   /** Переход уже начался. */
   get active(): boolean {

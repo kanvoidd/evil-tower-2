@@ -32,7 +32,12 @@ export class HubLayout {
       case 'skill':
         return { x: HubLayout.hero.x, y: HubLayout.hero.y, w: HeroCard.W, h: HeroCard.H };
       case 'achievements':
-        return { x: HubLayout.trophy.x, y: HubLayout.trophy.y, w: HubLayout.trophy.size, h: HubLayout.trophy.size };
+        return {
+          x: HubLayout.trophy.x,
+          y: HubLayout.trophy.y,
+          w: HubLayout.trophy.size,
+          h: HubLayout.trophy.size,
+        };
     }
   }
 

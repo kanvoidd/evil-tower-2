@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { COLOR, GAME_H, GAME_W, TIMING } from '../theme';
 import type { ZoomFrom } from './interfaces/ZoomFrom';
 
@@ -12,8 +13,14 @@ import type { ZoomFrom } from './interfaces/ZoomFrom';
  * прямоугольником кнопки и всем экраном. По краю — тонкая золотая кайма, углы к концу выпрямляются.
  * t = 0 — окно равно кнопке, t = 1 — окно на весь экран.
  */
-const windowReveal = (scene: Phaser.Scene, from: ZoomFrom): { set: (t: number) => void; destroy: () => void } => {
-  const img = scene.add.image(GAME_W / 2, GAME_H / 2, 'bg_stone').setDepth(3000).setScrollFactor(0);
+const windowReveal = (
+  scene: Phaser.Scene,
+  from: ZoomFrom,
+): { set: (t: number) => void; destroy: () => void } => {
+  const img = scene.add
+    .image(GAME_W / 2, GAME_H / 2, 'bg_stone')
+    .setDepth(3000)
+    .setScrollFactor(0);
   const maskG = scene.make.graphics({ x: 0, y: 0 }, false).setScrollFactor(0);
   img.setMask(maskG.createGeometryMask());
   const edge = scene.add.graphics().setDepth(3001).setScrollFactor(0);
@@ -25,8 +32,14 @@ const windowReveal = (scene: Phaser.Scene, from: ZoomFrom): { set: (t: number) =
       const w = lerp(from.w, GAME_W, t);
       const h = lerp(from.h, GAME_H, t);
       const r = lerp(28, 0, t * t);
-      maskG.clear().fillStyle(0xffffff, 1).fillRoundedRect(x - w / 2, y - h / 2, w, h, r);
-      edge.clear().lineStyle(4, COLOR.gold, 0.8 * (1 - t)).strokeRoundedRect(x - w / 2, y - h / 2, w, h, r);
+      maskG
+        .clear()
+        .fillStyle(0xffffff, 1)
+        .fillRoundedRect(x - w / 2, y - h / 2, w, h, r);
+      edge
+        .clear()
+        .lineStyle(4, COLOR.gold, 0.8 * (1 - t))
+        .strokeRoundedRect(x - w / 2, y - h / 2, w, h, r);
     },
     destroy: () => {
       img.clearMask(true);
@@ -42,8 +55,16 @@ const windowReveal = (scene: Phaser.Scene, from: ZoomFrom): { set: (t: number) =
  * Так возврат в хаб не «рубит» интерфейс на полуслове — дальше окно сжимается в кнопку (zoomIn с `to`).
  */
 export const leaveMenu = (scene: Phaser.Scene, next: string, data?: object, ms = 170): void => {
-  const targets = scene.children.list.filter((o) => (o as unknown as { depth: number }).depth > -100);
-  scene.tweens.add({ targets, alpha: 0, duration: ms, ease: 'Sine.easeIn', onComplete: () => scene.scene.start(next, data) });
+  const targets = scene.children.list.filter(
+    (o) => (o as unknown as { depth: number }).depth > -100,
+  );
+  scene.tweens.add({
+    targets,
+    alpha: 0,
+    duration: ms,
+    ease: 'Sine.easeIn',
+    onComplete: () => scene.scene.start(next, data),
+  });
 };
 
 /** Открытие меню: окно вырастает из кнопки на весь экран, затем запускается целевая сцена (она проявляет содержимое). */
@@ -67,8 +88,17 @@ export const zoomOut = (scene: Phaser.Scene, from: ZoomFrom, next: string, data?
  */
 export const zoomIn = (scene: Phaser.Scene, to?: ZoomFrom): void => {
   if (!to) {
-    const img = scene.add.image(GAME_W / 2, GAME_H / 2, 'bg_stone').setDepth(3000).setScrollFactor(0);
-    scene.tweens.add({ targets: img, alpha: 0, duration: TIMING.menuZoom * 0.8, ease: 'Sine.easeOut', onComplete: () => img.destroy() });
+    const img = scene.add
+      .image(GAME_W / 2, GAME_H / 2, 'bg_stone')
+      .setDepth(3000)
+      .setScrollFactor(0);
+    scene.tweens.add({
+      targets: img,
+      alpha: 0,
+      duration: TIMING.menuZoom * 0.8,
+      ease: 'Sine.easeOut',
+      onComplete: () => img.destroy(),
+    });
     return;
   }
   const win = windowReveal(scene, to);

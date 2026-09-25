@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../application/ports';
 import { PhaserClock } from '../phaser/PhaserClock';
 import { PhaserTweens } from '../phaser/PhaserTweens';
@@ -16,8 +17,8 @@ import { BurstAnimation } from './effects/BurstAnimation';
 import { FlashAnimation } from './effects/FlashAnimation';
 import { LootPopAnimation } from './effects/LootPopAnimation';
 import { ProjectileAnimation } from './effects/ProjectileAnimation';
-import { VfxAnimation } from './effects/VfxAnimation';
 import { Vfx } from './effects/vfx/Vfx';
+import { VfxAnimation } from './effects/VfxAnimation';
 import { FloatingText } from './text/FloatingText';
 
 /**

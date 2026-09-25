@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import { statHex } from '../../textures/Textures';
 import { icon } from '../icon/Icon';
 import { plateTexture } from '../plate/Plates';
@@ -10,7 +11,13 @@ export const statColor = (stat: string): number => statHex(stat);
 
 /** Цветной кружок с чёрной SVG-иконкой и числом справа. */
 export const statChip = (
-  scene: Phaser.Scene, x: number, y: number, stat: string, value: string, size = 40, fontSize = 28,
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  stat: string,
+  value: string,
+  size = 40,
+  fontSize = 28,
   align: 'left' | 'center' = 'left',
 ): Phaser.GameObjects.Container => {
   const c = scene.add.container(x, y);
@@ -28,8 +35,18 @@ export const statChip = (
 
 /** Плашка «иконка + число» фиксированной ширины: текст подгоняется, соседние плашки не пересекаются. */
 export const statPill = (
-  scene: Phaser.Scene, x: number, y: number,
-  o: { w: number; h?: number; stat: string; text: string; fontSize?: number; iconKey?: string; color?: number },
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  o: {
+    w: number;
+    h?: number;
+    stat: string;
+    text: string;
+    fontSize?: number;
+    iconKey?: string;
+    color?: number;
+  },
 ): Pill => {
   const h = o.h ?? 32;
   const c = scene.add.container(x, y);
@@ -38,7 +55,10 @@ export const statPill = (
   c.add(scene.add.circle(dx, 0, h / 2 - 3, o.color ?? statColor(o.stat)));
   c.add(icon(scene, dx, 0, o.iconKey ?? `svg_${o.stat}`, (h - 6) * 0.62));
   const areaW = o.w - h - 6;
-  const label = txt(scene, dx + h / 2 + 3 + areaW / 2, -1, o.text, o.fontSize ?? 19, { weight: 900, strokeThickness: 3 });
+  const label = txt(scene, dx + h / 2 + 3 + areaW / 2, -1, o.text, o.fontSize ?? 19, {
+    weight: 900,
+    strokeThickness: 3,
+  });
   c.add(label);
   const fit = (): void => {
     label.setFontSize(o.fontSize ?? 19);
@@ -57,7 +77,12 @@ export const statPill = (
 
 /** Цветной кружок характеристики с чёрной иконкой (тот же язык, что у плашек ATK/HP и дерева навыков). */
 export const statDisc = (
-  scene: Phaser.Scene, x: number, y: number, stat: string, size = 34, o: { color?: number; iconKey?: string } = {},
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  stat: string,
+  size = 34,
+  o: { color?: number; iconKey?: string } = {},
 ): Phaser.GameObjects.Container => {
   const c = scene.add.container(x, y);
   c.add(scene.add.circle(0, 0, size / 2, o.color ?? statColor(stat)).setStrokeStyle(2, 0x0b0d12));

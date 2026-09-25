@@ -1,9 +1,9 @@
-import type { ClassId, EquipmentSave, LineageId, LineageSave, ResourceKind } from '../types';
 import { CLASSES } from '../data/classes';
 import { LINEAGES } from '../data/heroes';
 import { ITEM_BY_ID } from '../data/items';
-import { hasButton, PERK_BY_ID, type AbilityId, type PerkDef } from '../data/perks';
+import { type AbilityId, hasButton, PERK_BY_ID, type PerkDef } from '../data/perks';
 import { GAMEPLAY } from '../gameplay';
+import type { ClassId, EquipmentSave, LineageId, LineageSave, ResourceKind } from '../types';
 import type { IAttackStrategy } from './hero/attack/interfaces/IAttackStrategy';
 import { activePerkIds, talentBonuses, talentBonuses2, TREES } from './skillTree';
 
@@ -117,7 +117,8 @@ export interface PlayerStats {
   passives: Set<AbilityId>;
 }
 
-const usable = (e: EquipmentSave | null): EquipmentSave | null => (e && e.durability > 0 && ITEM_BY_ID[e.id] ? e : null);
+const usable = (e: EquipmentSave | null): EquipmentSave | null =>
+  e && e.durability > 0 && ITEM_BY_ID[e.id] ? e : null;
 
 /** Потолки: без них дерево талантов и экипировка складываются в неуязвимость. */
 export const CAPS = { crit: 60, dodge: 35, parry: 35, block: 20 } as const;

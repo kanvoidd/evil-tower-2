@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import type { ConsumableOffer } from '../../../application/shop/interfaces/ConsumableOffer';
 import type { IShopView } from '../../../application/shop/interfaces/IShopView';
 import type { ItemOffer } from '../../../application/shop/interfaces/ItemOffer';
@@ -6,10 +7,24 @@ import type { ShopTab } from '../../../application/shop/interfaces/ShopTab';
 import type { ConsumableDef } from '../../../domain/data/consumables';
 import type { ItemDef } from '../../../domain/data/items';
 import { GAMEPLAY } from '../../../domain/gameplay';
-import { fmt, t, tr, type TKey } from '../../../i18n';
+import { fmt, t, type TKey, tr } from '../../../i18n';
 import {
-  background, closeButton, CurrencyBar, fitHeight, HeroCard, icon, outlineTexture, PlateButton, plateTexture, ScrollList,
-  shadowTexture, staggerIn, statChip, toast, txt, UiSound,
+  background,
+  closeButton,
+  CurrencyBar,
+  fitHeight,
+  HeroCard,
+  icon,
+  outlineTexture,
+  PlateButton,
+  plateTexture,
+  ScrollList,
+  shadowTexture,
+  staggerIn,
+  statChip,
+  toast,
+  txt,
+  UiSound,
 } from '../../components';
 import { dollyIn, zoomIn } from '../../navigation/SceneTransitions';
 import { HEX } from '../../theme';
@@ -29,7 +44,9 @@ export class ShopView implements IShopView {
   private static readonly ROW_GAP = 12;
   /** Вкладки: id, подпись, ширина. Порядок задаёт направление анимации при переключении. */
   private static readonly TABS: ReadonlyArray<[ShopTab, TKey, number]> = [
-    ['weapon', 'shop.weapons', 140], ['armor', 'shop.armor', 140], ['consumable', 'shop.consumables', 196],
+    ['weapon', 'shop.weapons', 140],
+    ['armor', 'shop.armor', 140],
+    ['consumable', 'shop.consumables', 196],
   ];
   private static readonly TAB_ORDER: readonly ShopTab[] = ShopView.TABS.map((d) => d[0]);
   private static readonly TAB_GAP = 7;
@@ -43,24 +60,56 @@ export class ShopView implements IShopView {
   private readonly tabHl: Phaser.GameObjects.NineSlice;
   private switching = false;
 
-  constructor(private readonly scene: Phaser.Scene, private readonly d: ShopViewDeps) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly d: ShopViewDeps,
+  ) {
     const S = ShopView;
     background(scene);
     this.buildHero(true);
 
-    const title = txt(scene, 214, 62, t('shop.title'), 50, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 6 });
+    const title = txt(scene, 214, 62, t('shop.title'), 50, {
+      font: 'title',
+      origin: [0, 0.5],
+      color: HEX.gold,
+      strokeThickness: 6,
+    });
     const cur = new CurrencyBar(scene, 590, 40, { wallet: d.wallet, compact: true });
     const close = closeButton(scene, () => d.commands({ type: 'close' }));
 
     // «Сегментная» полоса вкладок: тёмная дорожка и золотая подсветка, которая плавно переезжает на выбранную вкладку
     const bar = scene.add.container(0, 0);
     const trackW = S.TABS.reduce((a, def) => a + def[2], 0) + S.TAB_GAP * (S.TABS.length - 1) + 12;
-    bar.add(scene.add.image(S.TAB_X0 - 6 + trackW / 2, S.TAB_Y, plateTexture(scene, trackW, 70, 1, 'dark', 26)));
-    this.tabHl = scene.add.nineslice(S.tabCenter('weapon'), S.TAB_Y, plateTexture(scene, 64, 58, 1, 'gold', 20), undefined, S.tabWidth('weapon'), 58, 22, 22, 22, 22);
+    bar.add(
+      scene.add.image(
+        S.TAB_X0 - 6 + trackW / 2,
+        S.TAB_Y,
+        plateTexture(scene, trackW, 70, 1, 'dark', 26),
+      ),
+    );
+    this.tabHl = scene.add.nineslice(
+      S.tabCenter('weapon'),
+      S.TAB_Y,
+      plateTexture(scene, 64, 58, 1, 'gold', 20),
+      undefined,
+      S.tabWidth('weapon'),
+      58,
+      22,
+      22,
+      22,
+      22,
+    );
     bar.add(this.tabHl);
     S.TABS.forEach(([id, key, w]) => {
       this.tabs[id] = new PlateButton(scene, S.tabCenter(id), S.TAB_Y, {
-        w, h: 58, label: t(key), fontSize: 22, radius: 20, style: 'glass', shadow: false, onClick: () => this.setTab(id),
+        w,
+        h: 58,
+        label: t(key),
+        fontSize: 22,
+        radius: 20,
+        style: 'glass',
+        shadow: false,
+        onClick: () => this.setTab(id),
       });
       bar.add(this.tabs[id]);
     });
@@ -123,7 +172,14 @@ export class ShopView implements IShopView {
   private paintTabs(animate: boolean): void {
     const x = ShopView.tabCenter(this.tab);
     const w = ShopView.tabWidth(this.tab);
-    if (animate) this.scene.tweens.add({ targets: this.tabHl, x, width: w, duration: 340, ease: 'Back.easeOut' });
+    if (animate)
+      this.scene.tweens.add({
+        targets: this.tabHl,
+        x,
+        width: w,
+        duration: 340,
+        ease: 'Back.easeOut',
+      });
     else {
       this.tabHl.setPosition(x, ShopView.TAB_Y);
       this.tabHl.width = w;
@@ -162,7 +218,16 @@ export class ShopView implements IShopView {
     }
     this.switching = true;
     const rows = [...this.list.content.list] as Phaser.GameObjects.Container[];
-    rows.forEach((r, i) => this.scene.tweens.add({ targets: r, alpha: 0, x: r.x - dir * 34, duration: 130, delay: i * 22, ease: 'Sine.easeIn' }));
+    rows.forEach((r, i) =>
+      this.scene.tweens.add({
+        targets: r,
+        alpha: 0,
+        x: r.x - dir * 34,
+        duration: 130,
+        delay: i * 22,
+        ease: 'Sine.easeIn',
+      }),
+    );
     this.scene.time.delayedCall(150 + rows.length * 22, () => {
       this.rebuild(dir);
       this.switching = false;
@@ -185,7 +250,16 @@ export class ShopView implements IShopView {
     } else {
       if (this.tab === 'weapon') {
         const lin = this.d.catalog.lineage;
-        keep.add(txt(this.scene, S.LIST.width / 2, 16, t('shop.for_class', { c: t(`class.${lin}.name` as TKey) }), 21, { color: HEX.textMute, weight: 700, strokeThickness: 0 }));
+        keep.add(
+          txt(
+            this.scene,
+            S.LIST.width / 2,
+            16,
+            t('shop.for_class', { c: t(`class.${lin}.name` as TKey) }),
+            21,
+            { color: HEX.textMute, weight: 700, strokeThickness: 0 },
+          ),
+        );
         y += 38;
       }
       this.d.catalog.items(this.tab).forEach((o) => add(this.itemRow(o)));
@@ -227,9 +301,20 @@ export class ShopView implements IShopView {
     if (it.defense) chip('defense', it.defense);
     if (it.health) chip('health', it.health);
     const k = Phaser.Math.Clamp(o.durability / it.durability, 0, 1);
-    row.add(txt(s, -114, 6, t('shop.durability', { n: o.durability, max: it.durability }), 17, { origin: [0, 0.5], color: HEX.textDim, weight: 700, strokeThickness: 0 }));
+    row.add(
+      txt(s, -114, 6, t('shop.durability', { n: o.durability, max: it.durability }), 17, {
+        origin: [0, 0.5],
+        color: HEX.textDim,
+        weight: 700,
+        strokeThickness: 0,
+      }),
+    );
     row.add(s.add.rectangle(-114 + 170, 22, 340, 6, 0x000000, 0.45));
-    row.add(s.add.rectangle(-114, 22, Math.max(3, 340 * k), 6, k > 0.25 ? 0x66e39c : 0xff7468).setOrigin(0, 0.5));
+    row.add(
+      s.add
+        .rectangle(-114, 22, Math.max(3, 340 * k), 6, k > 0.25 ? 0x66e39c : 0xff7468)
+        .setOrigin(0, 0.5),
+    );
 
     let label = fmt(o.price);
     let locked = false;
@@ -245,7 +330,16 @@ export class ShopView implements IShopView {
       style = 'green';
     }
     const btn = new PlateButton(s, 0, 58, {
-      w: ShopView.ROW_W - 32, h: 54, label, fontSize: 24, icon: ico, iconSize: 30, style, radius: 18, shadow: false, sound: null,
+      w: ShopView.ROW_W - 32,
+      h: 54,
+      label,
+      fontSize: 24,
+      icon: ico,
+      iconSize: 30,
+      style,
+      radius: 18,
+      shadow: false,
+      sound: null,
       onClick: () => this.d.commands({ type: 'buy-item', item: it }),
     });
     btn.setLocked(locked);
@@ -261,22 +355,57 @@ export class ShopView implements IShopView {
     const row = s.add.container(0, 0);
     this.rowFrame(row, false);
     this.iconTile(row, def.icon);
-    const nameKey = id === 'potion_heal' ? 'shop.potion_heal' : id === 'potion_regen' ? 'shop.potion_regen' : 'shop.artifact';
-    row.add(txt(s, -114, -64, t(nameKey as TKey), 25, { origin: [0, 0.5], maxWidth: 336, weight: 900 }));
-    const desc = id === 'potion_heal'
-      ? t('shop.potion_heal.desc', { n: Math.round(GAMEPLAY.healPotionPct * 100) })
-      : id === 'potion_regen'
-        ? t('shop.potion_regen.desc', { n: GAMEPLAY.regenBoostTurns })
-        : t('shop.artifact.desc');
-    const info = txt(s, -114, -47, desc, 17, { origin: [0, 0], wrap: 336, color: HEX.textDim, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
+    const nameKey =
+      id === 'potion_heal'
+        ? 'shop.potion_heal'
+        : id === 'potion_regen'
+          ? 'shop.potion_regen'
+          : 'shop.artifact';
+    row.add(
+      txt(s, -114, -64, t(nameKey as TKey), 25, { origin: [0, 0.5], maxWidth: 336, weight: 900 }),
+    );
+    const desc =
+      id === 'potion_heal'
+        ? t('shop.potion_heal.desc', { n: Math.round(GAMEPLAY.healPotionPct * 100) })
+        : id === 'potion_regen'
+          ? t('shop.potion_regen.desc', { n: GAMEPLAY.regenBoostTurns })
+          : t('shop.artifact.desc');
+    const info = txt(s, -114, -47, desc, 17, {
+      origin: [0, 0],
+      wrap: 336,
+      color: HEX.textDim,
+      weight: 700,
+      strokeThickness: 0,
+      lineSpacing: 0,
+      align: 'left',
+    });
     fitHeight(info, 42);
     row.add(info);
-    const ownedText = def.max !== undefined ? t('shop.owned_max', { n: o.owned, max: def.max }) : t('shop.owned', { n: o.owned });
-    row.add(txt(s, -114, 13, ownedText, 18, { origin: [0, 0.5], color: o.full ? HEX.gold : HEX.good, weight: 800, strokeThickness: 0 }));
+    const ownedText =
+      def.max !== undefined
+        ? t('shop.owned_max', { n: o.owned, max: def.max })
+        : t('shop.owned', { n: o.owned });
+    row.add(
+      txt(s, -114, 13, ownedText, 18, {
+        origin: [0, 0.5],
+        color: o.full ? HEX.gold : HEX.good,
+        weight: 800,
+        strokeThickness: 0,
+      }),
+    );
     if (def.sold) {
       const buy = (): void => this.d.commands({ type: 'buy-consumable', id });
       const btn = new PlateButton(s, 0, 58, {
-        w: ShopView.ROW_W - 32, h: 54, label: fmt(def.price), fontSize: 24, icon: 'ico_gold', iconSize: 30, style: 'gold', radius: 18, shadow: false, sound: null,
+        w: ShopView.ROW_W - 32,
+        h: 54,
+        label: fmt(def.price),
+        fontSize: 24,
+        icon: 'ico_gold',
+        iconSize: 30,
+        style: 'gold',
+        radius: 18,
+        shadow: false,
+        sound: null,
         onClick: buy,
       });
       // полный запас: кнопка приглушена и по нажатию объясняет предел

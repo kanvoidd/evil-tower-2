@@ -1,5 +1,11 @@
 import type { AdService } from '../../../application/ads/AdService';
-import type { IAudioOutput, ILocale, IPlatform, IProfileStorage, ISoundPlayer } from '../../../application/ports';
+import type {
+  IAudioOutput,
+  ILocale,
+  IPlatform,
+  IProfileStorage,
+  ISoundPlayer,
+} from '../../../application/ports';
 import type { Profile } from '../../../domain/logic/profile';
 
 /**

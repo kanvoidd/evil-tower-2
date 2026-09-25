@@ -1,11 +1,12 @@
 import type Phaser from 'phaser';
+
 import type { ISoundPlayer } from '../../application/ports';
 import type { IRunState } from '../../domain/logic/run';
 import type { ConsumableId } from '../../domain/types';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';
+import { type IMuteSwitch, PlateButton, soundButton } from '../components';
 import { GAME_W } from '../theme';
-import { PlateButton, soundButton, type IMuteSwitch } from '../components';
 import { ConsumableBar } from './ConsumableBar';
 import { EnemyCounter } from './EnemyCounter';
 import { GearBar } from './GearBar';
@@ -49,7 +50,12 @@ export class Hud implements IBattleHud {
     this.consumables = new ConsumableBar(scene, run.lineage, actions, animations, sound);
     // «сбежать», звук и добыча за комнату — верхняя полоса: весь низ экрана отдан кнопкам способностей
     new PlateButton(scene, 330, ConsumableBar.Y, {
-      w: 68, h: 68, icon: 'svg_arrow', iconSize: 34, radius: 22, onClick: () => actions.command({ type: 'escape' }),
+      w: 68,
+      h: 68,
+      icon: 'svg_arrow',
+      iconSize: 34,
+      radius: 22,
+      onClick: () => actions.command({ type: 'escape' }),
     });
     soundButton(scene, 414, ConsumableBar.Y, audio, 56);
     this.loot = new LootBar(scene, banked);

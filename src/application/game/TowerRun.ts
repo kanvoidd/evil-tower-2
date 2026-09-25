@@ -1,8 +1,8 @@
-import { ROOMS, type RoomDef } from '../../domain/data/levels';
+import { type RoomDef, ROOMS } from '../../domain/data/levels';
 import type { GameEvent } from '../../domain/game-data/events';
 import type { Profile } from '../../domain/logic/profile';
 import { makeRng, randomSeed, type Rng } from '../../domain/logic/rng';
-import { RunFactory, type IRunSession } from '../../domain/logic/run';
+import { type IRunSession, RunFactory } from '../../domain/logic/run';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
 import type { RunCarry } from './interfaces/RunCarry';
@@ -112,7 +112,12 @@ export class TowerRun {
     if (flawless) p.bump('flawless');
     const c = this.carry;
     this.carry = {
-      ...c, index: c.index + 1, rooms: c.rooms + 1, gold: c.gold + gold, souls: c.souls + souls, hero: run.carryOut(),
+      ...c,
+      index: c.index + 1,
+      rooms: c.rooms + 1,
+      gold: c.gold + gold,
+      souls: c.souls + souls,
+      hero: run.carryOut(),
     };
     // рекорд пишем сразу: закрытая посреди забега вкладка не должна его отнимать
     p.recordRun(this.carry.rooms);

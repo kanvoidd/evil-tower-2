@@ -47,7 +47,14 @@ const res = spawnSync(isWin ? gradlew : './gradlew', ['--no-daemon', task], {
 });
 if (res.status !== 0) process.exit(res.status ?? 1);
 
-const outDir = join(android, 'app', 'build', 'outputs', 'apk', task === 'assembleDebug' ? 'debug' : 'release');
+const outDir = join(
+  android,
+  'app',
+  'build',
+  'outputs',
+  'apk',
+  task === 'assembleDebug' ? 'debug' : 'release',
+);
 const apk = readdirSync(outDir).find((f) => f.endsWith('.apk'));
 if (!apk) {
   console.error(`Gradle отработал, но APK в ${outDir} не найден.`);
@@ -57,4 +64,6 @@ if (!apk) {
 const dest = join(root, 'evil-tower-2.apk');
 copyFileSync(join(outDir, apk), dest);
 console.log(`\nГотово: ${dest}`);
-console.log('Перенесите файл на телефон и откройте его (понадобится разрешение «установка из этого источника»).');
+console.log(
+  'Перенесите файл на телефон и откройте его (понадобится разрешение «установка из этого источника»).',
+);

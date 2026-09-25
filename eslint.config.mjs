@@ -74,6 +74,10 @@ export default tseslint.config(
   },
   {
     files: Object.keys(legacyComplexity),
-    rules: { complexity: ['warn', 15], 'max-depth': ['warn', 4], 'max-nested-callbacks': ['warn', 3] },
+    rules: {
+      complexity: ['warn', 15],
+      'max-depth': ['warn', 4],
+      'max-nested-callbacks': ['warn', 3],
+    },
   },
 );

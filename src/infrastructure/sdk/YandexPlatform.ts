@@ -79,7 +79,11 @@ export class YandexPlatform implements IPlatform {
   getLang(): Lang {
     const raw: string = this.ysdk?.environment?.i18n?.lang ?? navigator.language ?? 'ru';
     const l = raw.slice(0, 2).toLowerCase();
-    return ['ru', 'be', 'kk', 'uk', 'uz', 'hy', 'az', 'ka', 'ky', 'tg', 'tk', 'ro', 'mo'].includes(l) ? 'ru' : 'en';
+    return ['ru', 'be', 'kk', 'uk', 'uz', 'hy', 'az', 'ka', 'ky', 'tg', 'tk', 'ro', 'mo'].includes(
+      l,
+    )
+      ? 'ru'
+      : 'en';
   }
 
   // ------------------------------------------------------------------ данные игрока

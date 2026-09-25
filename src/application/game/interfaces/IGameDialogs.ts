@@ -11,7 +11,11 @@ export interface IGameDialogs {
   /** Между комнатами: идти выше или уйти с наградой. */
   roomCleared(o: RoomClearSummary): Promise<'next' | 'cashout'>;
   /** Герой погиб: воскреснуть за видео (если ещё можно) или закончить забег. */
-  died(o: { canRevive: boolean; lootLost: boolean; keepsRooms: boolean }): Promise<'revive' | 'end'>;
+  died(o: {
+    canRevive: boolean;
+    lootLost: boolean;
+    keepsRooms: boolean;
+  }): Promise<'revive' | 'end'>;
   /**
    * Итог забега. `double` вызывается кнопкой «Удвоить награду» и отвечает, выдана ли награда;
    * окно остаётся открытым до выбора, куда идти дальше.

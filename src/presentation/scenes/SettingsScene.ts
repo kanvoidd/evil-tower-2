@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { AudioSettings } from '../../application/settings/AudioSettings';
 import { LanguageSettings } from '../../application/settings/LanguageSettings';
 import { SettingsController } from '../../application/settings/SettingsController';
@@ -32,6 +33,11 @@ export class SettingsScene extends Phaser.Scene {
       noZoom: this.noZoom,
       commands: (cmd) => this.controller?.execute(cmd),
     });
-    this.controller = new SettingsController({ audio, language, view, navigator: new SettingsNavigator(this) });
+    this.controller = new SettingsController({
+      audio,
+      language,
+      view,
+      navigator: new SettingsNavigator(this),
+    });
   }
 }

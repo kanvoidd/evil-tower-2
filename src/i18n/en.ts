@@ -29,7 +29,8 @@ export const en: Record<keyof typeof ru, string> = {
   'select.locked': 'Locked',
   'select.first': 'Pick your hero',
 
-  'trait.mech.mage': 'Never strikes with his hands: lightning on an adjacent card is his plain attack',
+  'trait.mech.mage':
+    'Never strikes with his hands: lightning on an adjacent card is his plain attack',
   'trait.mech.archer': 'Shoots through a card with no counterattack',
   'trait.mech.mercenary': 'Teleports behind any enemy: 100% crit',
   'trait.artifact': 'Can pick up and use artifacts',
@@ -77,7 +78,8 @@ export const en: Record<keyof typeof ru, string> = {
   'path.vitality': 'Path of Life',
   'path.guard': 'Path of Defence',
 
-  'tal.boltEcho': 'Lightning Bolt has a {v}% chance to strike the same target again for {v2}% damage',
+  'tal.boltEcho':
+    'Lightning Bolt has a {v}% chance to strike the same target again for {v2}% damage',
   'tal.lightningPower': '+{v}% Lightning Bolt power',
   'tal.shotPower': '+{v}% Arcane Shot power',
   'tal.chainPower': '+{v}% Chain Lightning power',
@@ -133,14 +135,16 @@ export const en: Record<keyof typeof ru, string> = {
   'tal.abilityIgnite': '{v}% chance for an ability to set the target alight',
   'tal.abilityStun': '{v}% chance for an ability to stun the target',
   'tal.abilitySplash': 'Ability damage splashes onto the target\u2019s neighbours for {v}%',
-  'tal.abilityPoison': 'Abilities poison: {v}% of the target\u2019s maximum health per turn for 3 turns',
+  'tal.abilityPoison':
+    'Abilities poison: {v}% of the target\u2019s maximum health per turn for 3 turns',
   'tal.abilityVuln': 'An ability\u2019s target takes {v}% more damage',
   'tal.abilityCrit': '{v}% critical chance for abilities',
   'tal.abilityLifesteal': 'Abilities heal you for {v}% of the damage dealt',
   'tal.abilityRefund': 'A kill made with an ability refunds {v}% of its cost',
   'tal.abilityShield': 'After an ability you gain a shield for {v}% of maximum health',
   'tal.killBlast': 'A slain enemy bursts: neighbours take {v}% of its maximum health',
-  'tal.basicSplit': 'Your main attack has a {v}% chance to also strike another enemy for {v2}% damage',
+  'tal.basicSplit':
+    'Your main attack has a {v}% chance to also strike another enemy for {v2}% damage',
   'tal.perkCostDown': 'Abilities cost {v} less (but not below 2)',
   'tal.stepHeal': 'Stepping onto a cell without an enemy heals {v}% of maximum health',
   'tal.manaShield': '{v}% of incoming damage is absorbed by your resource',
@@ -186,11 +190,15 @@ export const en: Record<keyof typeof ru, string> = {
   'auto.used': 'Auto',
   'auto.state.on': 'Currently on. Tap to turn off.',
   'auto.state.off': 'Currently off. Tap to turn on.',
-  'auto.use.heal.tip': 'Auto-use for healing potions. The potion is drunk by itself when you are missing at least a full potion of health (so none is wasted), or when an adjacent enemy could kill you with its next blow.',
-  'auto.use.regen.tip': 'Auto-use for restore potions. The potion is drunk by itself when you lack the resource for your class’s main action and the bar is nearly empty — so it gives back as much as possible.',
-  'auto.use.artifact.tip': 'Auto-use for artifacts (mage only). The artifact fires by itself when it would destroy 3 or more enemies — or 2 when you are in danger.',
+  'auto.use.heal.tip':
+    'Auto-use for healing potions. The potion is drunk by itself when you are missing at least a full potion of health (so none is wasted), or when an adjacent enemy could kill you with its next blow.',
+  'auto.use.regen.tip':
+    'Auto-use for restore potions. The potion is drunk by itself when you lack the resource for your class’s main action and the bar is nearly empty — so it gives back as much as possible.',
+  'auto.use.artifact.tip':
+    'Auto-use for artifacts (mage only). The artifact fires by itself when it would destroy 3 or more enemies — or 2 when you are in danger.',
 
-  'auto.skill.tip': 'Auto-upgrade. While it is on, every upgrade you buy sends the rest of your soul XP down the same path. Metamorphosis is always your choice: auto-upgrade stops before it.',
+  'auto.skill.tip':
+    'Auto-upgrade. While it is on, every upgrade you buy sends the rest of your soul XP down the same path. Metamorphosis is always your choice: auto-upgrade stops before it.',
   'auto.skill.enabled': 'Auto-upgrade on',
   'auto.skill.disabled': 'Auto-upgrade off',
   'auto.skill.result': 'Auto-upgrade: {n} upgrades',
@@ -221,7 +229,8 @@ export const en: Record<keyof typeof ru, string> = {
   'shop.potion_heal': 'Healing potion',
   'shop.potion_heal.desc': 'Instantly restores {n}% of maximum health.',
   'shop.potion_regen': 'Restore potion',
-  'shop.potion_regen.desc': 'Fully refills your resource and speeds its regeneration for {n} turns.',
+  'shop.potion_regen.desc':
+    'Fully refills your resource and speeds its regeneration for {n} turns.',
   'shop.artifact': 'Artifact',
   'shop.artifact.desc': 'Mage only. Strikes every enemy on the board. Found in chests.',
   'shop.owned': 'In stock: {n}',
@@ -290,9 +299,11 @@ export const en: Record<keyof typeof ru, string> = {
   'skill.points': 'Talents learned: {n}',
 
   'meta.title': 'Class metamorphosis',
-  'meta.body': 'The old class’s abilities are lost, talents are kept. You gain the new class’s starting ability.',
+  'meta.body':
+    'The old class’s abilities are lost, talents are kept. You gain the new class’s starting ability.',
   'meta.cancel_title': 'Undo metamorphosis',
-  'meta.cancel_body': 'Every upgrade in this branch is lost (we refund {pct}% of the soul XP spent). Then you can pick the other branch.',
+  'meta.cancel_body':
+    'Every upgrade in this branch is lost (we refund {pct}% of the soul XP spent). Then you can pick the other branch.',
 
   'game.room': 'Room {r}',
   'game.enemies': 'Enemies: {n}',

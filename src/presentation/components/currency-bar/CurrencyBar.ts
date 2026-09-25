@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { fmt } from '../../../i18n';
 import { HEX } from '../../theme';
 import { icon } from '../icon/Icon';
@@ -25,8 +26,16 @@ export class CurrencyBar extends Phaser.GameObjects.Container {
     const gap = o.compact ? 40 : 46;
     this.shownGold = this.wallet?.gold ?? 0;
     this.shownSouls = this.wallet?.souls ?? 0;
-    this.goldText = txt(scene, 0, 0, fmt(this.shownGold), fs, { origin: [1, 0.5], color: HEX.gold, weight: 900 });
-    this.soulText = txt(scene, 0, gap, fmt(this.shownSouls), fs, { origin: [1, 0.5], color: HEX.soul, weight: 900 });
+    this.goldText = txt(scene, 0, 0, fmt(this.shownGold), fs, {
+      origin: [1, 0.5],
+      color: HEX.gold,
+      weight: 900,
+    });
+    this.soulText = txt(scene, 0, gap, fmt(this.shownSouls), fs, {
+      origin: [1, 0.5],
+      color: HEX.soul,
+      weight: 900,
+    });
     this.goldIcon = icon(scene, 0, 0, o.goldIcon ?? 'ico_gold', this.iconSize);
     this.soulIcon = icon(scene, 0, gap, 'ico_soul', this.iconSize);
     this.add([this.goldIcon, this.soulIcon, this.goldText, this.soulText]);
@@ -34,7 +43,9 @@ export class CurrencyBar extends Phaser.GameObjects.Container {
     const wallet = this.wallet;
     if (wallet) {
       wallet.walletChanged.on(this.refresh, this);
-      this.once(Phaser.GameObjects.Events.DESTROY, () => wallet.walletChanged.off(this.refresh, this));
+      this.once(Phaser.GameObjects.Events.DESTROY, () =>
+        wallet.walletChanged.off(this.refresh, this),
+      );
     }
     scene.add.existing(this);
   }
@@ -62,7 +73,12 @@ export class CurrencyBar extends Phaser.GameObjects.Container {
     this.tick(this.soulText, this.shownSouls, this.wallet.souls, (v) => (this.shownSouls = v));
   }
 
-  private tick(text: Phaser.GameObjects.Text, from: number, to: number, set: (v: number) => void): void {
+  private tick(
+    text: Phaser.GameObjects.Text,
+    from: number,
+    to: number,
+    set: (v: number) => void,
+  ): void {
     if (!this.scene || from === to) return;
     const obj = { v: from };
     this.scene.tweens.add({

@@ -5,15 +5,22 @@
  * RUNS=<n> — сколько забегов максимум.
  */
 import { CLASSES } from '../src/domain/data/classes';
-import { ITEMS, type ItemDef } from '../src/domain/data/items';
+import { type ItemDef, ITEMS } from '../src/domain/data/items';
 import { ROOMS } from '../src/domain/data/levels';
 import { FULL_BAR, type PerkDef } from '../src/domain/data/perks';
-import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
-import { applyBuy, canInvest, costOf, isPurchasable, newLineageSave, TREES } from '../src/domain/logic/skillTree';
-import { buildPlayerStats } from '../src/domain/logic/stats';
-import { makeRng } from '../src/domain/logic/rng';
-import { RunFactory, type Run, type RunCarryStats } from '../src/domain/logic/run';
 import { needsRegen } from '../src/domain/logic/autoUse';
+import { makeRng } from '../src/domain/logic/rng';
+import { type Run, type RunCarryStats, RunFactory } from '../src/domain/logic/run';
+import {
+  applyBuy,
+  canInvest,
+  costOf,
+  isPurchasable,
+  newLineageSave,
+  TREES,
+} from '../src/domain/logic/skillTree';
+import { buildPlayerStats } from '../src/domain/logic/stats';
+import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
 const N = Number(process.argv[3] ?? 20);
@@ -62,7 +69,11 @@ const shop = (): void => {
    * Разумный игрок чинит предмет заранее (пока он не сломался — это дёшево) и не скатывается
    * на пару ступеней вниз: если денег не хватает на привычный уровень, он копит.
    */
-  const upgrade = (list: ItemDef[], cur: EquipmentSave | null, slot: 'weapon' | 'armor'): EquipmentSave | null => {
+  const upgrade = (
+    list: ItemDef[],
+    cur: EquipmentSave | null,
+    slot: 'weapon' | 'armor',
+  ): EquipmentSave | null => {
     if (cur && cur.durability > 0) {
       const it = list.find((i) => i.id === cur.id)!;
       if (cur.durability < it.durability * 0.55) {
@@ -101,10 +112,35 @@ const shop = (): void => {
 /** Способности, которые бот применять не умеет (чистая утилита — ими играет человек). */
 const SKIP = new Set(['swap', 'deck_draw', 'bribe', 'falcon_courier', 'rewind']);
 /** Способности без цели, выгодные только при куче врагов. */
-const CROWD = new Set(['earthquake', 'whirlwind', 'verdict', 'detonate', 'arrow_rain', 'shuriken_fan', 'heavens_wrath', 'starfall', 'inferno', 'dead_harvest', 'wind_shadow', 'shadow_reap']);
+const CROWD = new Set([
+  'earthquake',
+  'whirlwind',
+  'verdict',
+  'detonate',
+  'arrow_rain',
+  'shuriken_fan',
+  'heavens_wrath',
+  'starfall',
+  'inferno',
+  'dead_harvest',
+  'wind_shadow',
+  'shadow_reap',
+]);
 
 /** Событие, по которому видно, что способность что-то изменила. */
-const CHANGED = new Set(['hit', 'kill', 'heal', 'shield', 'status', 'boost', 'swap', 'slide', 'rewind', 'gold', 'souls']);
+const CHANGED = new Set([
+  'hit',
+  'kill',
+  'heal',
+  'shield',
+  'status',
+  'boost',
+  'swap',
+  'slide',
+  'rewind',
+  'gold',
+  'souls',
+]);
 
 /**
  * Сколько ресурса нельзя разменивать. У мага основной удар — платная молния, и остаться
@@ -123,7 +159,8 @@ const tryPerk = (run: Run, dud: Set<string>): boolean => {
     if (SKIP.has(perk.ability) || dud.has(perk.id)) continue;
     if (!run.perkReady(perk).ok) continue;
     // всё, кроме самого основного удара, не имеет права съесть запас на него
-    if (reserve && perk.id !== reserve.perkId && run.res - run.perkCostOf(perk) < reserve.cost) continue;
+    if (reserve && perk.id !== reserve.perkId && run.res - run.perkCostOf(perk) < reserve.cost)
+      continue;
     const full = perk.cost === FULL_BAR;
     if (CROWD.has(perk.ability) && enemies < (full ? 4 : 2)) continue;
     if (full && enemies < 4) continue;
@@ -168,7 +205,8 @@ const adjacentEnemies = (run: Run, cell: number): number => {
 /** Расстояние до ближайшего врага. */
 const nearestEnemy = (run: Run, cell: number): number => {
   let best = 9;
-  for (let c = 0; c < 9; c++) if (run.cards[c]?.kind === 'enemy') best = Math.min(best, CELL_DIST(cell, c));
+  for (let c = 0; c < 9; c++)
+    if (run.cards[c]?.kind === 'enemy') best = Math.min(best, CELL_DIST(cell, c));
   return best;
 };
 
@@ -191,7 +229,10 @@ const bot = (run: Run): void => {
       let bestScore = -1e9;
       for (let cell = 0; cell < 9; cell++) {
         if (run.actionFor(cell).kind === 'none') continue;
-        const score = cell === exitCell ? 1000 : -CELL_DIST(cell, exitCell) * 10 - (run.cards[cell]?.kind === 'enemy' ? 5 : 0);
+        const score =
+          cell === exitCell
+            ? 1000
+            : -CELL_DIST(cell, exitCell) * 10 - (run.cards[cell]?.kind === 'enemy' ? 5 : 0);
         if (score > bestScore) {
           bestScore = score;
           best = cell;
@@ -201,8 +242,18 @@ const bot = (run: Run): void => {
     }
     // проверяем результат: расходник может быть недоступен (артефакты — только у магов),
     // иначе бот зациклится на бесполезной попытке и не сделает ни одного хода
-    if (run.hp <= run.stats.maxHp * 0.45 && run.consumables.potion_heal > 0 && run.useItem('potion_heal').ok) continue;
-    if (run.consumables.artifact > 0 && run.cards.filter((c) => c?.kind === 'enemy').length >= 3 && run.useItem('artifact').ok) continue;
+    if (
+      run.hp <= run.stats.maxHp * 0.45 &&
+      run.consumables.potion_heal > 0 &&
+      run.useItem('potion_heal').ok
+    )
+      continue;
+    if (
+      run.consumables.artifact > 0 &&
+      run.cards.filter((c) => c?.kind === 'enemy').length >= 3 &&
+      run.useItem('artifact').ok
+    )
+      continue;
     // как у игрока с автоприменением: ресурса нет на основной удар, а шкала почти пуста
     if (needsRegen(run) && run.useItem('potion_regen').ok) continue;
     if (tryPerk(run, dud)) continue;
@@ -231,7 +282,9 @@ const bot = (run: Run): void => {
       for (let cell = 0; cell < 9; cell++) {
         if (run.cards[cell] || run.actionFor(cell).kind !== 'move') continue;
         // выход открыт — идём к переходу, а не к врагам
-        const score = run.exitOpen ? -nearestEnemy(run, cell) : adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
+        const score = run.exitOpen
+          ? -nearestEnemy(run, cell)
+          : adjacentEnemies(run, cell) * 10 - nearestEnemy(run, cell);
         if (score > bestScore) {
           bestScore = score;
           bestCell = cell;
@@ -259,7 +312,15 @@ const runTower = (): { rooms: number; turns: number; gold: number; souls: number
   for (let i = 0; i < ROOMS.length; i++) {
     const room = ROOMS[i];
     const stats = buildPlayerStats({ classId, lineage: ls, weapon, armor });
-    const run = RunFactory.standard().create({ room, stats, weapon, armor, consumables: { ...consumables }, rng: makeRng(seed++), carry });
+    const run = RunFactory.standard().create({
+      room,
+      stats,
+      weapon,
+      armor,
+      consumables: { ...consumables },
+      rng: makeRng(seed++),
+      carry,
+    });
     run.start();
     bot(run);
     turns += run.totals.turns;
@@ -286,7 +347,9 @@ const SEC_PER_ROOM = 8;
 const SEC_PER_RUN = 45;
 const MAX_RUNS = Number(process.env.RUNS ?? 400);
 console.log(`Линейка: ${lineage}, повторов забега на точку: ${N}, фарм x${FARM}`);
-console.log('run | rooms | best | minutes | +souls | +gold | class      | HP DMG DEF crit | reach p50/p90');
+console.log(
+  'run | rooms | best | minutes | +souls | +gold | class      | HP DMG DEF crit | reach p50/p90',
+);
 let seed = Number(process.env.SEED ?? 1);
 let seconds = 0;
 let best = 0;
@@ -294,7 +357,13 @@ const milestones: Array<[number, number, number]> = [];
 
 /** Насколько далеко этот герой доходит сейчас: медиана и 90-й процентиль по N забегам (без трат). */
 const probe = (): [number, number] => {
-  const save = { gold, souls, weapon: weapon && { ...weapon }, armor: armor && { ...armor }, cons: { ...consumables } };
+  const save = {
+    gold,
+    souls,
+    weapon: weapon && { ...weapon },
+    armor: armor && { ...armor },
+    cons: { ...consumables },
+  };
   const reach: number[] = [];
   for (let k = 0; k < N; k++) {
     reach.push(runTower().rooms);
@@ -319,7 +388,8 @@ for (let r = 1; r <= MAX_RUNS && best < ROOMS.length; r++) {
   seconds += res.turns * SEC_PER_TURN + (res.rooms + 1) * SEC_PER_ROOM + SEC_PER_RUN;
   const record = res.rooms > best;
   if (record) {
-    for (let f = Math.floor(best / 5) + 1; f <= Math.floor(res.rooms / 5); f++) milestones.push([f, r, Math.round(seconds / 60)]);
+    for (let f = Math.floor(best / 5) + 1; f <= Math.floor(res.rooms / 5); f++)
+      milestones.push([f, r, Math.round(seconds / 60)]);
     best = res.rooms;
   }
   if (record || r % EVERY === 0) {
@@ -328,4 +398,7 @@ for (let r = 1; r <= MAX_RUNS && best < ROOMS.length; r++) {
     );
   }
 }
-console.log('этаж пройден впервые: ' + milestones.map(([f, r, m]) => `${f}: забег ${r}, ${m} мин`).join(' · '));
+console.log(
+  'этаж пройден впервые: ' +
+    milestones.map(([f, r, m]) => `${f}: забег ${r}, ${m} мин`).join(' · '),
+);

@@ -14,7 +14,10 @@ import type { HeroChoice } from './interfaces/HeroChoice';
  * поэтому смена героя ничего не отнимает у прежнего.
  */
 export class ClassSelection {
-  constructor(private readonly profile: Profile, readonly mode: ClassSelectMode) {}
+  constructor(
+    private readonly profile: Profile,
+    readonly mode: ClassSelectMode,
+  ) {}
 
   /** Цена нового героя в золоте. */
   get unlockCost(): number {
@@ -34,7 +37,10 @@ export class ClassSelection {
   /** С кого карусель начинает: в первом запуске — с первого героя, иначе — с того, кто сейчас в игре. */
   initialIndex(choices: readonly HeroChoice[]): number {
     if (this.mode === 'first') return 0;
-    return Math.max(0, choices.findIndex((c) => c.classId === this.profile.activeClass));
+    return Math.max(
+      0,
+      choices.findIndex((c) => c.classId === this.profile.activeClass),
+    );
   }
 
   /** Первый запуск: герой открыт и сразу выбран. */

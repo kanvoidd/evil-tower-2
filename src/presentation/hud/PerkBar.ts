@@ -1,10 +1,11 @@
 import type Phaser from 'phaser';
+
 import { FULL_BAR, type PerkDef } from '../../domain/data/perks';
 import type { IRunState } from '../../domain/logic/run';
 import { perkDesc, perkName } from '../../i18n';
 import type { Animations } from '../animations/Animations';
-import { GAME_W, HEX } from '../theme';
 import { outlineTexture, PlateButton, tipOnHover, txt } from '../components';
+import { GAME_W, HEX } from '../theme';
 import type { IHudActions } from './interfaces/IHudActions';
 import type { PerkButton } from './interfaces/PerkButton';
 
@@ -41,20 +42,36 @@ export class PerkBar {
       const x = (GAME_W - total) / 2 + w / 2 + (i - row * perRow) * (w + gap);
       const y = yTop + row * PerkBar.ROW_GAP;
       const btn = new PlateButton(scene, x, y, {
-        w, h, icon: perk.icon, iconSize: 46, radius: 22, style: 'raised',
+        w,
+        h,
+        icon: perk.icon,
+        iconSize: 46,
+        radius: 22,
+        style: 'raised',
         onClick: () => actions.command({ type: 'use-perk', perkId: perk.id }),
       });
       btn.iconImg?.setY(-12);
-      const frame = scene.add.image(0, 0, outlineTexture(scene, w, h, 22, '#f0c75e', 4)).setVisible(false);
+      const frame = scene.add
+        .image(0, 0, outlineTexture(scene, w, h, 22, '#f0c75e', 4))
+        .setVisible(false);
       btn.pulseC.add(frame);
       // название под значком: в ряду из десяти кнопок иначе не понять, что где
       const name = txt(scene, 0, h / 2 - 15, perkName(perk), nameSize, {
-        weight: 800, strokeThickness: 3, color: HEX.textDim, maxWidth: w - 12,
+        weight: 800,
+        strokeThickness: 3,
+        color: HEX.textDim,
+        maxWidth: w - 12,
       });
       btn.pulseC.add(name);
       // цена — бейдж в левом верхнем углу кнопки
-      const costPlate = scene.add.circle(-w / 2 + 16, -h / 2 + 15, 14, 0x0b0d12).setStrokeStyle(2, 0xf0c75e);
-      const costText = txt(scene, costPlate.x, costPlate.y - 1, '', 16, { weight: 900, strokeThickness: 0, color: HEX.gold });
+      const costPlate = scene.add
+        .circle(-w / 2 + 16, -h / 2 + 15, 14, 0x0b0d12)
+        .setStrokeStyle(2, 0xf0c75e);
+      const costText = txt(scene, costPlate.x, costPlate.y - 1, '', 16, {
+        weight: 900,
+        strokeThickness: 0,
+        color: HEX.gold,
+      });
       btn.pulseC.add([costPlate, costText]);
       tipOnHover(scene, btn, () => `${perkName(perk)}\n${perkDesc(perk)}`);
       this.buttons.push({ perk, btn, costText, costPlate, name, frame });

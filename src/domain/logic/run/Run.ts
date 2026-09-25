@@ -1,18 +1,18 @@
-import type { ConsumableId, EquipmentSave } from '../../types';
 import type { EnemyDef } from '../../data/enemies';
 import { isHolyTarget } from '../../data/enemies';
 import type { LineageDef } from '../../data/heroes';
-import { ELITE, type RoomDef, type RoomModifier, type RoomPlan } from '../../data/levels';
 import { ITEM_BY_ID } from '../../data/items';
+import { ELITE, type RoomDef, type RoomModifier, type RoomPlan } from '../../data/levels';
 import { FULL_BAR, PERK_BY_ID, type PerkDef } from '../../data/perks';
-import { GAMEPLAY } from '../../gameplay';
 import { Grid } from '../../engine/grid/Grid';
 import type { IEngine } from '../../engine/interfaces/IEngine';
 import type { Card } from '../../game-data/card/Card';
 import type { CardFactory } from '../../game-data/card/card-factory/CardFactory';
 import type { GameEvent, Loot } from '../../game-data/events';
-import type { PlayerStats } from '../stats';
+import { GAMEPLAY } from '../../gameplay';
+import type { ConsumableId, EquipmentSave } from '../../types';
 import type { Rng } from '../rng';
+import type { PlayerStats } from '../stats';
 import type { Action } from './interfaces/Action';
 import type { IRunSession } from './interfaces/IRunSession';
 import type { PerkReadiness } from './interfaces/PerkReadiness';
@@ -62,13 +62,13 @@ export class Run implements IRunSession {
   private usedOnce = new Set<string>();
 
   // ---- временные состояния героя
-  private noCounter = 0;      // дымовая завеса
-  private madness = 0;        // безумие берсерка
-  private reaping = 0;        // жнец
-  private killStreak = 0;     // резня
+  private noCounter = 0; // дымовая завеса
+  private madness = 0; // безумие берсерка
+  private reaping = 0; // жнец
+  private killStreak = 0; // резня
   private killsRoom = 0;
-  private defTurn = 0;        // «+защита на ход» после убийства
-  private perkGuard = 0;      // «после перка следующий удар слабее»
+  private defTurn = 0; // «+защита на ход» после убийства
+  private perkGuard = 0; // «после перка следующий удар слабее»
   private counterReady = false; // контрудар после парирования
   private cheatLeft = 0;
   private reviveLeft = 0;
@@ -79,10 +79,10 @@ export class Run implements IRunSession {
   private inAbility = false;
   /** Цена применяемой способности (для возврата ресурса за убийство). */
   private abilityCost = 0;
-  private hitCounter = 0;     // для «Суда» (каждый третий удар)
+  private hitCounter = 0; // для «Суда» (каждый третий удар)
   private playerPoison = 0;
   private playerPoisonDmg = 0;
-  private warCry = 0;         // накопленное ослабление атаки врагов
+  private warCry = 0; // накопленное ослабление атаки врагов
   private snapshot: RunSnapshot | null = null;
 
   private readonly rng: Rng;
@@ -104,7 +104,9 @@ export class Run implements IRunSession {
     this.plan = deps.plan;
     this.mod = this.plan.mod;
     const carry = init.carry;
-    this.hp = carry ? Math.max(1, Math.min(this.stats.maxHp, Math.round(carry.hp))) : this.stats.maxHp;
+    this.hp = carry
+      ? Math.max(1, Math.min(this.stats.maxHp, Math.round(carry.hp)))
+      : this.stats.maxHp;
     // в забег герой выходит отдохнувшим — с полной шкалой; дальше её несёт из комнаты в комнату
     this.res = carry ? Math.max(0, Math.min(this.stats.resMax, carry.res)) : this.stats.resMax;
     this.revived = carry?.revived ?? false;
@@ -188,7 +190,9 @@ export class Run implements IRunSession {
   }
 
   start(): GameEvent[] {
-    this.shield = Math.round(this.stats.maxHp * (this.stats.startShieldPct + (this.mod.shieldPct ?? 0)));
+    this.shield = Math.round(
+      this.stats.maxHp * (this.stats.startShieldPct + (this.mod.shieldPct ?? 0)),
+    );
     for (let i = 0; i < 9; i++) {
       if (i === this.playerCell) continue;
       const card = this.engine.draw();
@@ -204,7 +208,10 @@ export class Run implements IRunSession {
   /** Что произойдёт при нажатии на клетку (для подсветки и подсказок). */
   actionFor(cell: number): Action {
     if (this.over || cell === this.playerCell) return { kind: 'none', reason: 'invalid' };
-    if (this.armed) return this.perkTargetOk(this.armed, cell) ? { kind: 'perk' } : { kind: 'none', reason: 'range' };
+    if (this.armed)
+      return this.perkTargetOk(this.armed, cell)
+        ? { kind: 'perk' }
+        : { kind: 'none', reason: 'range' };
     const card = this.cards[cell];
     const d = Grid.dist(this.playerCell, cell);
     // По пустой соседней клетке теперь тоже можно ходить — это полноценный ход.
@@ -216,7 +223,8 @@ export class Run implements IRunSession {
     }
     if (card.kind !== 'enemy') return { kind: 'none', reason: 'range' };
     const s = this.stats;
-    if (!s.attack.reaches(this.playerCell, cell, s.passives)) return { kind: 'none', reason: 'range' };
+    if (!s.attack.reaches(this.playerCell, cell, s.passives))
+      return { kind: 'none', reason: 'range' };
     if (this.res < s.rangedCost) return { kind: 'none', reason: 'resource' };
     return { kind: 'ranged' };
   }
@@ -235,7 +243,8 @@ export class Run implements IRunSession {
     let dmg = this.currentDamage();
     if (a.kind === 'ranged') {
       dmg = Math.round(dmg * this.stats.attack.mul);
-      if (this.backstabs || this.reaping > 0) dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
+      if (this.backstabs || this.reaping > 0)
+        dmg = Math.max(dmg + 1, Math.round(dmg * this.stats.critMin));
     }
     dmg = this.contextDamage(dmg, card);
     return this.afterArmor(dmg, card) >= card.hp;
@@ -244,7 +253,8 @@ export class Run implements IRunSession {
   tap(cell: number): TurnResult {
     if (this.armed) return this.aimPerk(cell);
     const action = this.actionFor(cell);
-    if (action.kind === 'none') return { ok: false, reason: action.reason, events: this.engine.flush() };
+    if (action.kind === 'none')
+      return { ok: false, reason: action.reason, events: this.engine.flush() };
     this.beginTurn();
     if (action.kind === 'melee') this.melee(cell);
     else if (action.kind === 'ranged') this.basicRanged(cell);
@@ -279,10 +289,14 @@ export class Run implements IRunSession {
   /** Держится ли уже эффект этой способности. */
   private buffActive(p: PerkDef): boolean {
     switch (p.ability) {
-      case 'madness': return this.madness > 0;
-      case 'reaper': return this.reaping > 0;
-      case 'smoke_screen': return this.noCounter > 0;
-      default: return false;
+      case 'madness':
+        return this.madness > 0;
+      case 'reaper':
+        return this.reaping > 0;
+      case 'smoke_screen':
+        return this.noCounter > 0;
+      default:
+        return false;
     }
   }
 
@@ -302,8 +316,10 @@ export class Run implements IRunSession {
    */
   usePerk(id: string): TurnResult {
     const p = PERK_BY_ID[id];
-    if (!p || p.passive || p.basic) return { ok: false, reason: 'invalid', events: this.engine.flush() };
-    if (!this.stats.perks.includes(id)) return { ok: false, reason: 'invalid', events: this.engine.flush() };
+    if (!p || p.passive || p.basic)
+      return { ok: false, reason: 'invalid', events: this.engine.flush() };
+    if (!this.stats.perks.includes(id))
+      return { ok: false, reason: 'invalid', events: this.engine.flush() };
     if (this.armed?.id === id) {
       this.armed = null;
       this.swapFirst = null;
@@ -348,20 +364,32 @@ export class Run implements IRunSession {
     if (p.ability === 'voodoo' && card.link) return false;
     if (p.ability === 'death_mark' && card.mark > 0) return false;
     switch (p.target) {
-      case 'enemy': return card.kind === 'enemy';
-      case 'adjacent': return card.kind === 'enemy' && Grid.neighbors(this.playerCell).includes(cell);
+      case 'enemy':
+        return card.kind === 'enemy';
+      case 'adjacent':
+        return card.kind === 'enemy' && Grid.neighbors(this.playerCell).includes(cell);
       // выстрел идёт ЧЕРЕЗ карту: вплотную из него не бьют
-      case 'line': return card.kind === 'enemy' && Grid.sameLine(this.playerCell, cell) && Grid.dist(this.playerCell, cell) > 1;
-      case 'card': return card.kind !== 'enemy';
-      case 'any_card': return true;
-      case 'two': return true;
-      default: return false;
+      case 'line':
+        return (
+          card.kind === 'enemy' &&
+          Grid.sameLine(this.playerCell, cell) &&
+          Grid.dist(this.playerCell, cell) > 1
+        );
+      case 'card':
+        return card.kind !== 'enemy';
+      case 'any_card':
+        return true;
+      case 'two':
+        return true;
+      default:
+        return false;
     }
   }
 
   private aimPerk(cell: number): TurnResult {
     const p = this.armed!;
-    if (!this.perkTargetOk(p, cell)) return { ok: false, reason: 'range', events: this.engine.flush() };
+    if (!this.perkTargetOk(p, cell))
+      return { ok: false, reason: 'range', events: this.engine.flush() };
     if (p.target === 'two' && this.swapFirst === null) {
       this.swapFirst = cell;
       this.emit({ type: 'armed', id: p.id });
@@ -400,7 +428,8 @@ export class Run implements IRunSession {
    */
   private afterPerk(): void {
     const s = this.stats;
-    if (s.perkDef > 0) this.perkGuard = Math.max(this.perkGuard, Math.min(Run.PERK_GUARD_CAP, s.perkDef));
+    if (s.perkDef > 0)
+      this.perkGuard = Math.max(this.perkGuard, Math.min(Run.PERK_GUARD_CAP, s.perkDef));
     if (s.abilityShield > 0 && !this.over) {
       this.shield += Math.max(1, Math.round(s.maxHp * s.abilityShield));
       this.emit({ type: 'shield', now: this.shield });
@@ -544,7 +573,14 @@ export class Run implements IRunSession {
     let dmg = Math.round(this.currentDamage() * s.attack.mul);
     const crit = forceCrit || this.rollCrit(this.cards[cell], true);
     if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-    this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: s.attack.style });
+    this.emit({
+      type: 'attack',
+      from: this.playerCell,
+      to: cell,
+      ranged: true,
+      by: 'player',
+      style: s.attack.style,
+    });
     this.wearWeapon();
     // «Жнец»: удар в спину убивает любого не-босса
     const target = this.cards[cell];
@@ -591,7 +627,14 @@ export class Run implements IRunSession {
       if (best < 0) return;
       let dmg = Math.round(this.currentDamage() * this.stats.attack.mul);
       dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-      this.emit({ type: 'attack', from: this.playerCell, to: best, ranged: true, by: 'player', style: 'backstab' });
+      this.emit({
+        type: 'attack',
+        from: this.playerCell,
+        to: best,
+        ranged: true,
+        by: 'player',
+        style: 'backstab',
+      });
       if (!this.strike(best, dmg, true)) return;
     }
   }
@@ -629,7 +672,8 @@ export class Run implements IRunSession {
       enemy.vuln = s.abilityVuln;
       this.emit({ type: 'status', cell, uid: enemy.uid, kind: 'vuln', turns: 99 });
     }
-    if (s.abilityLifesteal > 0) this.heal(Math.max(1, Math.round(dmg * s.abilityLifesteal)), 'lifesteal');
+    if (s.abilityLifesteal > 0)
+      this.heal(Math.max(1, Math.round(dmg * s.abilityLifesteal)), 'lifesteal');
     if (s.abilitySplash > 0) {
       const share = Math.max(1, Math.round(dmg * s.abilitySplash));
       for (const n of Grid.neighbors(cell)) {
@@ -650,16 +694,26 @@ export class Run implements IRunSession {
     const def = this.enemies[enemy.defId];
     const dealt = Math.min(dmg, enemy.hp);
     enemy.hp -= dmg;
-    const executed = enemy.hp > 0 && s.execute > 0 && !def?.boss && enemy.hp / enemy.maxHp <= s.execute;
-    this.emit({ type: 'hit', cell, amount: dealt, crit, target: 'enemy', hp: Math.max(0, executed ? 0 : enemy.hp) });
+    const executed =
+      enemy.hp > 0 && s.execute > 0 && !def?.boss && enemy.hp / enemy.maxHp <= s.execute;
+    this.emit({
+      type: 'hit',
+      cell,
+      amount: dealt,
+      crit,
+      target: 'enemy',
+      hp: Math.max(0, executed ? 0 : enemy.hp),
+    });
 
     if (direct) {
-      if (s.lifesteal > 0 && dealt > 0) this.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal');
+      if (s.lifesteal > 0 && dealt > 0)
+        this.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal');
       if (s.ignite > 0) this.applyBurn(cell, this.spellDamage(s.ignite), 3);
       if (def?.enrage && enemy.hp > 0) {
         enemy.atk = Math.round(enemy.atk + enemy.baseAtk * def.enrage);
       }
-      if (def?.thorns && enemy.hp > 0) this.hurtPlayer(Math.max(1, Math.round(dealt * def.thorns)), cell, true);
+      if (def?.thorns && enemy.hp > 0)
+        this.hurtPlayer(Math.max(1, Math.round(dealt * def.thorns)), cell, true);
     }
     // кукла вуду: половина урона расходится по остальным врагам
     if (enemy.link && dealt > 0) {
@@ -692,7 +746,9 @@ export class Run implements IRunSession {
     this.queueExit();
     this.killStreak++;
     const eliteMul = enemy.elite ? ELITE.value : 1;
-    const gold = Math.round(def.gold * eliteMul * (this.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05));
+    const gold = Math.round(
+      def.gold * eliteMul * (this.mod.goldMul ?? 1) * (1 + s.goldBonus + s.luck * 0.05),
+    );
     const souls = Math.round(def.souls * eliteMul * (this.mod.soulMul ?? 1) * (1 + s.soulBonus));
     if (gold > 0) {
       this.totals.gold += gold;
@@ -832,13 +888,15 @@ export class Run implements IRunSession {
   private defenseNow(): number {
     const s = this.stats;
     let def = s.defense;
-    if (s.highHpDef > 0 && this.hp > this.stats.maxHp * 0.7) def = Math.round(def * (1 + s.highHpDef));
+    if (s.highHpDef > 0 && this.hp > this.stats.maxHp * 0.7)
+      def = Math.round(def * (1 + s.highHpDef));
     if (s.resDef > 0 && this.res > this.stats.resMax * 0.5) def = Math.round(def * (1 + s.resDef));
     if (s.scarDef > 0) {
       const lost = Math.floor((1 - this.hp / this.stats.maxHp) / 0.2);
       def = Math.round(def * (1 + s.scarDef * lost));
     }
-    if (s.killDefStack > 0) def = Math.round(def * (1 + Math.min(0.2, s.killDefStack * this.killsRoom)));
+    if (s.killDefStack > 0)
+      def = Math.round(def * (1 + Math.min(0.2, s.killDefStack * this.killsRoom)));
     if (this.defTurn > 0) def = Math.round(def * (1 + s.killDefTurn));
     return def;
   }
@@ -938,7 +996,14 @@ export class Run implements IRunSession {
       if (s.passives.has('substitution')) {
         let dmg = Math.round(this.currentDamage());
         dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'backstab' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'backstab',
+        });
         this.strike(cell, dmg, true);
       }
       return;
@@ -991,14 +1056,29 @@ export class Run implements IRunSession {
       this.emit({ type: 'shield', now: this.shield });
     }
     if (dmg <= 0) {
-      this.emit({ type: 'hit', cell: this.playerCell, amount: 0, crit: false, target: 'player', hp: this.hp, absorbed: true });
+      this.emit({
+        type: 'hit',
+        cell: this.playerCell,
+        amount: 0,
+        crit: false,
+        target: 'player',
+        hp: this.hp,
+        absorbed: true,
+      });
       return;
     }
     this.hp -= dmg;
     this.totals.damageTaken += dmg;
     // «Ярость» берсерка: боль превращается в выносливость
     if (s.passives.has('rage')) this.gain(Math.floor(dmg / 2));
-    this.emit({ type: 'hit', cell: this.playerCell, amount: dmg, crit: false, target: 'player', hp: Math.max(0, this.hp) });
+    this.emit({
+      type: 'hit',
+      cell: this.playerCell,
+      amount: dmg,
+      crit: false,
+      target: 'player',
+      hp: Math.max(0, this.hp),
+    });
     this.wearArmor();
     if (this.hp <= 0 && !this.tryCheatDeath(dmg)) {
       this.over = 'lose';
@@ -1024,7 +1104,8 @@ export class Run implements IRunSession {
       this.res = 0;
       this.emit({ type: 'resource', now: 0, max: this.stats.resMax });
     }
-    if (price.goldShare > 0) this.totals.gold = Math.round(this.totals.gold * (1 - price.goldShare));
+    if (price.goldShare > 0)
+      this.totals.gold = Math.round(this.totals.gold * (1 - price.goldShare));
     if (shock) {
       this.emit({ type: 'fx', cells: this.enemyCells(), style: 'quake' });
       const blast = Math.max(1, dmg * 2);
@@ -1050,8 +1131,15 @@ export class Run implements IRunSession {
     }
     // У каждой способности есть своя вспышка. Если реализация не нарисовала ничего сама
     // (усиления, лечение, щиты), показываем эффект перка на герое или на цели.
-    const drew = this.engine.since(mark).some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
-    if (!drew) this.engine.insert(mark, { type: 'fx', cells: [cell >= 0 ? cell : this.playerCell], style: p.vfx });
+    const drew = this.engine
+      .since(mark)
+      .some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
+    if (!drew)
+      this.engine.insert(mark, {
+        type: 'fx',
+        cells: [cell >= 0 ? cell : this.playerCell],
+        style: p.vfx,
+      });
   }
 
   private applyAbility(p: PerkDef, cell: number): void {
@@ -1072,13 +1160,17 @@ export class Run implements IRunSession {
         const over = dmg - before;
         if (killed && over > 0) {
           const behind = this.behindCell(this.playerCell, cell);
-          if (behind >= 0 && this.cards[behind]?.kind === 'enemy') this.damageEnemy(behind, over, false);
+          if (behind >= 0 && this.cards[behind]?.kind === 'enemy')
+            this.damageEnemy(behind, over, false);
         }
         if (killed) this.stepInto(cell);
         break;
       }
       case 'earthquake': {
-        const hit = enemies.filter((c) => Grid.row(c) === Grid.row(this.playerCell) || Grid.col(c) === Grid.col(this.playerCell));
+        const hit = enemies.filter(
+          (c) =>
+            Grid.row(c) === Grid.row(this.playerCell) || Grid.col(c) === Grid.col(this.playerCell),
+        );
         this.emit({ type: 'fx', cells: hit, style: 'quake' });
         const dmg = this.spellDamage(0.6);
         for (const c of hit) {
@@ -1123,7 +1215,9 @@ export class Run implements IRunSession {
         }
         if (best < 0) break;
         this.emit({ type: 'fx', cells: [best], style: 'swap' });
-        const free = Grid.neighbors(this.playerCell).find((n) => !this.cards[n]) ?? Grid.neighbors(this.playerCell)[0];
+        const free =
+          Grid.neighbors(this.playerCell).find((n) => !this.cards[n]) ??
+          Grid.neighbors(this.playerCell)[0];
         if (free !== best) this.engine.swap(best, free);
         this.applyStun(free, 2);
         break;
@@ -1188,7 +1282,14 @@ export class Run implements IRunSession {
       // Удар молнии — единственный удар мага, и он стоит маны. Пустая шкала в окружении
       // врагов — не тупик, а приговор: см. `cornered()` и «Растерзание» в finishTurn.
       case 'lightning': {
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'bolt' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'bolt',
+        });
         const crit = this.rollCrit(target, true);
         let dmg = this.spellDamage(2.5 * (1 + this.stats.lightningPower));
         if (crit) dmg = Math.max(dmg + 1, Math.round(dmg * this.rollCritMul()));
@@ -1279,7 +1380,11 @@ export class Run implements IRunSession {
           const e = this.cards[c];
           if (!e) continue;
           const boss = this.enemies[e.defId].boss;
-          this.damageEnemy(c, Math.max(1, Math.round(e.hp * this.pp(boss ? 0.25 : 0.5, 0.9))), false);
+          this.damageEnemy(
+            c,
+            Math.max(1, Math.round(e.hp * this.pp(boss ? 0.25 : 0.5, 0.9))),
+            false,
+          );
         }
         this.stats.soulBonus = bonus;
         break;
@@ -1324,9 +1429,18 @@ export class Run implements IRunSession {
         for (const n of Grid.neighbors(cell)) {
           if (this.cards[n]?.kind === 'enemy' && chain.length < 3) chain.push(n);
         }
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'shot',
+        });
         const mul = [1, 0.5, 0.25];
-        chain.forEach((c, i) => this.strike(c, this.spellDamage(mul[i]), i === 0 && this.rollCrit(this.cards[c], true)));
+        chain.forEach((c, i) =>
+          this.strike(c, this.spellDamage(mul[i]), i === 0 && this.rollCrit(this.cards[c], true)),
+        );
         break;
       }
       case 'falcon_hunt': {
@@ -1341,7 +1455,14 @@ export class Run implements IRunSession {
         break;
       }
       case 'double_shot': {
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'shot',
+        });
         const killed = this.strike(cell, this.spellDamage(1), this.rollCrit(target, true));
         let second = cell;
         if (killed) {
@@ -1373,22 +1494,43 @@ export class Run implements IRunSession {
       }
       // ---------------- снайпер
       case 'rail_shot': {
-        const line = enemies.filter((c) => Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell));
+        const line = enemies.filter(
+          (c) => Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell),
+        );
         line.sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b));
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'shot',
+        });
         line.forEach((c, i) => this.strike(c, this.spellDamage(Math.pow(0.8, i)), i === 0));
         break;
       }
       case 'armor_piercing': {
         const e = target!;
-        this.emit({ type: 'attack', from: this.playerCell, to: cell, ranged: true, by: 'player', style: 'shot' });
+        this.emit({
+          type: 'attack',
+          from: this.playerCell,
+          to: cell,
+          ranged: true,
+          by: 'player',
+          style: 'shot',
+        });
         const bonus = Math.round(e.maxHp * this.pp(0.25, 0.6));
         this.strike(cell, this.spellDamage(1) + bonus, this.rollCrit(e, true));
         break;
       }
       case 'one_shot': {
         this.emit({ type: 'fx', cells: [cell], style: 'beam' });
-        const line = [cell, ...enemies.filter((c) => c !== cell && (Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell)))];
+        const line = [
+          cell,
+          ...enemies.filter(
+            (c) => c !== cell && (Grid.row(c) === Grid.row(cell) || Grid.col(c) === Grid.col(cell)),
+          ),
+        ];
         let kills = 0;
         for (const c of line) {
           const e = this.cards[c];
@@ -1438,9 +1580,12 @@ export class Run implements IRunSession {
       }
       // ---------------- ниндзя
       case 'shuriken_fan': {
-        const list = [...enemies].sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b)).slice(0, 4);
+        const list = [...enemies]
+          .sort((a, b) => Grid.dist(this.playerCell, a) - Grid.dist(this.playerCell, b))
+          .slice(0, 4);
         this.emit({ type: 'fx', cells: list, style: 'blades' });
-        for (const c of list) this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true));
+        for (const c of list)
+          this.strike(c, this.spellDamage(0.6), this.rollCrit(this.cards[c], true));
         break;
       }
       case 'smoke_screen': {
@@ -1485,7 +1630,8 @@ export class Run implements IRunSession {
   private reapMarked(cell: number): void {
     const e = this.cards[cell];
     if (!e || e.kind !== 'enemy') return;
-    if (this.enemies[e.defId].boss) this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * 0.3)), true);
+    if (this.enemies[e.defId].boss)
+      this.damageEnemy(cell, Math.max(1, Math.round(e.maxHp * 0.3)), true);
     else this.killEnemy(cell);
   }
 
@@ -1504,7 +1650,8 @@ export class Run implements IRunSession {
         this.emit({ type: 'shield', now: this.shield });
       }
     } else if (id === 'potion_regen') {
-      if (this.res >= this.stats.resMax && this.boost > 0) return { ok: false, events: this.engine.flush() };
+      if (this.res >= this.stats.resMax && this.boost > 0)
+        return { ok: false, events: this.engine.flush() };
       this.consumables[id]--;
       this.res = this.stats.resMax;
       this.boost = GAMEPLAY.regenBoostTurns;
@@ -1526,7 +1673,10 @@ export class Run implements IRunSession {
 
   /** Зелье лечит долю максимального здоровья — иначе на десятом этаже оно бесполезно. */
   healPotionAmount(): number {
-    return Math.max(1, Math.round(this.stats.maxHp * GAMEPLAY.healPotionPct * (1 + this.stats.potionPct)));
+    return Math.max(
+      1,
+      Math.round(this.stats.maxHp * GAMEPLAY.healPotionPct * (1 + this.stats.potionPct)),
+    );
   }
 
   artifactDamage(): number {
@@ -1597,7 +1747,11 @@ export class Run implements IRunSession {
       this.emit({ type: 'gold', cell, amount: card.value });
     } else if (card.kind === 'chest') {
       this.openChest(cell, card.defId === 'chest_empty');
-    } else if (card.kind === 'potion_heal' || card.kind === 'potion_regen' || card.kind === 'artifact') {
+    } else if (
+      card.kind === 'potion_heal' ||
+      card.kind === 'potion_regen' ||
+      card.kind === 'artifact'
+    ) {
       this.consumables[card.kind]++;
       this.emit({ type: 'pickup', cell, item: card.kind, count: this.consumables[card.kind] });
     }
@@ -1605,7 +1759,8 @@ export class Run implements IRunSession {
 
   private rollConsumable(): ConsumableId {
     const r = this.rng.next();
-    if (this.lineageDef.artifacts) return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
+    if (this.lineageDef.artifacts)
+      return r < 0.4 ? 'potion_heal' : r < 0.7 ? 'potion_regen' : 'artifact';
     return r < 0.55 ? 'potion_heal' : 'potion_regen';
   }
 
@@ -1739,7 +1894,9 @@ export class Run implements IRunSession {
     const order = (): number[] => {
       const cells: number[] = [];
       for (let c = 0; c < 9; c++) if (this.cards[c]?.kind === 'enemy') cells.push(c);
-      return cells.sort((a, b) => Grid.dist(a, this.playerCell) - Grid.dist(b, this.playerCell) || a - b);
+      return cells.sort(
+        (a, b) => Grid.dist(a, this.playerCell) - Grid.dist(b, this.playerCell) || a - b,
+      );
     };
     const cells = order();
     if (!cells.length) return;
@@ -1749,12 +1906,25 @@ export class Run implements IRunSession {
         if (this.hp <= 0) break;
         const card = this.cards[c];
         if (!card || card.kind !== 'enemy') continue;
-        this.emit({ type: 'attack', from: c, to: this.playerCell, ranged: Grid.dist(c, this.playerCell) > 1, by: 'enemy' });
+        this.emit({
+          type: 'attack',
+          from: c,
+          to: this.playerCell,
+          ranged: Grid.dist(c, this.playerCell) > 1,
+          by: 'enemy',
+        });
         // Обычная защита работает, но уклонений и парирований тут нет: деваться некуда.
         const dmg = Math.max(1, this.strikeDamage(card.atk));
         this.hp = Math.max(0, this.hp - dmg);
         this.totals.damageTaken += dmg;
-        this.emit({ type: 'hit', cell: this.playerCell, amount: dmg, crit: false, target: 'player', hp: this.hp });
+        this.emit({
+          type: 'hit',
+          cell: this.playerCell,
+          amount: dmg,
+          crit: false,
+          target: 'player',
+          hp: this.hp,
+        });
       }
     }
     this.hp = 0;
@@ -1781,7 +1951,14 @@ export class Run implements IRunSession {
       if (this.madness === 0) {
         const loss = Math.max(1, Math.round(this.hp * 0.2));
         this.hp = Math.max(1, this.hp - loss);
-        this.emit({ type: 'hit', cell: this.playerCell, amount: loss, crit: false, target: 'player', hp: this.hp });
+        this.emit({
+          type: 'hit',
+          cell: this.playerCell,
+          amount: loss,
+          crit: false,
+          target: 'player',
+          hp: this.hp,
+        });
       }
     }
     for (const id of Object.keys(this.cooldowns)) {
@@ -1815,7 +1992,14 @@ export class Run implements IRunSession {
       res: this.res,
       totals: JSON.stringify(this.totals),
       consumables: JSON.stringify(this.consumables),
-      flags: JSON.stringify([this.killsRoom, this.killStreak, this.noCounter, this.madness, this.reaping, this.warCry]),
+      flags: JSON.stringify([
+        this.killsRoom,
+        this.killStreak,
+        this.noCounter,
+        this.madness,
+        this.reaping,
+        this.warCry,
+      ]),
     };
   }
 

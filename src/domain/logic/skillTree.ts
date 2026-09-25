@@ -1,12 +1,20 @@
-import type { ClassId, LineageId, LineageSave, TalentPath } from '../types';
 import { CLASSES, classesOfLineage, secondOf, terminalsOf } from '../data/classes';
-import { LINEAGE_ORDER } from '../data/heroes';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../data/economy';
-import { PERK_BY_ID, perkId, perksOfClass, SLOT_ORDER, type PerkSlot } from '../data/perks';
+import { LINEAGE_ORDER } from '../data/heroes';
+import { PERK_BY_ID, perkId, type PerkSlot, perksOfClass, SLOT_ORDER } from '../data/perks';
 import {
-  maxRank, PATH_ORDER, TALENT_BY_ID, talentChain, talentValue, talentValue2, talentsOfClass, type TalentDef, type TalentFx,
+  maxRank,
+  PATH_ORDER,
+  TALENT_BY_ID,
+  talentChain,
+  type TalentDef,
+  type TalentFx,
+  talentsOfClass,
+  talentValue,
+  talentValue2,
 } from '../data/talents';
 import { GAMEPLAY } from '../gameplay';
+import type { ClassId, LineageId, LineageSave, TalentPath } from '../types';
 
 export type NodeKind = 'class' | 'perk' | 'talent' | 'evo';
 
@@ -68,8 +76,12 @@ const LAYOUT = {
 const PATH_SLOT: Record<TalentPath, number> = { attack: -1, vitality: 0, guard: 1 };
 
 const classBlock = (
-  classId: ClassId, x0: number, y0: number, parents: string[],
-  out: TreeNode[], edges: Array<[string, string]>,
+  classId: ClassId,
+  x0: number,
+  y0: number,
+  parents: string[],
+  out: TreeNode[],
+  edges: Array<[string, string]>,
 ): { gates: string[]; bottom: number } => {
   const cls = CLASSES[classId];
   const classNodeId = `cls/${classId}`;
@@ -81,7 +93,13 @@ const classBlock = (
 
   // стартовая способность бесплатна и открывается вместе с классом
   out.push({
-    id: perkNodeId('start'), kind: 'perk', x: x0, y: y0 + LAYOUT.startPerk, owner: classId, slot: 'start', parents: [classNodeId],
+    id: perkNodeId('start'),
+    kind: 'perk',
+    x: x0,
+    y: y0 + LAYOUT.startPerk,
+    owner: classId,
+    slot: 'start',
+    parents: [classNodeId],
   });
   edges.push([classNodeId, perkNodeId('start')]);
 
@@ -100,8 +118,17 @@ const classBlock = (
       chain.forEach((t, step) => {
         const id = `tal/${t.id}`;
         out.push({
-          id, kind: 'talent', x: x0 + PATH_SLOT[path] * LAYOUT.pathDx, y: top + step * LAYOUT.step,
-          owner: classId, talentId: t.id, path, tier, step, ranks: maxRank(t), parents: [prev],
+          id,
+          kind: 'talent',
+          x: x0 + PATH_SLOT[path] * LAYOUT.pathDx,
+          y: top + step * LAYOUT.step,
+          owner: classId,
+          talentId: t.id,
+          path,
+          tier,
+          step,
+          ranks: maxRank(t),
+          parents: [prev],
         });
         edges.push([prev, id]);
         prev = id;
@@ -124,7 +151,15 @@ const classBlock = (
   if (cls.stage === 2 && perks.some((p) => p.slot === 'legend')) {
     const lid = perkNodeId('legend');
     bottom = y + LAYOUT.gate;
-    out.push({ id: lid, kind: 'perk', x: x0, y: bottom, owner: classId, slot: 'legend', parents: gates });
+    out.push({
+      id: lid,
+      kind: 'perk',
+      x: x0,
+      y: bottom,
+      owner: classId,
+      slot: 'legend',
+      parents: gates,
+    });
     for (const g of gates) edges.push([g, lid]);
   }
   return { gates, bottom };
@@ -157,13 +192,28 @@ const buildTree = (lineage: LineageId): Tree => {
   const xs = nodes.map((n) => n.x);
   const ys = nodes.map((n) => n.y);
   return {
-    id: lineage, base, second, terminals, nodes, edges,
-    bounds: { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) },
-    byId, classNode, evoNode: byId.get(evoId)!,
+    id: lineage,
+    base,
+    second,
+    terminals,
+    nodes,
+    edges,
+    bounds: {
+      minX: Math.min(...xs),
+      maxX: Math.max(...xs),
+      minY: Math.min(...ys),
+      maxY: Math.max(...ys),
+    },
+    byId,
+    classNode,
+    evoNode: byId.get(evoId)!,
   };
 };
 
-export const TREES = Object.fromEntries(LINEAGE_ORDER.map((l) => [l, buildTree(l)])) as Record<LineageId, Tree>;
+export const TREES = Object.fromEntries(LINEAGE_ORDER.map((l) => [l, buildTree(l)])) as Record<
+  LineageId,
+  Tree
+>;
 
 // ------------------------------------------------------------------ состояние узлов
 
@@ -188,7 +238,9 @@ export const isClassOwned = (tree: Tree, s: LineageSave, classId: ClassId): bool
 
 /** Классы линейки, которые игрок уже открыл. */
 export const openedClasses = (tree: Tree, s: LineageSave): ClassId[] =>
-  classesOfLineage(tree.id).filter((c) => isClassOwned(tree, s, c)).sort((a, b) => CLASSES[a].stage - CLASSES[b].stage);
+  classesOfLineage(tree.id)
+    .filter((c) => isClassOwned(tree, s, c))
+    .sort((a, b) => CLASSES[a].stage - CLASSES[b].stage);
 
 /**
  * Текущий класс линейки — самый развитый из открытых. Метаморфоза — это прокачка того же героя,
@@ -216,7 +268,8 @@ export type NodeState = 'owned' | 'partial' | 'available' | 'locked' | 'blocked'
 
 export const nodeState = (tree: Tree, s: LineageSave, n: TreeNode): NodeState => {
   if (n.kind === 'evo') return satisfied(tree, s, n.id) ? 'owned' : 'locked';
-  if (n.kind === 'perk' && n.slot === 'start') return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';
+  if (n.kind === 'perk' && n.slot === 'start')
+    return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';
   const rank = rankOf(s, n.id);
   const gateOpen = n.parents.length === 0 || n.parents.some((p) => satisfied(tree, s, p));
 
@@ -242,7 +295,8 @@ export const canInvest = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
   return st === 'available' || st === 'partial';
 };
 
-export const isPurchasable = (n: TreeNode): boolean => n.kind !== 'evo' && !(n.kind === 'perk' && n.slot === 'start');
+export const isPurchasable = (n: TreeNode): boolean =>
+  n.kind !== 'evo' && !(n.kind === 'perk' && n.slot === 'start');
 
 /** Цена следующего шага: у таланта — очередной ранг, у способности и класса — вся покупка. */
 export const costOf = (s: LineageSave, n: TreeNode): number => {
@@ -274,10 +328,16 @@ export const applyBuy = (_tree: Tree, s: LineageSave, n: TreeNode): void => {
 };
 
 export const canCancelMetamorphosis = (tree: Tree, s: LineageSave, classId: ClassId): boolean =>
-  CLASSES[classId].stage === 2 && isClassOwned(tree, s, classId) && tree.terminals.includes(classId);
+  CLASSES[classId].stage === 2 &&
+  isClassOwned(tree, s, classId) &&
+  tree.terminals.includes(classId);
 
 /** Сбрасывает ветку финального класса. Возвращает часть потраченного опыта душ. */
-export const applyCancelMetamorphosis = (tree: Tree, s: LineageSave, classId: ClassId): { refund: number } => {
+export const applyCancelMetamorphosis = (
+  tree: Tree,
+  s: LineageSave,
+  classId: ClassId,
+): { refund: number } => {
   let spent = classCost(classId);
   for (const n of tree.nodes) {
     if (n.owner !== classId) continue;

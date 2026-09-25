@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { PlayerStats } from '../../domain/logic/stats';
 import { statChip } from '../components';
 
@@ -15,10 +16,15 @@ export class StatsRow {
   update(s: PlayerStats): void {
     this.row.removeAll(true);
     const chips: Array<[string, string]> = [
-      ['damage', String(s.damage)], ['defense', String(s.defense)], ['crit', `${Math.round(s.crit)}%`],
-      ['dodge', `${Math.round(s.dodge)}%`], ['parry', `${Math.round(s.parry)}%`],
+      ['damage', String(s.damage)],
+      ['defense', String(s.defense)],
+      ['crit', `${Math.round(s.crit)}%`],
+      ['dodge', `${Math.round(s.dodge)}%`],
+      ['parry', `${Math.round(s.parry)}%`],
     ];
     // равномерный ряд, каждая метка центрируется
-    chips.forEach(([stat, v], i) => this.row.add(statChip(this.scene, 72 + i * 144, StatsRow.Y, stat, v, 32, 21, 'center')));
+    chips.forEach(([stat, v], i) =>
+      this.row.add(statChip(this.scene, 72 + i * 144, StatsRow.Y, stat, v, 32, 21, 'center')),
+    );
   }
 }

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { SYNERGY_FX, TALENT_BY_ID } from '../../../domain/data/talents';
 import type { NodeState, TreeNode } from '../../../domain/logic/skillTree';
 import type { TalentPath } from '../../../domain/types';
@@ -12,7 +13,11 @@ import { HEX } from '../../theme';
  */
 export class NodeView {
   static readonly SIZE = { talent: 108, perk: 118, cls: 150, evo: 96 } as const;
-  private static readonly PATH_ICON: Record<TalentPath, string> = { attack: 'svg_sword', vitality: 'svg_health', guard: 'svg_defense' };
+  private static readonly PATH_ICON: Record<TalentPath, string> = {
+    attack: 'svg_sword',
+    vitality: 'svg_health',
+    guard: 'svg_defense',
+  };
 
   readonly size: number;
   private readonly main: Phaser.GameObjects.Image;
@@ -23,17 +28,40 @@ export class NodeView {
   private readonly badgeText?: Phaser.GameObjects.Text;
 
   /** `texture` — плитка узла: талант пути, значок способности, герб класса или врата. */
-  constructor(scene: Phaser.Scene, readonly node: TreeNode, readonly x: number, readonly y: number, texture: string, onTap: () => void) {
+  constructor(
+    scene: Phaser.Scene,
+    readonly node: TreeNode,
+    readonly x: number,
+    readonly y: number,
+    texture: string,
+    onTap: () => void,
+  ) {
     const n = node;
     const S = NodeView.SIZE;
-    this.size = n.kind === 'talent' ? S.talent : n.kind === 'perk' ? S.perk : n.kind === 'class' ? S.cls : S.evo;
+    this.size =
+      n.kind === 'talent'
+        ? S.talent
+        : n.kind === 'perk'
+          ? S.perk
+          : n.kind === 'class'
+            ? S.cls
+            : S.evo;
     const size = this.size;
-    this.glow = scene.add.image(x, y, 'glow').setTint(NodeView.colorOf(n)).setDisplaySize(size * 2.4, size * 2.4)
-      .setBlendMode(Phaser.BlendModes.ADD).setDepth(2).setAlpha(0);
+    this.glow = scene.add
+      .image(x, y, 'glow')
+      .setTint(NodeView.colorOf(n))
+      .setDisplaySize(size * 2.4, size * 2.4)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(2)
+      .setAlpha(0);
     this.main = scene.add.image(x, y, texture).setDisplaySize(size, size).setDepth(5);
     if (n.kind === 'talent') {
       this.ico = icon(scene, x, y - 4, NodeView.talentIcon(n), size * 0.44).setDepth(6);
-      this.maxFrame = scene.add.image(x, y, 'tal_max').setDisplaySize(size, size).setDepth(7).setVisible(false);
+      this.maxFrame = scene.add
+        .image(x, y, 'tal_max')
+        .setDisplaySize(size, size)
+        .setDepth(7)
+        .setVisible(false);
       // счётчик рангов в углу плитки — «2/3»
       const badge = scene.add.container(x + size * 0.3, y + size * 0.32).setDepth(8);
       badge.add(scene.add.image(0, 0, plateTexture(scene, 54, 30, 1, 'dark', 15)));

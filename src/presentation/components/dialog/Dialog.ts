@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { COLOR, GAME_H, GAME_W, HEX } from '../../theme';
 import { plateTexture, shadowTexture } from '../plate/Plates';
 import { PlateButton } from '../plate-button/PlateButton';
@@ -25,14 +26,23 @@ export class Dialog extends Phaser.GameObjects.Container {
     const inner = scene.add.container(0, 0);
     this.add(inner);
     let y = pad;
-    const title = txt(scene, 0, 0, o.title, 40, { font: 'title', color: o.titleColor ?? HEX.gold, wrap: width - pad * 2 });
+    const title = txt(scene, 0, 0, o.title, 40, {
+      font: 'title',
+      color: o.titleColor ?? HEX.gold,
+      wrap: width - pad * 2,
+    });
     title.setPosition(0, y + title.height / 2);
     inner.add(title);
     y += title.height + 12;
     inner.add(scene.add.image(0, y, 'px').setTint(COLOR.gold).setAlpha(0.7).setDisplaySize(84, 3));
     y += 26;
     if (o.body) {
-      const body = txt(scene, 0, 0, o.body, 25, { wrap: width - pad * 2, color: HEX.textDim, weight: 700, strokeThickness: 0 });
+      const body = txt(scene, 0, 0, o.body, 25, {
+        wrap: width - pad * 2,
+        color: HEX.textDim,
+        weight: 700,
+        strokeThickness: 0,
+      });
       body.setPosition(0, y + body.height / 2);
       inner.add(body);
       y += body.height + 24;
@@ -48,7 +58,9 @@ export class Dialog extends Phaser.GameObjects.Container {
     const gap = 16;
     const btnW = vertical
       ? Math.min(480, width - pad * 2)
-      : n > 1 ? (width - pad * 2 - gap * (n - 1)) / n : Math.min(380, width - pad * 2);
+      : n > 1
+        ? (width - pad * 2 - gap * (n - 1)) / n
+        : Math.min(380, width - pad * 2);
     const rows = vertical ? n : 1;
     const total = y + rows * btnH + (rows - 1) * gap + pad;
     inner.addAt(scene.add.image(0, 0, shadowTexture(scene, width, total, 30, 26)).setAlpha(0.9), 0);
@@ -65,7 +77,13 @@ export class Dialog extends Phaser.GameObjects.Container {
       const bx = vertical ? 0 : -((n - 1) * (btnW + gap)) / 2 + i * (btnW + gap);
       const by = (vertical ? y + btnH / 2 + i * (btnH + gap) : y + btnH / 2) - total / 2;
       const btn = new PlateButton(scene, bx, by, {
-        w: bw, h: btnH, label: b.label, fontSize: 27, icon: b.icon, style: b.style ?? 'raised', radius: 22,
+        w: bw,
+        h: btnH,
+        label: b.label,
+        fontSize: 27,
+        icon: b.icon,
+        style: b.style ?? 'raised',
+        radius: 22,
         onClick: () => {
           if (!b.keep) this.close();
           b.onClick?.();
@@ -78,7 +96,14 @@ export class Dialog extends Phaser.GameObjects.Container {
     scene.add.existing(this);
     inner.setScale(0.9).setAlpha(0);
     dim.setAlpha(0);
-    scene.tweens.add({ targets: inner, scaleX: 1, scaleY: 1, alpha: 1, duration: 220, ease: 'Back.easeOut' });
+    scene.tweens.add({
+      targets: inner,
+      scaleX: 1,
+      scaleY: 1,
+      alpha: 1,
+      duration: 220,
+      ease: 'Back.easeOut',
+    });
     scene.tweens.add({ targets: dim, alpha: 0.78, duration: 200 });
     UiSound.play('open');
   }

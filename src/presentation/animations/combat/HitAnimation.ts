@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { CardView } from '../../board/card-view';
 import { TIMING } from '../../theme';
 

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { PerkDef } from '../../../domain/data/perks';
 import type { PlateButton } from '../../components';
 

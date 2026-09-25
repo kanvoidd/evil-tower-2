@@ -1,5 +1,3 @@
-export { Run } from './Run';
-export { RunFactory } from './run-factory/RunFactory';
 export type { Action } from './interfaces/Action';
 export type { IPlayerActions } from './interfaces/IPlayerActions';
 export type { IRunSession } from './interfaces/IRunSession';
@@ -10,3 +8,5 @@ export type { RunDeps } from './interfaces/RunDeps';
 export type { RunInit } from './interfaces/RunInit';
 export type { RunTotals } from './interfaces/RunTotals';
 export type { TurnResult } from './interfaces/TurnResult';
+export { Run } from './Run';
+export { RunFactory } from './run-factory/RunFactory';

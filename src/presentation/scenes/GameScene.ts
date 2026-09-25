@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { AutoUseToggles } from '../../application/game/AutoUseToggles';
 import { GameController } from '../../application/game/GameController';
 import type { RunCarry } from '../../application/game/interfaces/RunCarry';
@@ -6,15 +7,15 @@ import { TowerRun } from '../../application/game/TowerRun';
 import { AudioSettings } from '../../application/settings/AudioSettings';
 import { Animations } from '../animations/Animations';
 import { GameEventPlayer } from '../animations/GameEventPlayer';
-import { CardViewFactory } from '../board/card-view';
 import { BoardView } from '../board/BoardView';
+import { CardViewFactory } from '../board/card-view';
+import { background, bindAchievementToasts } from '../components';
 import { GameDialogs } from '../dialogs/GameDialogs';
 import { Hud } from '../hud/Hud';
+import { dollyIn, GameNavigator } from '../navigation';
 import { PhaserClock } from '../phaser/PhaserClock';
 import { PhaserInput } from '../phaser/PhaserInput';
 import { PhaserRenderer } from '../phaser/PhaserRenderer';
-import { background, bindAchievementToasts } from '../components';
-import { dollyIn, GameNavigator } from '../navigation';
 import type { SceneServices } from './interfaces/SceneServices';
 
 /**
@@ -49,11 +50,19 @@ export class GameScene extends Phaser.Scene {
     const animations = new Animations(this, sound);
     const clock = new PhaserClock(this);
     // кнопки панелей отдают команды контроллеру; он появится ниже — до первого нажатия
-    const hud = new Hud(this, run, tower.state, {
-      command: (cmd) => this.controller?.execute(cmd),
-      isAutoOn: (item) => autoUse.isOn(item),
-      toggleAuto: (item) => this.controller?.toggleAuto(item) ?? autoUse.isOn(item),
-    }, animations, sound, new AudioSettings(profile, this.services.audio));
+    const hud = new Hud(
+      this,
+      run,
+      tower.state,
+      {
+        command: (cmd) => this.controller?.execute(cmd),
+        isAutoOn: (item) => autoUse.isOn(item),
+        toggleAuto: (item) => this.controller?.toggleAuto(item) ?? autoUse.isOn(item),
+      },
+      animations,
+      sound,
+      new AudioSettings(profile, this.services.audio),
+    );
     const board = new BoardView(this, new CardViewFactory(this), run.stats, run.hp, run.playerCell);
     const player = new GameEventPlayer(run, board, animations, hud, sound, clock);
 

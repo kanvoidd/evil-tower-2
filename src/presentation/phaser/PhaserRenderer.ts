@@ -19,7 +19,10 @@ import { HEX } from '../theme';
 export class PhaserRenderer implements IGameRenderer {
   /** Подпись отказа способности по причине. */
   private static readonly PERK_REJECT: Record<string, TKey> = {
-    once: 'game.once_used', active: 'game.perk_active', cooldown: 'game.cooldown', gold: 'game.no_gold_perk',
+    once: 'game.once_used',
+    active: 'game.perk_active',
+    cooldown: 'game.cooldown',
+    gold: 'game.no_gold_perk',
   };
 
   constructor(
@@ -110,7 +113,10 @@ export class PhaserRenderer implements IGameRenderer {
   }
 
   tutorial(step: TutorialStep, cell?: number): void {
-    this.hud.hint.show(t(`tut.${step}` as TKey), cell !== undefined ? BoardLayout.cellPos(cell) : undefined);
+    this.hud.hint.show(
+      t(`tut.${step}` as TKey),
+      cell !== undefined ? BoardLayout.cellPos(cell) : undefined,
+    );
   }
 
   clearHand(): void {

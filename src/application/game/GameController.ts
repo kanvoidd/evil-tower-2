@@ -56,10 +56,14 @@ export class GameController {
    */
   execute(cmd: PlayerCommand): void {
     switch (cmd.type) {
-      case 'select-cell': return this.onCell(cmd.cell);
-      case 'use-perk': return this.onPerk(PERK_BY_ID[cmd.perkId]);
-      case 'use-item': return this.onItem(cmd.itemId, !!cmd.auto);
-      case 'escape': return void this.askEscape();
+      case 'select-cell':
+        return this.onCell(cmd.cell);
+      case 'use-perk':
+        return this.onPerk(PERK_BY_ID[cmd.perkId]);
+      case 'use-item':
+        return this.onItem(cmd.itemId, !!cmd.auto);
+      case 'escape':
+        return void this.askEscape();
     }
   }
 
@@ -120,7 +124,8 @@ export class GameController {
     }
     const res = this.commands.execute({ type: 'use-item', itemId: id });
     if (!res.ok) {
-      if (!auto) this.d.view.rejectItem(id === 'potion_heal' && this.run.hp >= this.run.stats.maxHp);
+      if (!auto)
+        this.d.view.rejectItem(id === 'potion_heal' && this.run.hp >= this.run.stats.maxHp);
       return;
     }
     if (auto) this.d.view.autoUsed(id);
@@ -186,7 +191,10 @@ export class GameController {
     const run = this.run;
     const adj = Grid.neighbors(run.playerCell).filter((c) => run.cards[c]);
     if (this.hintStage === 0) {
-      const pick = adj.find((c) => run.cards[c]!.kind === 'enemy' && run.wouldKill(c)) ?? adj.find((c) => run.cards[c]!.kind === 'enemy') ?? adj[0];
+      const pick =
+        adj.find((c) => run.cards[c]!.kind === 'enemy' && run.wouldKill(c)) ??
+        adj.find((c) => run.cards[c]!.kind === 'enemy') ??
+        adj[0];
       this.d.view.tutorial('attack', pick);
       this.hintStage = 1;
     } else if (this.hintStage === 1) {
@@ -209,7 +217,10 @@ export class GameController {
   private async askEscape(): Promise<void> {
     if (this.finished) return;
     const tower = this.d.tower;
-    const leave = await this.d.dialogs.confirmEscape({ keepsRooms: tower.state.rooms > 0, lootAtStake: tower.lootAtStake });
+    const leave = await this.d.dialogs.confirmEscape({
+      keepsRooms: tower.state.rooms > 0,
+      lootAtStake: tower.lootAtStake,
+    });
     if (leave) void this.endRun('escape');
   }
 
@@ -244,7 +255,11 @@ export class GameController {
     }
     // между комнатами: что принесла эта, сколько здоровья осталось — и решение, идти ли выше
     const choice = await this.d.dialogs.roomCleared({
-      ...paid, hp: this.run.hp, maxHp: this.run.stats.maxHp, rooms: tower.state.rooms, nextRoomId: tower.nextRoomId,
+      ...paid,
+      hp: this.run.hp,
+      maxHp: this.run.stats.maxHp,
+      rooms: tower.state.rooms,
+      nextRoomId: tower.nextRoomId,
     });
     if (choice === 'next') void this.leave(() => this.d.navigator.nextRoom(tower.state));
     else void this.endRun('cashout');
@@ -254,7 +269,9 @@ export class GameController {
   private async onDeath(): Promise<void> {
     for (;;) {
       const choice = await this.d.dialogs.died({
-        canRevive: !this.run.revived, lootLost: this.d.tower.lootAtStake, keepsRooms: this.d.tower.state.rooms > 0,
+        canRevive: !this.run.revived,
+        lootLost: this.d.tower.lootAtStake,
+        keepsRooms: this.d.tower.state.rooms > 0,
       });
       if (choice === 'end') {
         void this.endRun('dead');
@@ -279,10 +296,21 @@ export class GameController {
     const { record, best, autoBuys } = tower.end(reason);
     this.d.view.clearTutorial();
     const c = tower.state;
-    const choice = await this.d.dialogs.runOver({
-      reason, rooms: c.rooms, maxRooms: tower.maxRooms, record, best, gold: c.gold, souls: c.souls,
-      lootLost, autoBuys, canDouble: c.gold + c.souls > 0,
-    }, () => this.doubleReward());
+    const choice = await this.d.dialogs.runOver(
+      {
+        reason,
+        rooms: c.rooms,
+        maxRooms: tower.maxRooms,
+        record,
+        best,
+        gold: c.gold,
+        souls: c.souls,
+        lootLost,
+        autoBuys,
+        canDouble: c.gold + c.souls > 0,
+      },
+      () => this.doubleReward(),
+    );
     if (choice === 'new-run') void this.leave(() => this.d.navigator.newRun());
     else void this.leave(() => this.d.navigator.toHub());
   }

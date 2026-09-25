@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { EnterHub } from '../../application/hub/EnterHub';
 import { GetHubState } from '../../application/hub/GetHubState';
 import { HubController } from '../../application/hub/HubController';

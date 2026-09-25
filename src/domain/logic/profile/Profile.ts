@@ -1,18 +1,33 @@
-import type {
-  AutoSkillSave, AutoUseSave, ClassId, ConsumableId, EquipmentSave, HeroSave, Lang, LineageId, LineageSave, SaveData,
-} from '../../types';
-import { ACHIEVEMENTS, type AchievementDef } from '../../data/achievements';
+import { type AchievementDef, ACHIEVEMENTS } from '../../data/achievements';
 import { CLASSES } from '../../data/classes';
 import { CONSUMABLES } from '../../data/consumables';
-import { DAILY_REWARDS, GIFT_COOLDOWN_MS, GIFT_REWARD, type DailyReward } from '../../data/economy';
+import { DAILY_REWARDS, type DailyReward, GIFT_COOLDOWN_MS, GIFT_REWARD } from '../../data/economy';
 import { LINEAGE_ORDER } from '../../data/heroes';
-import { ITEM_BY_ID, REPAIR_RATIO, type ItemDef } from '../../data/items';
+import { ITEM_BY_ID, type ItemDef, REPAIR_RATIO } from '../../data/items';
 import { GAMEPLAY } from '../../gameplay';
-import { branchOf, DEFAULT_AUTO_SKILL, inferBranch, planAutoSkill, type AutoSkillPlan } from '../autoSkill';
+import type {
+  AutoSkillSave,
+  AutoUseSave,
+  ClassId,
+  ConsumableId,
+  EquipmentSave,
+  HeroSave,
+  Lang,
+  LineageId,
+  LineageSave,
+  SaveData,
+} from '../../types';
+import {
+  type AutoSkillPlan,
+  branchOf,
+  DEFAULT_AUTO_SKILL,
+  inferBranch,
+  planAutoSkill,
+} from '../autoSkill';
 import { DEFAULT_AUTO_USE } from '../autoUse';
 import { Hero } from '../hero/Hero';
 import { Signal } from '../signal/Signal';
-import { applyBuy, costOf, newLineageSave, TREES, type TreeNode } from '../skillTree';
+import { applyBuy, costOf, newLineageSave, type TreeNode, TREES } from '../skillTree';
 import type { PlayerStats } from '../stats';
 import type { ConsumablePurchase } from './interfaces/ConsumablePurchase';
 import type { DailyStatus } from './interfaces/DailyStatus';
@@ -38,7 +53,10 @@ export class Profile {
   /** Герои открытых линеек — по экземпляру на линейку. */
   private readonly heroes = new Map<LineageId, Hero>();
 
-  constructor(private doc: SaveData, private readonly now: () => number) {}
+  constructor(
+    private doc: SaveData,
+    private readonly now: () => number,
+  ) {}
 
   /** Документ сохранения нового игрока. */
   static freshData(lang: Lang, now: number): SaveData {
@@ -54,8 +72,15 @@ export class Profile {
       weapon: {},
       heroes: {},
       stats: {
-        kills: 0, goldEarned: 0, soulsEarned: 0, roomsCleared: 0, deaths: 0,
-        chestsOpened: 0, metamorphoses: 0, flawless: 0, itemsBroken: 0,
+        kills: 0,
+        goldEarned: 0,
+        soulsEarned: 0,
+        roomsCleared: 0,
+        deaths: 0,
+        chestsOpened: 0,
+        metamorphoses: 0,
+        flawless: 0,
+        itemsBroken: 0,
       },
       achievements: [],
       daily: { lastClaim: '', streak: 0 },
@@ -69,7 +94,13 @@ export class Profile {
 
   /** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
   static emptyHero(): HeroSave {
-    return { gold: 0, souls: 0, consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 }, armor: null, best: 0 };
+    return {
+      gold: 0,
+      souls: 0,
+      consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 },
+      armor: null,
+      best: 0,
+    };
   }
 
   /** Документ сохранения, над которым работают правила. */
@@ -326,13 +357,17 @@ export class Profile {
 
   /** Характеристики активного героя для боя: класс, таланты и снаряжение (сломанное не в счёт). */
   playerStats(): PlayerStats {
-    return this.activeHero.combatStats(this.doc.weapon[this.activeLineage] ?? null, this.heroSave.armor);
+    return this.activeHero.combatStats(
+      this.doc.weapon[this.activeLineage] ?? null,
+      this.heroSave.armor,
+    );
   }
 
   // ------------------------------------------------------------------ экипировка и расходники
 
   equipped(slot: 'weapon' | 'armor'): EquipmentSave | null {
-    const e = slot === 'weapon' ? this.doc.weapon[this.activeLineage] ?? null : this.heroSave.armor;
+    const e =
+      slot === 'weapon' ? (this.doc.weapon[this.activeLineage] ?? null) : this.heroSave.armor;
     return e && e.durability > 0 ? e : null;
   }
 
@@ -380,7 +415,11 @@ export class Profile {
   }
 
   /** Записывает износ экипировки и расходники после комнаты. */
-  commitRun(weapon: EquipmentSave | null, armor: EquipmentSave | null, consumables: Readonly<Record<ConsumableId, number>>): void {
+  commitRun(
+    weapon: EquipmentSave | null,
+    armor: EquipmentSave | null,
+    consumables: Readonly<Record<ConsumableId, number>>,
+  ): void {
     const lin = this.activeLineage;
     if (weapon) this.doc.weapon[lin] = weapon.durability > 0 ? weapon : null;
     if (armor) this.heroSave.armor = armor.durability > 0 ? armor : null;

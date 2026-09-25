@@ -25,7 +25,10 @@ type Ev<K extends GameEvent['type']> = Extract<GameEvent, { type: K }>;
  */
 export class GameEventPlayer implements IAnimationPlayer {
   /** Промахи: подпись, её цвет и размер, звук. */
-  private static readonly MISS: Record<Ev<'miss'>['kind'], { key: TKey; color: string; size: number; sfx?: SfxName }> = {
+  private static readonly MISS: Record<
+    Ev<'miss'>['kind'],
+    { key: TKey; color: string; size: number; sfx?: SfxName }
+  > = {
     dodge: { key: 'game.dodge', color: '#7fe8d0', size: 32, sfx: 'dodge' },
     parry: { key: 'game.parry', color: '#9ec5ff', size: 32, sfx: 'parry' },
     block: { key: 'game.block', color: '#7fc4ff', size: 30, sfx: 'parry' },
@@ -61,32 +64,60 @@ export class GameEventPlayer implements IAnimationPlayer {
 
   private async handle(ev: GameEvent, deal: boolean): Promise<void> {
     switch (ev.type) {
-      case 'spawn': return this.spawn(ev, deal);
-      case 'attack': return this.attack(ev);
-      case 'hit': return this.hit(ev);
-      case 'miss': return this.miss(ev);
-      case 'kill': return this.kill(ev);
-      case 'move': return this.move(ev);
-      case 'slide': return this.slide(ev);
-      case 'gold': return this.gold(ev);
-      case 'souls': return this.souls(ev);
-      case 'heal': return this.heal(ev);
-      case 'resource': case 'boost': return this.hud.refresh();
-      case 'shield': return this.board.setShield(ev.now);
-      case 'chest': return this.chest(ev);
-      case 'pickup': return this.pickup(ev);
-      case 'break': return this.breakItem();
-      case 'perk': return this.perk(ev);
-      case 'armed': return this.armed();
-      case 'spend': return this.spend(ev);
-      case 'status': return this.status(ev);
-      case 'fx': return this.fx(ev);
-      case 'remove': return this.remove(ev);
-      case 'swarm': return this.swarm(ev);
-      case 'swap': return this.swap(ev);
-      case 'rewind': return this.rewind();
-      case 'artifact': return this.artifact();
-      case 'win': case 'lose': return;
+      case 'spawn':
+        return this.spawn(ev, deal);
+      case 'attack':
+        return this.attack(ev);
+      case 'hit':
+        return this.hit(ev);
+      case 'miss':
+        return this.miss(ev);
+      case 'kill':
+        return this.kill(ev);
+      case 'move':
+        return this.move(ev);
+      case 'slide':
+        return this.slide(ev);
+      case 'gold':
+        return this.gold(ev);
+      case 'souls':
+        return this.souls(ev);
+      case 'heal':
+        return this.heal(ev);
+      case 'resource':
+      case 'boost':
+        return this.hud.refresh();
+      case 'shield':
+        return this.board.setShield(ev.now);
+      case 'chest':
+        return this.chest(ev);
+      case 'pickup':
+        return this.pickup(ev);
+      case 'break':
+        return this.breakItem();
+      case 'perk':
+        return this.perk(ev);
+      case 'armed':
+        return this.armed();
+      case 'spend':
+        return this.spend(ev);
+      case 'status':
+        return this.status(ev);
+      case 'fx':
+        return this.fx(ev);
+      case 'remove':
+        return this.remove(ev);
+      case 'swarm':
+        return this.swarm(ev);
+      case 'swap':
+        return this.swap(ev);
+      case 'rewind':
+        return this.rewind();
+      case 'artifact':
+        return this.artifact();
+      case 'win':
+      case 'lose':
+        return;
     }
   }
 
@@ -179,7 +210,12 @@ export class GameEventPlayer implements IAnimationPlayer {
     this.hud.addLoot(ev.amount, 0);
     const p = BoardLayout.cellPos(ev.cell);
     this.anims.text.show(p.x, p.y + 6, `+${ev.amount}`, HEX.gold, 32);
-    this.anims.projectile.play('ico_gold', p, this.hud.lootAnchor('gold'), Math.min(6, Math.ceil(ev.amount / 8)));
+    this.anims.projectile.play(
+      'ico_gold',
+      p,
+      this.hud.lootAnchor('gold'),
+      Math.min(6, Math.ceil(ev.amount / 8)),
+    );
     this.sound.play('coin');
   }
 
@@ -188,7 +224,12 @@ export class GameEventPlayer implements IAnimationPlayer {
     this.hud.addLoot(0, ev.amount);
     const p = BoardLayout.cellPos(ev.cell);
     this.anims.text.show(p.x, p.y + 46, `+${ev.amount}`, HEX.soul, 26);
-    this.anims.projectile.play('ico_soul', p, this.hud.lootAnchor('souls'), Math.min(5, Math.ceil(ev.amount / 6)));
+    this.anims.projectile.play(
+      'ico_soul',
+      p,
+      this.hud.lootAnchor('souls'),
+      Math.min(5, Math.ceil(ev.amount / 6)),
+    );
   }
 
   private heal(ev: Ev<'heal'>): void {
@@ -215,7 +256,8 @@ export class GameEventPlayer implements IAnimationPlayer {
 
   private pickup(ev: Ev<'pickup'>): void {
     const slot = this.hud.slotAnchor(ev.item);
-    if (slot) this.anims.projectile.play(CONSUMABLES[ev.item].icon, BoardLayout.cellPos(ev.cell), slot, 1);
+    if (slot)
+      this.anims.projectile.play(CONSUMABLES[ev.item].icon, BoardLayout.cellPos(ev.cell), slot, 1);
     this.hud.bumpSlot(ev.item);
     this.sound.play('potion');
     this.hud.refresh();

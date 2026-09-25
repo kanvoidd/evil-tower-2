@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { bakeTextures, queueExternalArt } from '../textures/Textures';
 import { FONT_TITLE, FONT_UI, GAME_H, GAME_W } from '../theme';
 import type { BootSceneDeps } from './interfaces/BootSceneDeps';

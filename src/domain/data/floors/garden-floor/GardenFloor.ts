@@ -13,7 +13,10 @@ export class GardenFloor extends FloorFactory {
       this.enemy('wasp_queen', 'Оса-матка', 'Wasp Queen', 'normal', 'beast', { evade: 22 }),
       this.enemy('vine_horror', 'Лозовый ужас', 'Vine Horror', 'tough', 'beast', { regen: 0.1 }),
       this.enemy('dryad', 'Дриада', 'Dryad', 'elite', 'beast', { magic: true, regen: 0.06 }),
-      this.enemy('boss_witch', 'Ведьма сада', 'Garden Witch', 'boss', 'humanoid', { magic: true, venom: 0.15 }),
+      this.enemy('boss_witch', 'Ведьма сада', 'Garden Witch', 'boss', 'humanoid', {
+        magic: true,
+        venom: 0.15,
+      }),
     ];
   }
 }

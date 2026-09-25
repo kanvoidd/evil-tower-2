@@ -7,7 +7,9 @@ import type { EnemyRole } from './interfaces/EnemyRole';
  */
 export const ENEMY_LIST: EnemyDef[] = FLOOR_FACTORIES.flatMap((f) => f.createEnemies());
 
-export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(ENEMY_LIST.map((e) => [e.id, e]));
+export const ENEMIES: Record<string, EnemyDef> = Object.fromEntries(
+  ENEMY_LIST.map((e) => [e.id, e]),
+);
 
 export const enemiesOfFloor = (floor: number, role?: EnemyRole): EnemyDef[] =>
   ENEMY_LIST.filter((e) => e.floor === floor && (!role || e.role === role));

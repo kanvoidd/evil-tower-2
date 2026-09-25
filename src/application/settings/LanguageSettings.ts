@@ -4,7 +4,10 @@ import type { ILocale } from '../ports';
 
 /** Язык игры: выбор игрока сохраняется в профиле и сразу переключает интерфейс. */
 export class LanguageSettings {
-  constructor(private readonly profile: Profile, private readonly locale: ILocale) {}
+  constructor(
+    private readonly profile: Profile,
+    private readonly locale: ILocale,
+  ) {}
 
   get lang(): Lang {
     return this.profile.lang;

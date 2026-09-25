@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { IGameNavigator } from '../../application/game/interfaces/IGameNavigator';
 import type { RunCarry } from '../../application/game/interfaces/RunCarry';
 import { fadeToScene } from './SceneTransitions';

@@ -3,10 +3,22 @@ export type Lang = 'ru' | 'en';
 export type LineageId = 'warrior' | 'mage' | 'archer' | 'mercenary';
 
 export type ClassId =
-  | 'warrior' | 'knight' | 'berserk' | 'paladin'
-  | 'mage' | 'magister' | 'necromancer' | 'pyromancer'
-  | 'archer' | 'hawkeye' | 'arrowgod' | 'sniper'
-  | 'mercenary' | 'assassin' | 'darkassassin' | 'ninja';
+  | 'warrior'
+  | 'knight'
+  | 'berserk'
+  | 'paladin'
+  | 'mage'
+  | 'magister'
+  | 'necromancer'
+  | 'pyromancer'
+  | 'archer'
+  | 'hawkeye'
+  | 'arrowgod'
+  | 'sniper'
+  | 'mercenary'
+  | 'assassin'
+  | 'darkassassin'
+  | 'ninja';
 
 export type ResourceKind = 'stamina' | 'mana' | 'concentration' | 'vigilance';
 
@@ -18,13 +30,15 @@ export type Stats = Record<StatKey, number>;
 /** Три пути дерева талантов: У — урон и способности, З — здоровье и запас, Щ — защита и ослабление врагов. */
 export type TalentPath = 'attack' | 'vitality' | 'guard';
 
-export type CardKind = 'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact' | 'exit' | 'ghost';
+export type CardKind =
+  'enemy' | 'gold' | 'chest' | 'potion_heal' | 'potion_regen' | 'artifact' | 'exit' | 'ghost';
 
 /** Кем является враг: от этого зависят «Святая кара», «Луч правосудия» и прочие перки против нежити. */
 export type EnemyTag = 'undead' | 'demon' | 'beast' | 'construct' | 'humanoid';
 
 /** Состояния на карточке врага. */
-export type StatusKind = 'stun' | 'burn' | 'mark' | 'link' | 'vuln' | 'poison' | 'weak' | 'corpse' | 'haunt';
+export type StatusKind =
+  'stun' | 'burn' | 'mark' | 'link' | 'vuln' | 'poison' | 'weak' | 'corpse' | 'haunt';
 
 export type ItemSlot = 'weapon' | 'armor';
 

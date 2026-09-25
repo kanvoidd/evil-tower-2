@@ -39,6 +39,7 @@ export const perkCost = (owner: ClassId, slot: PerkSlot): number => {
 };
 
 /** Стоимость метаморфозы в опыте душ. */
-export const classCost = (classId: ClassId): number => (CLASSES[classId].stage === 1 ? 3500 : 12000);
+export const classCost = (classId: ClassId): number =>
+  CLASSES[classId].stage === 1 ? 3500 : 12000;
 
 export const metamorphosisCost = classCost;

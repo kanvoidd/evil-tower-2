@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { IClassSelectDialogs } from '../../application/class-select/interfaces/IClassSelectDialogs';
 import type { ClassId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';

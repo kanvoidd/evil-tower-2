@@ -1,10 +1,16 @@
 import type Phaser from 'phaser';
+
 import { FONT_TITLE, FONT_UI, HEX } from '../../theme';
 import type { TxtOpts } from './interfaces/TxtOpts';
 
 /** Текст интерфейса: шрифт, обводка и начертание по единым правилам игры. */
 export const txt = (
-  scene: Phaser.Scene, x: number, y: number, text: string, size = 26, o: TxtOpts = {},
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  text: string,
+  size = 26,
+  o: TxtOpts = {},
 ): Phaser.GameObjects.Text => {
   const title = o.font === 'title';
   const weight = title ? '800' : String(o.weight ?? (o.bold === false ? 700 : 800));

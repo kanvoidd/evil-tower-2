@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { bindAchievementToasts } from '../components';
 import { MenuExit } from '../navigation/MenuExit';
 import { LevelsView } from '../views/levels/LevelsView';

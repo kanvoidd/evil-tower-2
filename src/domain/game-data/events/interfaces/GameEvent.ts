@@ -1,5 +1,5 @@
-import type { ConsumableId, StatusKind } from '../../../types';
 import type { AbilityId } from '../../../data/perks';
+import type { ConsumableId, StatusKind } from '../../../types';
 import type { Card } from '../../card/Card';
 import type { FxStyle } from './FxStyle';
 import type { Loot } from './Loot';
@@ -11,8 +11,23 @@ import type { Loot } from './Loot';
 export type GameEvent =
   | { type: 'spawn'; cell: number; card: Card }
   /** style: 'shot' — выстрел, 'backstab' — телепорт за спину, 'bolt' — молния мага. */
-  | { type: 'attack'; from: number; to: number; ranged: boolean; by: 'player' | 'enemy'; style?: 'shot' | 'backstab' | 'bolt' }
-  | { type: 'hit'; cell: number; amount: number; crit: boolean; target: 'player' | 'enemy'; hp: number; absorbed?: boolean }
+  | {
+      type: 'attack';
+      from: number;
+      to: number;
+      ranged: boolean;
+      by: 'player' | 'enemy';
+      style?: 'shot' | 'backstab' | 'bolt';
+    }
+  | {
+      type: 'hit';
+      cell: number;
+      amount: number;
+      crit: boolean;
+      target: 'player' | 'enemy';
+      hp: number;
+      absorbed?: boolean;
+    }
   | { type: 'miss'; cell: number; kind: 'dodge' | 'parry' | 'evade' | 'block' | 'stun' | 'smoke' }
   | { type: 'kill'; cell: number; uid: number }
   | { type: 'move'; from: number; to: number }

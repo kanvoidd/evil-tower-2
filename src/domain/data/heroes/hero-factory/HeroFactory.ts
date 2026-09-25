@@ -26,7 +26,11 @@ import type { TalentTier } from './interfaces/TalentTier';
  * перка, id таланта по ярусу и цепочке). Конкретные фабрики описывают только содержание.
  */
 export abstract class HeroFactory {
-  private static readonly PATH_KEY: Record<keyof TalentTier, TalentPath> = { a: 'attack', v: 'vitality', g: 'guard' };
+  private static readonly PATH_KEY: Record<keyof TalentTier, TalentPath> = {
+    a: 'attack',
+    v: 'vitality',
+    g: 'guard',
+  };
 
   abstract readonly lineage: LineageId;
 
@@ -71,7 +75,12 @@ export abstract class HeroFactory {
     return { id: this.lineage, ...o };
   }
 
-  protected classDef(id: ClassId, stage: 0 | 1 | 2, parent: ClassId | null, mods: Partial<Stats> = {}): ClassDef {
+  protected classDef(
+    id: ClassId,
+    stage: 0 | 1 | 2,
+    parent: ClassId | null,
+    mods: Partial<Stats> = {},
+  ): ClassDef {
     return { id, lineage: this.lineage, stage, parent, mods };
   }
 

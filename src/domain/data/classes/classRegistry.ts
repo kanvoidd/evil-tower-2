@@ -5,7 +5,10 @@ import type { ClassDefinition } from './interfaces/ClassDefinition';
 
 const CLASS_LIST: ClassDef[] = HERO_FACTORIES.flatMap((f) => f.createClasses());
 
-export const CLASSES = Object.fromEntries(CLASS_LIST.map((c) => [c.id, c])) as Record<ClassId, ClassDef>;
+export const CLASSES = Object.fromEntries(CLASS_LIST.map((c) => [c.id, c])) as Record<
+  ClassId,
+  ClassDef
+>;
 
 export const CLASS_ORDER: ClassId[] = CLASS_LIST.map((c) => c.id);
 

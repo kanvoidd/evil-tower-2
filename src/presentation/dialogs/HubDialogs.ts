@@ -1,7 +1,8 @@
 import type Phaser from 'phaser';
+
 import type { IHubDialogs } from '../../application/hub/interfaces/IHubDialogs';
 import type { RewardChoice } from '../../application/rewards/interfaces/RewardChoice';
-import { DAILY_REWARDS, GIFT_REWARD, type DailyReward } from '../../domain/data/economy';
+import { DAILY_REWARDS, type DailyReward, GIFT_REWARD } from '../../domain/data/economy';
 import type { DailyStatus } from '../../domain/logic/profile';
 import { fmt, t } from '../../i18n';
 import { Dialog, icon, plateTexture, txt, UiSound } from '../components';
@@ -29,27 +30,57 @@ export class HubDialogs implements IHubDialogs {
             const today = i === status.dayIndex;
             const done = i < status.dayIndex;
             const cell = s.add.container(x, y);
-            cell.add(s.add.image(0, 0, plateTexture(s, cw, ch, 1, today ? 'gold' : done ? 'dark' : 'panel', 22)));
-            cell.add(txt(s, 0, -44, t('daily.day', { n: i + 1 }), 18, {
-              color: today ? '#5a3d0e' : HEX.textMute, strokeThickness: 0, weight: 800,
-            }));
+            cell.add(
+              s.add.image(
+                0,
+                0,
+                plateTexture(s, cw, ch, 1, today ? 'gold' : done ? 'dark' : 'panel', 22),
+              ),
+            );
+            cell.add(
+              txt(s, 0, -44, t('daily.day', { n: i + 1 }), 18, {
+                color: today ? '#5a3d0e' : HEX.textMute,
+                strokeThickness: 0,
+                weight: 800,
+              }),
+            );
             const parts = HubDialogs.rewardParts(r);
             const shown = parts.slice(0, 2);
             const extra = parts.length > 2;
             shown.forEach((p, k) => {
               const py = shown.length > 1 ? (extra ? -12 : -8) + k * (extra ? 34 : 40) : 10;
-              const label = txt(s, 0, py, fmt(p.amount), 24, { color: today ? '#2b1c06' : p.color, strokeThickness: 0, weight: 900, origin: [0, 0.5] });
+              const label = txt(s, 0, py, fmt(p.amount), 24, {
+                color: today ? '#2b1c06' : p.color,
+                strokeThickness: 0,
+                weight: 900,
+                origin: [0, 0.5],
+              });
               const total = 34 + 8 + label.width;
               const im = s.add.image(-total / 2 + 17, py, p.key).setDisplaySize(34, 34);
               label.setX(-total / 2 + 42);
               cell.add([im, label]);
             });
-            if (extra) cell.add(txt(s, 0, 52, `+${parts.length - 2}`, 17, { color: today ? '#5a3d0e' : HEX.textDim, strokeThickness: 0, weight: 800 }));
+            if (extra)
+              cell.add(
+                txt(s, 0, 52, `+${parts.length - 2}`, 17, {
+                  color: today ? '#5a3d0e' : HEX.textDim,
+                  strokeThickness: 0,
+                  weight: 800,
+                }),
+              );
             if (done) {
               cell.add(s.add.rectangle(0, 0, cw, ch, 0x000000, 0.35));
               cell.add(icon(s, 0, 6, 'svgw_check', 40));
             }
-            if (today) s.tweens.add({ targets: cell, scale: 1.04, duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+            if (today)
+              s.tweens.add({
+                targets: cell,
+                scale: 1.04,
+                duration: 1500,
+                yoyo: true,
+                repeat: -1,
+                ease: 'Sine.easeInOut',
+              });
             c.add(cell);
           });
           return 2 * ch + gap;
@@ -63,7 +94,12 @@ export class HubDialogs implements IHubDialogs {
               choose('single');
             },
           },
-          { label: t('daily.double'), icon: 'svg_video', style: 'green', onClick: () => choose('double') },
+          {
+            label: t('daily.double'),
+            icon: 'svg_video',
+            style: 'green',
+            onClick: () => choose('double'),
+          },
         ],
       });
     });
@@ -88,7 +124,12 @@ export class HubDialogs implements IHubDialogs {
         },
         buttons: [
           { label: t('common.claim'), style: 'gold', onClick: () => choose('single') },
-          { label: t('daily.double'), icon: 'svg_video', style: 'green', onClick: () => choose('double') },
+          {
+            label: t('daily.double'),
+            icon: 'svg_video',
+            style: 'green',
+            onClick: () => choose('double'),
+          },
         ],
       });
     });

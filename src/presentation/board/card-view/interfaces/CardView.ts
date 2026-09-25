@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { CardKind } from '../../../../domain/types';
 import type { Pill } from '../../../components';
 

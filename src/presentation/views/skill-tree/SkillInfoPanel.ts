@@ -1,11 +1,29 @@
 import type Phaser from 'phaser';
+
 import type { SkillTreeCommand } from '../../../application/skill-tree/interfaces/SkillTreeCommand';
 import type { SkillTreeQuery } from '../../../application/skill-tree/SkillTreeQuery';
 import { FULL_BAR } from '../../../domain/data/perks';
 import type { NodeState, TreeNode } from '../../../domain/logic/skillTree';
 import { classTraits } from '../../../domain/logic/traits';
-import { describeTrait, fmt, perkDesc, perkName, t, talentDesc, talentName, type TKey } from '../../../i18n';
-import { fitHeight, icon, pinToScreen, PlateButton, plateTexture, shadowTexture, txt } from '../../components';
+import {
+  describeTrait,
+  fmt,
+  perkDesc,
+  perkName,
+  t,
+  talentDesc,
+  talentName,
+  type TKey,
+} from '../../../i18n';
+import {
+  fitHeight,
+  icon,
+  pinToScreen,
+  PlateButton,
+  plateTexture,
+  shadowTexture,
+  txt,
+} from '../../components';
 import { GAME_H, GAME_W, HEX } from '../../theme';
 import type { NodeInfo } from './interfaces/NodeInfo';
 import { NodeView } from './NodeView';
@@ -46,15 +64,40 @@ export class SkillInfoPanel {
     p.add(s.add.image(84, y0 + 86, plateTexture(s, 108, 108, 1, 'dark', 26)));
     p.add(s.add.image(84, y0 + 86, info.tex).setDisplaySize(84, 84));
     if (info.iconKey) p.add(icon(s, 84, y0 + 86, info.iconKey, 44));
-    p.add(txt(s, 158, y0 + 46, info.title, 32, { font: 'title', origin: [0, 0.5], maxWidth: 520, color: HEX.gold, strokeThickness: 0 }));
-    if (info.sub) p.add(txt(s, 158, y0 + 82, info.sub, 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0, maxWidth: 520 }));
+    p.add(
+      txt(s, 158, y0 + 46, info.title, 32, {
+        font: 'title',
+        origin: [0, 0.5],
+        maxWidth: 520,
+        color: HEX.gold,
+        strokeThickness: 0,
+      }),
+    );
+    if (info.sub)
+      p.add(
+        txt(s, 158, y0 + 82, info.sub, 19, {
+          origin: [0, 0.5],
+          color: HEX.textMute,
+          weight: 800,
+          strokeThickness: 0,
+          maxWidth: 520,
+        }),
+      );
     let desc = info.desc;
     // Способности прежних классов остаются с героем — показываем, откуда она пришла.
     if (n.kind === 'perk' && n.owner !== q.activeClass) {
       desc += `\n${t('skill.from_class', { c: t(`class.${n.owner}.name` as TKey) })}`;
     }
-    if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class')) desc += `\n${t('skill.gate')}`;
-    const descText = txt(s, 158, y0 + 104, desc, 21, { origin: [0, 0], wrap: 520, weight: 700, strokeThickness: 0, lineSpacing: 0, align: 'left' });
+    if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class'))
+      desc += `\n${t('skill.gate')}`;
+    const descText = txt(s, 158, y0 + 104, desc, 21, {
+      origin: [0, 0],
+      wrap: 520,
+      weight: 700,
+      strokeThickness: 0,
+      lineSpacing: 0,
+      align: 'left',
+    });
     fitHeight(descText, 108, 14);
     p.add(descText);
 
@@ -66,7 +109,12 @@ export class SkillInfoPanel {
 
     if (n.kind === 'class' && st === 'owned' && q.canCancel(n)) {
       btn = new PlateButton(s, GAME_W - 200, rowY, {
-        w: 340, h: 70, label: t('skill.cancel_meta'), fontSize: 22, style: 'red', radius: 24,
+        w: 340,
+        h: 70,
+        label: t('skill.cancel_meta'),
+        fontSize: 22,
+        style: 'red',
+        radius: 24,
         onClick: () => this.commands({ type: 'cancel-metamorphosis' }),
       });
     } else if (st === 'owned') {
@@ -75,8 +123,15 @@ export class SkillInfoPanel {
     } else if (st === 'available' || st === 'partial') {
       const can = q.souls >= cost;
       btn = new PlateButton(s, GAME_W - 190, rowY, {
-        w: 320, h: 70, label: st === 'partial' ? t('skill.upgrade') : t('skill.buy'), fontSize: 30, style: 'gold', radius: 24,
-        icon: 'ico_soul', iconSize: 32, onClick: () => this.commands({ type: 'buy', node: n }),
+        w: 320,
+        h: 70,
+        label: st === 'partial' ? t('skill.upgrade') : t('skill.buy'),
+        fontSize: 30,
+        style: 'gold',
+        radius: 24,
+        icon: 'ico_soul',
+        iconSize: 32,
+        onClick: () => this.commands({ type: 'buy', node: n }),
       });
       btn.setLocked(!can);
     } else if (st === 'blocked') {
@@ -87,13 +142,26 @@ export class SkillInfoPanel {
     }
     if (cost > 0 && st !== 'owned') {
       p.add(s.add.image(56, rowY, 'ico_soul').setDisplaySize(36, 36));
-      p.add(txt(s, 82, rowY, fmt(cost), 30, { origin: [0, 0.5], weight: 900, color: q.souls >= cost ? HEX.soul : HEX.bad }));
+      p.add(
+        txt(s, 82, rowY, fmt(cost), 30, {
+          origin: [0, 0.5],
+          weight: 900,
+          color: q.souls >= cost ? HEX.soul : HEX.bad,
+        }),
+      );
     }
     if (status) {
       const sx = cost > 0 && st !== 'owned' ? 200 : 56;
-      p.add(txt(s, sx, rowY, status, 20, {
-        origin: [0, 0.5], align: 'left', wrap: GAME_W - 32 - sx, color: statusColor, weight: 700, strokeThickness: 0,
-      }));
+      p.add(
+        txt(s, sx, rowY, status, 20, {
+          origin: [0, 0.5],
+          align: 'left',
+          wrap: GAME_W - 32 - sx,
+          color: statusColor,
+          weight: 700,
+          strokeThickness: 0,
+        }),
+      );
     }
     if (btn) p.add(btn);
     pinToScreen(p);
@@ -114,14 +182,23 @@ export class SkillInfoPanel {
     }
     if (n.kind === 'perk') {
       const perk = q.perk(n)!;
-      const slotKey = ({ start: 'skill.perk_start', p2: 'skill.perk_p2', p3: 'skill.perk_p3', legend: 'skill.perk_legend' } as const)[n.slot!];
+      const slotKey = (
+        {
+          start: 'skill.perk_start',
+          p2: 'skill.perk_p2',
+          p3: 'skill.perk_p3',
+          legend: 'skill.perk_legend',
+        } as const
+      )[n.slot!];
       const lines: string[] = [perkDesc(perk)];
       if (perk.passive) lines.push(t('skill.passive'));
       else if (perk.basic) lines.push(t('skill.basic'));
       if (perk.cost !== undefined && !perk.passive) {
-        lines.push(perk.cost === FULL_BAR
-          ? t('skill.cost_full')
-          : t('skill.cost_res', { n: perk.cost, r: t(`res.${q.resource}` as TKey) }));
+        lines.push(
+          perk.cost === FULL_BAR
+            ? t('skill.cost_full')
+            : t('skill.cost_res', { n: perk.cost, r: t(`res.${q.resource}` as TKey) }),
+        );
       }
       if (perk.once) lines.push(t('skill.once'));
       return { title: perkName(perk), sub: t(slotKey), desc: lines.join('\n'), tex: perk.icon };
@@ -130,7 +207,9 @@ export class SkillInfoPanel {
       return {
         title: t(`class.${n.classId}.name` as TKey),
         sub: t('skill.class'),
-        desc: classTraits(n.classId!, 3).map((tr) => `• ${describeTrait(tr)}`).join('\n'),
+        desc: classTraits(n.classId!, 3)
+          .map((tr) => `• ${describeTrait(tr)}`)
+          .join('\n'),
         tex: `cls_${n.classId}`,
       };
     }

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { ClassId } from '../../../../domain/types';
 
 /** Герой в карусели: герб, свечение и замок у закрытого. */

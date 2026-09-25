@@ -1,8 +1,8 @@
 import type { EnemyDef } from '../../../data/enemies';
-import type { FloorFactory } from '../../../data/floors/floor-factory/FloorFactory';
 import { FLOOR_FACTORIES } from '../../../data/floors';
-import type { HeroFactory } from '../../../data/heroes/hero-factory/HeroFactory';
+import type { FloorFactory } from '../../../data/floors/floor-factory/FloorFactory';
 import { HERO_FACTORIES } from '../../../data/heroes';
+import type { HeroFactory } from '../../../data/heroes/hero-factory/HeroFactory';
 import { rollRoom } from '../../../data/levels';
 import { Engine } from '../../../engine/Engine';
 import { RoomCardFactory } from '../../../game-data/card/room-card-factory/RoomCardFactory';
@@ -19,8 +19,13 @@ export class RunFactory {
 
   private readonly enemies: Readonly<Record<string, EnemyDef>>;
 
-  constructor(private readonly heroes: readonly HeroFactory[], floors: readonly FloorFactory[]) {
-    this.enemies = Object.fromEntries(floors.flatMap((f) => f.createEnemies()).map((e) => [e.id, e]));
+  constructor(
+    private readonly heroes: readonly HeroFactory[],
+    floors: readonly FloorFactory[],
+  ) {
+    this.enemies = Object.fromEntries(
+      floors.flatMap((f) => f.createEnemies()).map((e) => [e.id, e]),
+    );
   }
 
   /** Фабрика на всех героях и этажах игры. */
@@ -34,7 +39,14 @@ export class RunFactory {
     if (!hero) throw new Error(`нет фабрики героя для линейки ${init.stats.lineage}`);
     const lineage = hero.createLineage();
     const plan = init.plan ?? rollRoom(init.room, init.rng);
-    const cards = new RoomCardFactory({ room: init.room, plan, rng: init.rng, stats: init.stats, enemies: this.enemies, lineage });
+    const cards = new RoomCardFactory({
+      room: init.room,
+      plan,
+      rng: init.rng,
+      stats: init.stats,
+      enemies: this.enemies,
+      lineage,
+    });
     const engine = new Engine(cards);
     return new Run(init, { engine, cards, plan, enemies: this.enemies, lineage });
   }

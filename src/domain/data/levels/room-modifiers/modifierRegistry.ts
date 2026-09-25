@@ -11,4 +11,6 @@ export const MODIFIERS: RoomModifier[] = [
   { id: 'champion', weight: 14, bossOnly: true, hpMul: 1.2, goldMul: 2, soulMul: 1.35 },
 ];
 
-export const MODIFIER_BY_ID: Record<string, RoomModifier> = Object.fromEntries(MODIFIERS.map((m) => [m.id, m]));
+export const MODIFIER_BY_ID: Record<string, RoomModifier> = Object.fromEntries(
+  MODIFIERS.map((m) => [m.id, m]),
+);

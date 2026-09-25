@@ -3,7 +3,11 @@ import type { AutoUseSave, ConsumableId } from '../../domain/types';
 
 /** Переключатели «АВТО» под расходниками: у каждого расходника свой флаг в профиле. */
 export class AutoUseToggles {
-  private static readonly KEY: Record<ConsumableId, keyof AutoUseSave> = { potion_heal: 'heal', potion_regen: 'regen', artifact: 'artifact' };
+  private static readonly KEY: Record<ConsumableId, keyof AutoUseSave> = {
+    potion_heal: 'heal',
+    potion_regen: 'regen',
+    artifact: 'artifact',
+  };
 
   constructor(private readonly profile: Profile) {}
 

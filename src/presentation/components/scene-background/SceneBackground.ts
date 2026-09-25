@@ -1,14 +1,24 @@
 import Phaser from 'phaser';
+
 import { GAME_H, GAME_W } from '../../theme';
 
 /** Каменный фон экрана — под всем остальным и неподвижный относительно камеры. */
 export const background = (scene: Phaser.Scene): Phaser.GameObjects.Image =>
-  scene.add.image(GAME_W / 2, GAME_H / 2, 'bg_stone').setDepth(-100).setScrollFactor(0);
+  scene.add
+    .image(GAME_W / 2, GAME_H / 2, 'bg_stone')
+    .setDepth(-100)
+    .setScrollFactor(0);
 
 /** Редкие тёплые искры на фоне — живая, но спокойная атмосфера. */
 export const addEmbers = (scene: Phaser.Scene, count = 12): void => {
   for (let i = 0; i < count; i++) {
-    const s = scene.add.image(0, 0, 'glow').setTint(0xffb56b).setBlendMode(Phaser.BlendModes.ADD).setDepth(-50).setScrollFactor(0).setAlpha(0);
+    const s = scene.add
+      .image(0, 0, 'glow')
+      .setTint(0xffb56b)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(-50)
+      .setScrollFactor(0)
+      .setAlpha(0);
     const x0 = Phaser.Math.Between(30, GAME_W - 30);
     const y0 = Phaser.Math.Between(700, GAME_H + 40);
     const dist = Phaser.Math.Between(320, 620);

@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
+
 import type { SfxName } from '../../../application/ports';
 import { COLOR, HEX } from '../../theme';
 import { icon } from '../icon/Icon';
-import { pulse, popIn } from '../motion/UiMotion';
+import { popIn, pulse } from '../motion/UiMotion';
 import type { PlateStyle } from '../plate/interfaces/PlateStyle';
 import { plateTexture, shadowTexture } from '../plate/Plates';
 import { fitText, txt } from '../text/Text';
@@ -43,7 +44,9 @@ export class PlateButton extends Phaser.GameObjects.Container {
     this.pressC = scene.add.container(0, 0);
     this.pulseC = scene.add.container(0, 0);
     if (o.shadow !== false) {
-      this.shadowImg = scene.add.image(0, 7, shadowTexture(scene, o.w, o.h, this.radius, 12)).setAlpha(0.9);
+      this.shadowImg = scene.add
+        .image(0, 7, shadowTexture(scene, o.w, o.h, this.radius, 12))
+        .setAlpha(0.9);
       this.add(this.shadowImg);
     }
     this.add(this.pressC);
@@ -67,9 +70,15 @@ export class PlateButton extends Phaser.GameObjects.Container {
       this.pulseC.add(this.labelText);
     }
     if (o.sub !== undefined) {
-      const subDefault: Record<string, string> = { gold: '#5a3d0e', green: '#e2fbec', red: '#ffe3e0' };
+      const subDefault: Record<string, string> = {
+        gold: '#5a3d0e',
+        green: '#e2fbec',
+        red: '#ffe3e0',
+      };
       this.subText = txt(scene, 0, 0, o.sub, 19, {
-        color: o.subColor ?? subDefault[this.style] ?? HEX.textDim, strokeThickness: 0, weight: 700,
+        color: o.subColor ?? subDefault[this.style] ?? HEX.textDim,
+        strokeThickness: 0,
+        weight: 700,
       });
       this.pulseC.add(this.subText);
     }
@@ -90,7 +99,9 @@ export class PlateButton extends Phaser.GameObjects.Container {
       this.release();
     });
     this.on('pointerup', (p: Phaser.Input.Pointer) => {
-      const d = this.downPos ? Phaser.Math.Distance.Between(p.x, p.y, this.downPos.x, this.downPos.y) : 999;
+      const d = this.downPos
+        ? Phaser.Math.Distance.Between(p.x, p.y, this.downPos.x, this.downPos.y)
+        : 999;
       this.downPos = null;
       this.release();
       // долгое нажатие показало подсказку (см. tipOnHover) — само действие кнопки не выполняем
@@ -146,7 +157,14 @@ export class PlateButton extends Phaser.GameObjects.Container {
 
   private release(): void {
     this.scene.tweens.killTweensOf(this.pressC);
-    this.scene.tweens.add({ targets: this.pressC, scaleX: 1, scaleY: 1, y: 0, duration: 140, ease: 'Back.easeOut' });
+    this.scene.tweens.add({
+      targets: this.pressC,
+      scaleX: 1,
+      scaleY: 1,
+      y: 0,
+      duration: 140,
+      ease: 'Back.easeOut',
+    });
   }
 
   setOnClick(fn: () => void): this {
@@ -173,7 +191,10 @@ export class PlateButton extends Phaser.GameObjects.Container {
   setIcon(key: string): this {
     if (this.iconImg) {
       this.iconImg.setTexture(PlateButton.iconFor(key, this.style));
-      this.iconImg.setDisplaySize(this.iconSize, this.iconSize * (this.iconImg.height / this.iconImg.width));
+      this.iconImg.setDisplaySize(
+        this.iconSize,
+        this.iconSize * (this.iconImg.height / this.iconImg.width),
+      );
     }
     return this;
   }
@@ -193,7 +214,11 @@ export class PlateButton extends Phaser.GameObjects.Container {
     if (on && !this.badge) {
       const c = this.scene.add.container(this.bw / 2 - 10, -this.bh / 2 + 10);
       const dot = this.scene.add.circle(0, 0, 13, COLOR.red).setStrokeStyle(3, 0x0b0d12);
-      const ex = txt(this.scene, 0, -1, '!', 18, { color: '#ffffff', strokeThickness: 0, weight: 900 });
+      const ex = txt(this.scene, 0, -1, '!', 18, {
+        color: '#ffffff',
+        strokeThickness: 0,
+        weight: 900,
+      });
       c.add([dot, ex]);
       this.badge = c;
       this.pulseC.add(c);
@@ -206,6 +231,13 @@ export class PlateButton extends Phaser.GameObjects.Container {
   }
 
   shake(): void {
-    this.scene.tweens.add({ targets: this.pressC, x: { from: -7, to: 7 }, duration: 55, yoyo: true, repeat: 2, onComplete: () => this.pressC.setX(0) });
+    this.scene.tweens.add({
+      targets: this.pressC,
+      x: { from: -7, to: 7 },
+      duration: 55,
+      yoyo: true,
+      repeat: 2,
+      onComplete: () => this.pressC.setX(0),
+    });
   }
 }

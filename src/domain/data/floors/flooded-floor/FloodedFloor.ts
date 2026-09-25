@@ -12,7 +12,9 @@ export class FloodedFloor extends FloorFactory {
       this.enemy('drowned', 'Утопленник', 'Drowned', 'normal', 'undead'),
       this.enemy('deep_hound', 'Глубинный пёс', 'Deep Hound', 'normal', 'beast', { evade: 12 }),
       this.enemy('tide_wraith', 'Дух прилива', 'Tide Wraith', 'tough', 'undead', { magic: true }),
-      this.enemy('kraken_spawn', 'Отродье кракена', 'Kraken Spawn', 'elite', 'beast', { thorns: 0.2 }),
+      this.enemy('kraken_spawn', 'Отродье кракена', 'Kraken Spawn', 'elite', 'beast', {
+        thorns: 0.2,
+      }),
       this.enemy('boss_leviathan', 'Левиафан', 'Leviathan', 'boss', 'beast', { regen: 0.04 }),
     ];
   }

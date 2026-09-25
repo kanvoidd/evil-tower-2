@@ -33,7 +33,7 @@ export abstract class FloorFactory {
    * души — быстрее (под дерево талантов, которое и есть долгая цель).
    */
   private static readonly FLOOR_HP = 1.66;
-  private static readonly FLOOR_ATK = 1.70;
+  private static readonly FLOOR_ATK = 1.7;
   private static readonly FLOOR_GOLD = 1.48;
   private static readonly FLOOR_SOULS = 1.7;
 
@@ -106,19 +106,29 @@ export abstract class FloorFactory {
     const own = this.createEnemies();
     const below = prev ? prev.createEnemies() : [];
     const rooms: RoomDef[] = [];
-    for (let i = 1; i <= FloorFactory.ROOMS_PER_FLOOR; i++) rooms.push(this.room(i, this.pool(i, own, below)));
+    for (let i = 1; i <= FloorFactory.ROOMS_PER_FLOOR; i++)
+      rooms.push(this.room(i, this.pool(i, own, below)));
     return rooms;
   }
 
   protected enemy(
-    id: string, ru: string, en: string, role: EnemyRole, tag: EnemyTag, traits: EnemyTraits = {},
+    id: string,
+    ru: string,
+    en: string,
+    role: EnemyRole,
+    tag: EnemyTag,
+    traits: EnemyTraits = {},
   ): EnemyDef {
     const F = FloorFactory;
     const r = F.ROLE[role];
     const tune = this.tune();
-    const round = (v: number): number => (v >= 100 ? Math.round(v / 5) * 5 : Math.max(1, Math.round(v)));
+    const round = (v: number): number =>
+      v >= 100 ? Math.round(v / 5) * 5 : Math.max(1, Math.round(v));
     return {
-      id, floor: this.floor, role, tag,
+      id,
+      floor: this.floor,
+      role,
+      tag,
       hp: round(F.BASE.hp * r.hp * this.growth(F.FLOOR_HP) * tune.hp),
       atk: round(F.BASE.atk * r.atk * this.growth(F.FLOOR_ATK) * tune.atk),
       gold: round(F.BASE.gold * r.val * this.growth(F.FLOOR_GOLD) * F.RUN_REWARD),

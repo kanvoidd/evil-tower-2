@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { AdService } from '../application/ads/AdService';
 import { WebAudioPlayer } from '../infrastructure/audio/WebAudioPlayer';
 import { YandexPlatform } from '../infrastructure/sdk/YandexPlatform';

@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { ISkillTreeDialogs } from '../../application/skill-tree/interfaces/ISkillTreeDialogs';
 import type { ClassId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
@@ -38,7 +39,12 @@ export class SkillTreeDialogs implements ISkillTreeDialogs {
   }
 
   /** Два герба и стрелка между ними; возвращает высоту содержимого. */
-  private static classArrow(scene: Phaser.Scene, c: Phaser.GameObjects.Container, from: ClassId, to: ClassId): number {
+  private static classArrow(
+    scene: Phaser.Scene,
+    c: Phaser.GameObjects.Container,
+    from: ClassId,
+    to: ClassId,
+  ): number {
     const mk = (id: ClassId, x: number): void => {
       c.add(scene.add.image(x, 90, `cls_${id}`).setDisplaySize(170, 170));
       c.add(txt(scene, x, 204, t(`class.${id}.name` as TKey), 26, { color: HEX.gold, wrap: 200 }));

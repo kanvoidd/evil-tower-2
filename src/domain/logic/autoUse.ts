@@ -1,6 +1,6 @@
-import type { AutoUseSave, ConsumableId } from '../types';
 import { FULL_BAR } from '../data/perks';
 import { Grid } from '../engine/grid/Grid';
+import type { AutoUseSave, ConsumableId } from '../types';
 import type { IRunState } from './run';
 import type { PlayerStats } from './stats';
 
@@ -13,7 +13,9 @@ export const DEFAULT_AUTO_USE: AutoUseSave = { heal: false, regen: false, artifa
  */
 export const coreCost = (s: PlayerStats): number => {
   if (s.attack.mode !== 'none') return s.rangedCost;
-  const costs = s.abilities.map((a) => (a.cost === FULL_BAR ? s.resMax : a.cost ?? 0)).filter((c) => c > 0);
+  const costs = s.abilities
+    .map((a) => (a.cost === FULL_BAR ? s.resMax : (a.cost ?? 0)))
+    .filter((c) => c > 0);
   return costs.length ? Math.min(...costs) : 0;
 };
 
@@ -22,7 +24,8 @@ export const worstStrike = (run: IRunState): number => {
   let worst = 0;
   for (const c of Grid.neighbors(run.playerCell)) {
     const card = run.cards[c];
-    if (card?.kind === 'enemy' && card.stun <= 0) worst = Math.max(worst, run.strikeDamage(card.atk));
+    if (card?.kind === 'enemy' && card.stun <= 0)
+      worst = Math.max(worst, run.strikeDamage(card.atk));
   }
   return worst;
 };

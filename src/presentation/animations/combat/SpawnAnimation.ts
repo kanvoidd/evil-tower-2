@@ -8,6 +8,11 @@ export class SpawnAnimation {
 
   play(v: CardView): Promise<void> {
     v.c.setScale(0);
-    return this.tweens.play({ targets: v.c, scale: 1, duration: TIMING.cardSpawn, ease: 'Back.easeOut' });
+    return this.tweens.play({
+      targets: v.c,
+      scale: 1,
+      duration: TIMING.cardSpawn,
+      ease: 'Back.easeOut',
+    });
   }
 }

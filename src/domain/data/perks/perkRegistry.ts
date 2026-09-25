@@ -12,7 +12,8 @@ export const PERK_BY_ID: Record<string, PerkDef> = Object.fromEntries(PERKS.map(
 
 export const perkId = (classId: ClassId, slot: PerkSlot): string => `${classId}_${slot}`;
 
-export const perkOf = (classId: ClassId, slot: PerkSlot): PerkDef | undefined => PERK_BY_ID[perkId(classId, slot)];
+export const perkOf = (classId: ClassId, slot: PerkSlot): PerkDef | undefined =>
+  PERK_BY_ID[perkId(classId, slot)];
 
 export const SLOT_ORDER: PerkSlot[] = ['start', 'p2', 'p3', 'legend'];
 

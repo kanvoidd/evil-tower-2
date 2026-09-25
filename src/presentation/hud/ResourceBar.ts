@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
+
 import { GAMEPLAY } from '../../domain/gameplay';
 import type { ResourceKind } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
-import { GAME_W, HEX } from '../theme';
 import { plateTexture, shadowTexture, txt } from '../components';
+import { GAME_W, HEX } from '../theme';
 
 /** Полоса ресурса класса над кнопками способностей: плавно доливается, показывает ускорение от зелья. */
 export class ResourceBar {
@@ -11,7 +12,10 @@ export class ResourceBar {
 
   /** Цвет шкалы по ресурсу линейки. */
   private static readonly COLOR: Record<ResourceKind, number> = {
-    stamina: 0xe9c94a, mana: 0x4f9bff, concentration: 0x46d68a, vigilance: 0xb287ff,
+    stamina: 0xe9c94a,
+    mana: 0x4f9bff,
+    concentration: 0x46d68a,
+    vigilance: 0xb287ff,
   };
 
   private readonly gfx: Phaser.GameObjects.Graphics;
@@ -25,7 +29,11 @@ export class ResourceBar {
     scene.add.image(GAME_W / 2, y, plateTexture(scene, 480, 36, 1, 'dark', 18));
     this.gfx = scene.add.graphics();
     this.text = txt(scene, GAME_W / 2, y - 1, '', 20, { weight: 900 });
-    this.boost = txt(scene, GAME_W / 2 + 250, y, '', 19, { color: HEX.gold, origin: [0, 0.5], weight: 900 });
+    this.boost = txt(scene, GAME_W / 2 + 250, y, '', 19, {
+      color: HEX.gold,
+      origin: [0, 0.5],
+      weight: 900,
+    });
   }
 
   update(res: number, max: number, kind: ResourceKind, boosted: boolean): void {
@@ -61,6 +69,12 @@ export class ResourceBar {
     g.clear();
     if (k <= 0) return;
     g.fillStyle(ResourceBar.COLOR[kind], 1).fillRoundedRect(x0, y0, w, h, h / 2);
-    g.fillStyle(0xffffff, 0.24).fillRoundedRect(x0 + 4, y0 + 3, Math.max(4, w - 8), h / 2 - 3, (h / 2 - 3) / 2);
+    g.fillStyle(0xffffff, 0.24).fillRoundedRect(
+      x0 + 4,
+      y0 + 3,
+      Math.max(4, w - 8),
+      h / 2 - 3,
+      (h / 2 - 3) / 2,
+    );
   }
 }

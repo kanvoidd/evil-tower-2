@@ -1,4 +1,23 @@
 /** Звуковые эффекты игры: вид называет звук по смыслу, а как он звучит — решает реализация звука. */
 export type SfxName =
-  | 'click' | 'hit' | 'crit' | 'hurt' | 'dodge' | 'parry' | 'kill' | 'coin' | 'chest' | 'potion'
-  | 'buy' | 'upgrade' | 'error' | 'win' | 'lose' | 'spawn' | 'move' | 'open' | 'break' | 'burst' | 'reward';
+  | 'click'
+  | 'hit'
+  | 'crit'
+  | 'hurt'
+  | 'dodge'
+  | 'parry'
+  | 'kill'
+  | 'coin'
+  | 'chest'
+  | 'potion'
+  | 'buy'
+  | 'upgrade'
+  | 'error'
+  | 'win'
+  | 'lose'
+  | 'spawn'
+  | 'move'
+  | 'open'
+  | 'break'
+  | 'burst'
+  | 'reward';

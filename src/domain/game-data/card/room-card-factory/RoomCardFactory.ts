@@ -1,5 +1,5 @@
-import { ELITE } from '../../../data/levels';
 import type { EnemyDef } from '../../../data/enemies';
+import { ELITE } from '../../../data/levels';
 import type { Card } from '../Card';
 import { CardFactory } from '../card-factory/CardFactory';
 import type { DeckPlan } from '../card-factory/interfaces/DeckPlan';

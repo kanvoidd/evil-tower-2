@@ -1,31 +1,4 @@
 /** Самопроверка логики: npm run selftest */
-import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/data/classes';
-import { LINEAGE_ORDER, LINEAGES } from '../src/domain/data/heroes';
-import { ENEMY_LIST } from '../src/domain/data/enemies';
-import { MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/domain/data/levels';
-import { FLOORS } from '../src/domain/data/floors';
-import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/domain/data/perks';
-import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier } from '../src/domain/data/talents';
-import { DAILY_REWARDS, GIFT_REWARD, perkCost, talentRankCost } from '../src/domain/data/economy';
-import { CONSUMABLES } from '../src/domain/data/consumables';
-import {
-  activePerkIds, applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, canInvest, costOf, currentClassOf,
-  isClassOwned, isPurchasable, newLineageSave, nodeState, openedClasses, rankOf, talentBonuses, TREES, type TreeNode,
-} from '../src/domain/logic/skillTree';
-import { buildPlayerStats, CAPS } from '../src/domain/logic/stats';
-import { makeRng } from '../src/domain/logic/rng';
-import { RunFactory, type Run, type RunCarryStats } from '../src/domain/logic/run';
-import { Card } from '../src/domain/game-data/card';
-import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/domain/logic/autoUse';
-import { branchOf, inferBranch, planAutoSkill } from '../src/domain/logic/autoSkill';
-import { classTraits, type TraitId } from '../src/domain/logic/traits';
-import { GAMEPLAY } from '../src/domain/gameplay';
-import { Profile } from '../src/domain/logic/profile';
-import { HeroClassState, SpellAttack } from '../src/domain/logic/hero';
-import { ru } from '../src/i18n/ru';
-import { en } from '../src/i18n/en';
-import type { AutoSkillSave, ClassId, Lang, LineageId, TalentPath } from '../src/domain/types';
-import type { AbilityId } from '../src/domain/data/perks';
 import { AD_POLICY } from '../src/application/ads/adPolicy';
 import { AdService } from '../src/application/ads/AdService';
 import { ClassSelectController } from '../src/application/class-select/ClassSelectController';
@@ -55,6 +28,64 @@ import type { ISkillTreeView } from '../src/application/skill-tree/interfaces/IS
 import { Metamorphose } from '../src/application/skill-tree/Metamorphose';
 import { SkillTreeController } from '../src/application/skill-tree/SkillTreeController';
 import { SkillTreeQuery } from '../src/application/skill-tree/SkillTreeQuery';
+import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/data/classes';
+import { CONSUMABLES } from '../src/domain/data/consumables';
+import { DAILY_REWARDS, GIFT_REWARD, perkCost, talentRankCost } from '../src/domain/data/economy';
+import { ENEMY_LIST } from '../src/domain/data/enemies';
+import { FLOORS } from '../src/domain/data/floors';
+import { LINEAGE_ORDER, LINEAGES } from '../src/domain/data/heroes';
+import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../src/domain/data/levels';
+import type { AbilityId } from '../src/domain/data/perks';
+import {
+  FULL_BAR,
+  hasButton,
+  PERK_BY_ID,
+  perkOf,
+  PERKS,
+  perksOfClass,
+  VFX_STYLES,
+} from '../src/domain/data/perks';
+import {
+  maxRank,
+  PATH_ORDER,
+  SYNERGY_FX,
+  talentChain,
+  TALENTS,
+  talentsOfClass,
+  talentsOfTier,
+} from '../src/domain/data/talents';
+import { Card } from '../src/domain/game-data/card';
+import { GAMEPLAY } from '../src/domain/gameplay';
+import { branchOf, inferBranch, planAutoSkill } from '../src/domain/logic/autoSkill';
+import { needsHeal, needsRegen, pickAutoUse, worthArtifact } from '../src/domain/logic/autoUse';
+import { HeroClassState, SpellAttack } from '../src/domain/logic/hero';
+import { Profile } from '../src/domain/logic/profile';
+import { makeRng } from '../src/domain/logic/rng';
+import { type Run, type RunCarryStats, RunFactory } from '../src/domain/logic/run';
+import {
+  activePerkIds,
+  applyBuy,
+  applyCancelMetamorphosis,
+  canBuy,
+  canCancelMetamorphosis,
+  canInvest,
+  costOf,
+  currentClassOf,
+  isClassOwned,
+  isPurchasable,
+  newLineageSave,
+  nodeState,
+  openedClasses,
+  rankOf,
+  talentBonuses,
+  type TreeNode,
+  TREES,
+} from '../src/domain/logic/skillTree';
+import { buildPlayerStats, CAPS } from '../src/domain/logic/stats';
+import { classTraits, type TraitId } from '../src/domain/logic/traits';
+import type { AutoSkillSave, ClassId, Lang, LineageId, TalentPath } from '../src/domain/types';
+import { en } from '../src/i18n/en';
+import { ru } from '../src/i18n/ru';
 
 let failed = 0;
 const ok = (cond: boolean, msg: string): void => {
@@ -70,25 +101,43 @@ const cons = () => ({ potion_heal: 0, potion_regen: 0, artifact: 0 });
 for (const cls of Object.keys(CLASSES) as ClassId[]) {
   const perks = perksOfClass(cls);
   const stage = CLASSES[cls].stage;
-  ok(perks.length === (stage === 2 ? 4 : 3), `${cls}: перков ${perks.length}, ожидалось ${stage === 2 ? 4 : 3}`);
+  ok(
+    perks.length === (stage === 2 ? 4 : 3),
+    `${cls}: перков ${perks.length}, ожидалось ${stage === 2 ? 4 : 3}`,
+  );
   ok(!!perkOf(cls, 'start'), `${cls}: есть стартовая способность`);
   const buttons = perks.filter(hasButton).length;
   ok(buttons <= 4, `${cls}: кнопок способностей ${buttons} (максимум 4 на класс)`);
 
   const talents = talentsOfClass(cls);
-  ok(talents.length >= 15 && talents.length <= 16, `${cls}: талантов ${talents.length}, ожидалось 15–16`);
+  ok(
+    talents.length >= 15 && talents.length <= 16,
+    `${cls}: талантов ${talents.length}, ожидалось 15–16`,
+  );
   let variedTiers = 0;
   for (const tier of [1, 2, 3] as const) {
     const list = talentsOfTier(cls, tier);
-    ok(list.length >= 5 && list.length <= 6, `${cls}: на ярусе ${tier} пять-шесть талантов (${list.length})`);
+    ok(
+      list.length >= 5 && list.length <= 6,
+      `${cls}: на ярусе ${tier} пять-шесть талантов (${list.length})`,
+    );
     ok(new Set(list.map((t) => t.path)).size === 3, `${cls}: на ярусе ${tier} все три пути`);
     const lens = PATH_ORDER.map((path) => talentChain(cls, tier, path).length);
-    ok(lens.reduce((a, b) => a + b, 0) === list.length, `${cls}/${tier}: цепочки покрывают ярус (${lens.join('-')})`);
+    ok(
+      lens.reduce((a, b) => a + b, 0) === list.length,
+      `${cls}/${tier}: цепочки покрывают ярус (${lens.join('-')})`,
+    );
     if (new Set(lens).size > 1) variedTiers++;
     for (const path of PATH_ORDER) {
       const chain = talentChain(cls, tier, path);
-      ok(chain.length >= 1 && chain.length <= 3, `${cls}/${tier}/${path}: длина цепочки ${chain.length}`);
-      ok(chain.every((t, i) => t.step === i), `${cls}/${tier}/${path}: шаги цепочки по порядку`);
+      ok(
+        chain.length >= 1 && chain.length <= 3,
+        `${cls}/${tier}/${path}: длина цепочки ${chain.length}`,
+      );
+      ok(
+        chain.every((t, i) => t.step === i),
+        `${cls}/${tier}/${path}: шаги цепочки по порядку`,
+      );
     }
   }
   // прокачка идёт «вразнобой»: хотя бы на двух ярусах из трёх цепочки разной длины
@@ -98,7 +147,10 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   for (const t of talents) {
     ok(t.v.length >= 1 && t.v.length <= 5, `${t.id}: рангов ${t.v.length}`);
     // значения суммарные, значит строго возрастают
-    ok(t.v.every((v, i) => i === 0 || v > t.v[i - 1]), `${t.id}: значения рангов возрастают (${t.v.join('/')})`);
+    ok(
+      t.v.every((v, i) => i === 0 || v > t.v[i - 1]),
+      `${t.id}: значения рангов возрастают (${t.v.join('/')})`,
+    );
     ok(`tal.${t.fx}` in ru && `tal.${t.fx}` in en, `перевод эффекта таланта tal.${t.fx}`);
   }
 }
@@ -108,12 +160,21 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
   const fx = (cls: ClassId, f: string): boolean => talentsOfClass(cls).some((t) => t.fx === f);
   ok(fx('pyromancer', 'abilityIgnite'), 'пиромант: талант «любая способность поджигает»');
   ok(fx('necromancer', 'killBlast'), 'некромант: талант «взрыв трупа»');
-  for (const f of SYNERGY_FX) ok(TALENTS.some((t) => t.fx === f), `синергия ${f} встречается в дереве`);
-  const withSyn = (Object.keys(CLASSES) as ClassId[]).filter((c) => talentsOfClass(c).some((t) => SYNERGY_FX.has(t.fx)));
+  for (const f of SYNERGY_FX)
+    ok(
+      TALENTS.some((t) => t.fx === f),
+      `синергия ${f} встречается в дереве`,
+    );
+  const withSyn = (Object.keys(CLASSES) as ClassId[]).filter((c) =>
+    talentsOfClass(c).some((t) => SYNERGY_FX.has(t.fx)),
+  );
   ok(withSyn.length === 16, `у каждого класса есть талант-синергия (${withSyn.length})`);
   // у каждого класса есть талант на запас здоровья: иначе живучесть держится только на броне
   for (const c of Object.keys(CLASSES) as ClassId[]) {
-    ok(talentsOfClass(c).some((t) => t.fx === 'hpPct'), `${c}: в дереве есть запас здоровья`);
+    ok(
+      talentsOfClass(c).some((t) => t.fx === 'hpPct'),
+      `${c}: в дереве есть запас здоровья`,
+    );
   }
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
@@ -122,15 +183,22 @@ for (const p of PERKS) {
   ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
   ok(STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
-  if (p.cost === FULL_BAR) ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
+  if (p.cost === FULL_BAR)
+    ok(!!p.once, `${p.id}: способность за всю шкалу применяется раз за комнату`);
 }
 // базовое действие осталось у лучника (выстрел) и наёмника (удар в спину);
 // воин бьёт рукой, а маг вообще не бьёт — только молнией по кнопке
 const basics = PERKS.filter((p) => p.basic).map((p) => p.classId);
-ok(basics.length === 2 && !basics.includes('warrior') && !basics.includes('mage'), `базовые действия линеек: ${basics.join(',')}`);
+ok(
+  basics.length === 2 && !basics.includes('warrior') && !basics.includes('mage'),
+  `базовые действия линеек: ${basics.join(',')}`,
+);
 
 // ---------------------------------------------------------------- этажи и враги
-ok(ROOMS.length === FLOORS * ROOMS_PER_FLOOR, `комнат ${ROOMS.length}, ожидалось ${FLOORS * ROOMS_PER_FLOOR}`);
+ok(
+  ROOMS.length === FLOORS * ROOMS_PER_FLOOR,
+  `комнат ${ROOMS.length}, ожидалось ${FLOORS * ROOMS_PER_FLOOR}`,
+);
 for (let f = 1; f <= FLOORS; f++) {
   ok(`floor.${f}.name` in ru && `floor.${f}.name` in en, `перевод названия этажа ${f}`);
   const bosses = ENEMY_LIST.filter((e) => e.floor === f && e.boss);
@@ -139,13 +207,19 @@ for (let f = 1; f <= FLOORS; f++) {
 }
 for (const m of MODIFIERS) {
   ok(`mod.${m.id}` in ru && `mod.${m.id}.desc` in ru, `перевод свойства комнаты ${m.id}`);
-  ok(`mod.${m.id}` in en && `mod.${m.id}.desc` in en, `английский перевод свойства комнаты ${m.id}`);
+  ok(
+    `mod.${m.id}` in en && `mod.${m.id}.desc` in en,
+    `английский перевод свойства комнаты ${m.id}`,
+  );
 }
 // сила врагов растёт от этажа к этажу
 for (let f = 2; f <= FLOORS; f++) {
   const prev = ENEMY_LIST.find((e) => e.floor === f - 1 && e.role === 'normal')!;
   const cur = ENEMY_LIST.find((e) => e.floor === f && e.role === 'normal')!;
-  ok(cur.hp > prev.hp && cur.atk >= prev.atk && cur.souls > prev.souls, `этаж ${f}: враги сильнее и дороже предыдущих`);
+  ok(
+    cur.hp > prev.hp && cur.atk >= prev.atk && cur.souls > prev.souls,
+    `этаж ${f}: враги сильнее и дороже предыдущих`,
+  );
 }
 // каждый заход собирается заново
 {
@@ -154,11 +228,17 @@ for (let f = 2; f <= FLOORS; f++) {
   const b = rollRoom(room, makeRng(2));
   const same = JSON.stringify(a.enemies) === JSON.stringify(b.enemies) && a.mod.id === b.mod.id;
   ok(!same, 'состав комнаты меняется от захода к заходу');
-  ok(JSON.stringify(rollRoom(room, makeRng(1))) === JSON.stringify(a), 'один и тот же seed даёт один и тот же расклад');
+  ok(
+    JSON.stringify(rollRoom(room, makeRng(1))) === JSON.stringify(a),
+    'один и тот же seed даёт один и тот же расклад',
+  );
   for (const r of ROOMS) {
     const plan = rollRoom(r, makeRng(r.floor * 100 + r.index));
     ok(plan.enemies.length >= r.count[0], `${r.id}: врагов не меньше минимума`);
-    ok(plan.enemies.some((e) => e.id.startsWith('boss_')) === r.boss, `${r.id}: босс только в пятой комнате`);
+    ok(
+      plan.enemies.some((e) => e.id.startsWith('boss_')) === r.boss,
+      `${r.id}: босс только в пятой комнате`,
+    );
   }
 }
 
@@ -174,21 +254,42 @@ for (const lin of LINEAGE_ORDER) {
   // ворота: перк 2 закрыт, пока ни один талант первого яруса не прокачан до максимума
   const p2 = tree.nodes.find((n) => n.kind === 'perk' && n.owner === lin && n.slot === 'p2')!;
   ok(nodeState(tree, ls, p2) === 'locked', `${lin}: перк 2 закрыт до прокачки яруса`);
-  const chainStarts = tree.nodes.filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.step === 0);
+  const chainStarts = tree.nodes.filter(
+    (n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.step === 0,
+  );
   ok(chainStarts.length === 3, `${lin}: на первом ярусе три цепочки (${chainStarts.length})`);
-  for (const n of chainStarts) ok(nodeState(tree, ls, n) === 'available', `${lin}: начала цепочек первого яруса доступны сразу`);
+  for (const n of chainStarts)
+    ok(
+      nodeState(tree, ls, n) === 'available',
+      `${lin}: начала цепочек первого яруса доступны сразу`,
+    );
   // берём самую длинную цепочку — её середина должна открываться только после предыдущего таланта
   const chain1 = tree.nodes
-    .filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === chainStarts[0].path)
+    .filter(
+      (n) =>
+        n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === chainStarts[0].path,
+    )
     .sort((a, b) => a.step! - b.step!);
   const longest = (['attack', 'vitality', 'guard'] as TalentPath[])
-    .map((path) => tree.nodes.filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === path).sort((a, b) => a.step! - b.step!))
+    .map((path) =>
+      tree.nodes
+        .filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === path)
+        .sort((a, b) => a.step! - b.step!),
+    )
     .sort((a, b) => b.length - a.length)[0];
   void chain1;
-  if (longest.length > 1) ok(nodeState(tree, ls, longest[1]) === 'locked', `${lin}: продолжение цепочки закрыто до прокачки предыдущего`);
+  if (longest.length > 1)
+    ok(
+      nodeState(tree, ls, longest[1]) === 'locked',
+      `${lin}: продолжение цепочки закрыто до прокачки предыдущего`,
+    );
   const t1 = longest[0];
   applyBuy(tree, ls, t1);
-  ok(maxRank(TALENTS.find((t) => t.id === t1.talentId!)!) === 1 || nodeState(tree, ls, t1) === 'partial', `${lin}: талант частично прокачан`);
+  ok(
+    maxRank(TALENTS.find((t) => t.id === t1.talentId!)!) === 1 ||
+      nodeState(tree, ls, t1) === 'partial',
+    `${lin}: талант частично прокачан`,
+  );
   for (const n of longest) {
     while (nodeState(tree, ls, n) !== 'owned') applyBuy(tree, ls, n);
   }
@@ -219,16 +320,31 @@ for (const lin of LINEAGE_ORDER) {
   ok(perksBefore.length === 3, `${lin}: у базового класса три способности (${perksBefore.length})`);
 
   const second = tree.classNode[tree.second];
-  ok(canBuy(tree, ls, second, 1e9).ok, `${lin}: метаморфоза доступна после прокачки третьего яруса`);
+  ok(
+    canBuy(tree, ls, second, 1e9).ok,
+    `${lin}: метаморфоза доступна после прокачки третьего яруса`,
+  );
   applyBuy(tree, ls, second);
   const bonusAfter = talentBonuses(tree, ls);
-  ok(JSON.stringify(bonusBefore) === JSON.stringify(bonusAfter), `${lin}: таланты сохранились при метаморфозе`);
+  ok(
+    JSON.stringify(bonusBefore) === JSON.stringify(bonusAfter),
+    `${lin}: таланты сохранились при метаморфозе`,
+  );
   // способности прежнего класса остаются с героем — метаморфоза ничего не отнимает
   const afterMeta = activePerkIds(tree, ls, tree.second);
-  ok(perksBefore.every((id) => afterMeta.includes(id)), `${lin}: способности базового класса сохранились`);
-  ok(afterMeta.length === perksBefore.length + 1, `${lin}: к ним добавилась стартовая способность нового класса (${afterMeta.length})`);
+  ok(
+    perksBefore.every((id) => afterMeta.includes(id)),
+    `${lin}: способности базового класса сохранились`,
+  );
+  ok(
+    afterMeta.length === perksBefore.length + 1,
+    `${lin}: к ним добавилась стартовая способность нового класса (${afterMeta.length})`,
+  );
   ok(openedClasses(tree, ls).length === 2, `${lin}: открыты два класса`);
-  ok(currentClassOf(tree, ls) === tree.second, `${lin}: в выборе класса новый класс заменил прежний`);
+  ok(
+    currentClassOf(tree, ls) === tree.second,
+    `${lin}: в выборе класса новый класс заменил прежний`,
+  );
 
   buyAll((n) => n.owner === tree.second && n.kind !== 'class');
   const [a, b] = tree.terminals;
@@ -237,13 +353,19 @@ for (const lin of LINEAGE_ORDER) {
   ok(nodeState(tree, ls, tree.classNode[b]) === 'blocked', `${lin}: соседняя ветка ${b} закрыта`);
   ok(canCancelMetamorphosis(tree, ls, a), `${lin}: отмена метаморфозы доступна`);
   const legend = tree.nodes.find((n) => n.kind === 'perk' && n.owner === a && n.slot === 'legend')!;
-  ok(nodeState(tree, ls, legend) === 'locked', `${lin}: легендарная способность закрыта до третьего яруса`);
+  ok(
+    nodeState(tree, ls, legend) === 'locked',
+    `${lin}: легендарная способность закрыта до третьего яруса`,
+  );
   buyAll((n) => n.owner === a && n.kind !== 'class');
   ok(nodeState(tree, ls, legend) === 'owned', `${lin}: легендарная способность покупается`);
   // 3 (база) + 3 (второй класс) + 4 (финальный) — все они в руках героя одновременно
   const full = activePerkIds(tree, ls, a);
   ok(full.length === 10, `${lin}: у финального класса десять способностей (${full.length})`);
-  ok(perksBefore.every((id) => full.includes(id)), `${lin}: перки базового класса дошли до финала`);
+  ok(
+    perksBefore.every((id) => full.includes(id)),
+    `${lin}: перки базового класса дошли до финала`,
+  );
 
   const { refund } = applyCancelMetamorphosis(tree, ls, a);
   ok(refund > 0 && !isClassOwned(tree, ls, a), `${lin}: ветка ${a} сброшена, возврат ${refund}`);
@@ -259,7 +381,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   for (const n of tree.nodes) if (n.kind === 'talent') ls.ranks[n.id] = n.ranks ?? 1;
   const s = buildPlayerStats({ classId: id, lineage: ls, weapon: null, armor: null });
   ok(s.maxHp > 0 && s.damage > 0, `${id}: характеристики считаются`);
-  ok(s.crit <= CAPS.crit && s.dodge <= CAPS.dodge && s.parry <= CAPS.parry && s.block <= CAPS.block, `${id}: потолки характеристик соблюдены`);
+  ok(
+    s.crit <= CAPS.crit && s.dodge <= CAPS.dodge && s.parry <= CAPS.parry && s.block <= CAPS.block,
+    `${id}: потолки характеристик соблюдены`,
+  );
   ok(s.perkPower >= 1, `${id}: сила способностей не меньше базовой`);
   ok(s.abilities.every(hasButton), `${id}: в ряду кнопок только активные способности`);
   // нижняя панель боя рассчитана на две полки по пять кнопок
@@ -267,33 +392,86 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 }
 // пассивка линеек по ТЗ
 {
-  const start = (id: ClassId) => buildPlayerStats({ classId: id, lineage: newLineageSave(TREES[CLASSES[id].lineage]), weapon: null, armor: null });
+  const start = (id: ClassId) =>
+    buildPlayerStats({
+      classId: id,
+      lineage: newLineageSave(TREES[CLASSES[id].lineage]),
+      weapon: null,
+      armor: null,
+    });
   const w = start('warrior');
   const m = start('mage');
   const a = start('archer');
   const c = start('mercenary');
-  ok(w.maxHp > m.maxHp && w.maxHp > a.maxHp && w.maxHp > c.maxHp, 'воин: самый большой запас здоровья');
-  ok(m.resMax > w.resMax && m.resMax > a.resMax && m.resMax > c.resMax, 'маг: самый большой запас ресурса');
+  ok(
+    w.maxHp > m.maxHp && w.maxHp > a.maxHp && w.maxHp > c.maxHp,
+    'воин: самый большой запас здоровья',
+  );
+  ok(
+    m.resMax > w.resMax && m.resMax > a.resMax && m.resMax > c.resMax,
+    'маг: самый большой запас ресурса',
+  );
   ok(a.crit > w.crit && a.crit > m.crit && a.crit > c.crit, 'лучник: самый высокий шанс крита');
   ok(Math.abs(c.goldBonus - 0.2) < 1e-9, 'наёмник: +20% золота');
-  ok(!m.attack.melee && w.attack.melee && a.attack.melee && c.attack.melee, 'маг вообще не бьёт рукой, остальные бьют');
-  ok(m.attack.mode === 'none' && a.attack.mode === 'skip' && c.attack.mode === 'any' && w.attack.mode === 'none', 'базовые действия линеек');
-  ok(c.attack.guaranteedCrit && !a.attack.guaranteedCrit, 'гарантированный крит только у удара в спину');
-  ok(LINEAGE_ORDER.every((lin) => start(lin).attack.constructor === LINEAGES[lin].attack.constructor), 'стиль боя героя — стратегия его линейки');
+  ok(
+    !m.attack.melee && w.attack.melee && a.attack.melee && c.attack.melee,
+    'маг вообще не бьёт рукой, остальные бьют',
+  );
+  ok(
+    m.attack.mode === 'none' &&
+      a.attack.mode === 'skip' &&
+      c.attack.mode === 'any' &&
+      w.attack.mode === 'none',
+    'базовые действия линеек',
+  );
+  ok(
+    c.attack.guaranteedCrit && !a.attack.guaranteedCrit,
+    'гарантированный крит только у удара в спину',
+  );
+  ok(
+    LINEAGE_ORDER.every(
+      (lin) => start(lin).attack.constructor === LINEAGES[lin].attack.constructor,
+    ),
+    'стиль боя героя — стратегия его линейки',
+  );
 
   // досягаемость базового действия (поле 0 1 2 / 3 4 5 / 6 7 8)
   const reach = (lin: LineageId, from: number, to: number, passives: AbilityId[] = []): boolean =>
     LINEAGES[lin].attack.reaches(from, to, new Set(passives));
-  ok(reach('archer', 0, 2) && reach('archer', 1, 7) && !reach('archer', 0, 4) && !reach('archer', 0, 8), 'лучник: выстрел через карту по прямой');
-  ok(reach('archer', 0, 4, ['diagonal']) && reach('archer', 0, 1, ['eagle_eye']), 'лучник: «Косой прицел» — диагонали, «Орлиный глаз» — соседи');
+  ok(
+    reach('archer', 0, 2) &&
+      reach('archer', 1, 7) &&
+      !reach('archer', 0, 4) &&
+      !reach('archer', 0, 8),
+    'лучник: выстрел через карту по прямой',
+  );
+  ok(
+    reach('archer', 0, 4, ['diagonal']) && reach('archer', 0, 1, ['eagle_eye']),
+    'лучник: «Косой прицел» — диагонали, «Орлиный глаз» — соседи',
+  );
   ok(reach('mercenary', 0, 8) && reach('mercenary', 4, 2), 'удар в спину достаёт любую клетку');
-  ok(!reach('warrior', 0, 2) && !reach('mage', 0, 2) && !reach('mage', 0, 4, ['diagonal']), 'воин и маг вдаль не бьют');
+  ok(
+    !reach('warrior', 0, 2) && !reach('mage', 0, 2) && !reach('mage', 0, 4, ['diagonal']),
+    'воин и маг вдаль не бьют',
+  );
 
   // цена спасения от смерти
   const price = (lin: LineageId) => LINEAGES[lin].cheatDeathPrice;
-  ok(price('mage').drainsResource && price('mage').goldShare === 0, 'маг платит за спасение всей маной');
-  ok(!price('mercenary').drainsResource && Math.abs(price('mercenary').goldShare - 0.2) < 1e-9, 'наёмник откупается пятой частью золота');
-  ok(!price('warrior').drainsResource && price('warrior').goldShare === 0 && !price('archer').drainsResource && price('archer').goldShare === 0, 'воин и лучник спасаются даром');
+  ok(
+    price('mage').drainsResource && price('mage').goldShare === 0,
+    'маг платит за спасение всей маной',
+  );
+  ok(
+    !price('mercenary').drainsResource && Math.abs(price('mercenary').goldShare - 0.2) < 1e-9,
+    'наёмник откупается пятой частью золота',
+  );
+  ok(
+    !price('warrior').drainsResource &&
+      price('warrior').goldShare === 0 &&
+      !price('archer').drainsResource &&
+      price('archer').goldShare === 0,
+    'воин и лучник спасаются даром',
+  );
 }
 
 // ---------------------------------------------------------------- способности в бою
@@ -315,8 +493,18 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   let used = 0;
   for (const id of Object.keys(CLASSES) as ClassId[]) {
     const stats = build(id);
-    for (const perk of [...stats.abilities, ...stats.perks.map((p) => PERK_BY_ID[p]).filter((p) => p.basic)]) {
-      const run = RunFactory.standard().create({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(7) });
+    for (const perk of [
+      ...stats.abilities,
+      ...stats.perks.map((p) => PERK_BY_ID[p]).filter((p) => p.basic),
+    ]) {
+      const run = RunFactory.standard().create({
+        room: ROOMS[20],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(7),
+      });
       run.start();
       run.cards.fill(null);
       // герой в углу: «Магический выстрел» бьёт только ЧЕРЕЗ карту, а из центра
@@ -331,7 +519,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.totals.gold = 400;
       if (perk.basic) {
         const act = run.actionFor(2);
-        ok(act.kind === 'ranged' || act.kind === 'none', `${id}/${perk.id}: базовое действие определено`);
+        ok(
+          act.kind === 'ranged' || act.kind === 'none',
+          `${id}/${perk.id}: базовое действие определено`,
+        );
         continue;
       }
       const res = run.usePerk(perk.id);
@@ -349,7 +540,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         }
       }
       ok(run.res >= 0 && run.res <= run.stats.resMax, `${id}/${perk.id}: ресурс в пределах шкалы`);
-      ok(run.cards.every((c, i) => i === run.playerCell ? c === null : true), `${id}/${perk.id}: клетка героя пуста`);
+      ok(
+        run.cards.every((c, i) => (i === run.playerCell ? c === null : true)),
+        `${id}/${perk.id}: клетка героя пуста`,
+      );
     }
   }
   ok(used >= 35, `проверены все активные способности (${used})`);
@@ -358,20 +552,33 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   {
     for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
       const stats = build(id);
-      const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(11) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[10],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(11),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
       run.cards[1] = enemy(500, 3);
       run.hp = 100000;
       const act = run.actionFor(1);
-      ok(act.kind === 'none' && act.reason === 'melee', `${id}: рукой не бьёт (${act.kind}/${act.reason ?? ''})`);
+      ok(
+        act.kind === 'none' && act.reason === 'melee',
+        `${id}: рукой не бьёт (${act.kind}/${act.reason ?? ''})`,
+      );
       ok(!run.tap(1).ok, `${id}: касание соседнего врага не тратит ход`);
       ok(run.cards[1] !== null && run.cards[1]!.hp === 500, `${id}: враг не получил урона`);
       // молния по кнопке — единственный способ ударить
       run.res = stats.resMax;
       // «Удар молнии» мага остаётся в руках у всей линейки — метаморфоза ничего не отнимает
-      ok(stats.abilities.some((p2) => p2.id === 'mage_start'), `${id}: молния мага сохранилась`);
+      ok(
+        stats.abilities.some((p2) => p2.id === 'mage_start'),
+        `${id}: молния мага сохранилась`,
+      );
       ok(run.usePerk('mage_start').ok, `${id}: молния мага доступна`);
       if (run.armed) ok(run.tap(1).ok, `${id}: молния наводится на соседнего врага`);
       ok(run.cards[1] === null || run.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
@@ -379,7 +586,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     // ход на пустую соседнюю клетку — полноценный ход для всех классов
     for (const id of ['warrior', 'archer', 'mage', 'ninja'] as ClassId[]) {
       const stats = build(id);
-      const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(12) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[10],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(12),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
@@ -399,7 +613,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     let potions = 0;
     let cards = 0;
     for (let seed = 1; seed <= 40; seed++) {
-      const run = RunFactory.standard().create({ room: ROOMS[12], stats: build('warrior'), weapon: null, armor: null, consumables: cons(), rng: makeRng(seed) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[12],
+        stats: build('warrior'),
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(seed),
+      });
       run.start();
       for (const c of [...run.cards, ...run.pool]) {
         if (!c) continue;
@@ -409,24 +630,48 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         if (c.kind === 'potion_heal' || c.kind === 'potion_regen') potions++;
       }
     }
-    ok(empties > 0 && empties >= chests / 2, `пустых сундуков не меньше половины (${empties} из ${chests})`);
+    ok(
+      empties > 0 && empties >= chests / 2,
+      `пустых сундуков не меньше половины (${empties} из ${chests})`,
+    );
     ok(potions / cards < 0.1, `зелий меньше 10% колоды (${((100 * potions) / cards).toFixed(1)}%)`);
-    const run = RunFactory.standard().create({ room: ROOMS[12], stats: build('warrior'), weapon: null, armor: null, consumables: cons(), rng: makeRng(5) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[12],
+      stats: build('warrior'),
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(5),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
-    const box = new Card({ uid: Math.floor(Math.random() * 1e9), kind: 'chest', defId: 'chest_empty' });
+    const box = new Card({
+      uid: Math.floor(Math.random() * 1e9),
+      kind: 'chest',
+      defId: 'chest_empty',
+    });
     run.cards[1] = box;
     const gold = run.totals.gold;
     const res = run.tap(1);
-    ok(res.events.some((e) => e.type === 'chest' && e.empty), 'пустой сундук открывается пустым');
+    ok(
+      res.events.some((e) => e.type === 'chest' && e.empty),
+      'пустой сундук открывается пустым',
+    );
     ok(run.totals.gold === gold, 'из пустого сундука ничего не выпало');
   }
 
   // «Абсолютная защита» больше не даёт неуязвимости: после способности удар слабее не больше чем вдвое
   {
     const stats = build('magister', { perkDef: 3 } as Record<string, number>);
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(73) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(73),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -440,7 +685,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «Раздвоение молнии»: второй разряд по той же цели, соседи не задеты
   {
     const stats = build('mage', { echoChance: 1, echoDmg: 0.16 } as Record<string, number>);
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(71) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(71),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -449,15 +701,28 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     run.cards[1] = enemy(100000, 1);
     run.cards[3] = enemy(100000, 1);
     run.usePerk('mage_start');
-    const hits = run.tap(1).events.filter((e) => e.type === 'hit' && e.target === 'enemy').map((e) => (e as { cell: number }).cell);
-    ok(hits.length === 2 && hits.every((c) => c === 1), `молния бьёт одну цель дважды (${hits.join(',')})`);
+    const hits = run
+      .tap(1)
+      .events.filter((e) => e.type === 'hit' && e.target === 'enemy')
+      .map((e) => (e as { cell: number }).cell);
+    ok(
+      hits.length === 2 && hits.every((c) => c === 1),
+      `молния бьёт одну цель дважды (${hits.join(',')})`,
+    );
   }
 
   // Агр: отвечает тот, с кем вступил в бой, и те, под чью руку герой шагнул, отказавшись от удара.
   {
     const stats = build('warrior');
     const mk2 = (seed: number) => {
-      const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(seed) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[10],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(seed),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
@@ -467,12 +732,18 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       return run;
     };
     const strikers = (events: ReturnType<Run['tap']>['events']) =>
-      events.filter((e) => e.type === 'attack' && e.by === 'enemy').map((e) => (e as { from: number }).from).sort();
+      events
+        .filter((e) => e.type === 'attack' && e.by === 'enemy')
+        .map((e) => (e as { from: number }).from)
+        .sort();
 
     // бью одного из трёх соседей — отвечает только он
     const fight = mk2(41);
     for (const c of [1, 3, 5]) fight.cards[c] = enemy(100000, 20);
-    ok(JSON.stringify(strikers(fight.tap(1).events)) === '[1]', 'отвечает только тот, кого ударили');
+    ok(
+      JSON.stringify(strikers(fight.tap(1).events)) === '[1]',
+      'отвечает только тот, кого ударили',
+    );
 
     // способность по врагу — тоже вступление в бой
     const magic = mk2(42);
@@ -480,7 +751,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     magic.cards[3] = enemy(100000, 20);
     magic.usePerk('warrior_start');
     const r2 = magic.tap(1);
-    ok(JSON.stringify(strikers(r2.events)) === '[1]', 'после способности отвечает её цель, сосед молчит');
+    ok(
+      JSON.stringify(strikers(r2.events)) === '[1]',
+      'после способности отвечает её цель, сосед молчит',
+    );
 
     // мог ударить, но ушёл туда, где рядом никого, — урона нет
     const flee2 = mk2(44);
@@ -493,7 +767,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     expose.cards[1] = enemy(100000, 20);
     expose.cards[6] = enemy(100000, 20);
     const r5 = expose.tap(3);
-    ok(JSON.stringify(strikers(r5.events)) === '[6]', `подставился — бьёт тот, кто рядом с новой клеткой (${strikers(r5.events).join(',')})`);
+    ok(
+      JSON.stringify(strikers(r5.events)) === '[6]',
+      `подставился — бьёт тот, кто рядом с новой клеткой (${strikers(r5.events).join(',')})`,
+    );
 
     // подошёл к врагу, но не бил его и ударить было некого — он не бьёт (в бой ещё не вступили)
     const approach = mk2(45);
@@ -511,7 +788,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 
     // маг без маны ударить не может — значит, и шаг к другому врагу не наказывается
     const mstats = build('mage');
-    const dry = RunFactory.standard().create({ room: ROOMS[10], stats: mstats, weapon: null, armor: null, consumables: cons(), rng: makeRng(49) });
+    const dry = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats: mstats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(49),
+    });
     dry.start();
     dry.cards.fill(null);
     dry.playerCell = 4;
@@ -522,7 +806,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     dry.cards[6] = enemy(100000, 20);
     ok(strikers(dry.tap(3).events).length === 0, 'маг без маны шагает к врагу — удара нет');
     // а с маной на молнию тот же шаг — уже подставиться
-    const wet = RunFactory.standard().create({ room: ROOMS[10], stats: mstats, weapon: null, armor: null, consumables: cons(), rng: makeRng(50) });
+    const wet = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats: mstats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(50),
+    });
     wet.start();
     wet.cards.fill(null);
     wet.playerCell = 4;
@@ -531,16 +822,29 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     wet.res = mstats.resMax;
     wet.cards[1] = enemy(100000, 20);
     wet.cards[6] = enemy(100000, 20);
-    ok(JSON.stringify(strikers(wet.tap(3).events)) === '[6]', 'маг с маной прошёл мимо удара под чужую руку — бьют');
+    ok(
+      JSON.stringify(strikers(wet.tap(3).events)) === '[6]',
+      'маг с маной прошёл мимо удара под чужую руку — бьют',
+    );
   }
 
   // Колода бесконечна, карта перехода открывает выход только после нормы
   {
     const stats = build('warrior');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(47) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(47),
+    });
     run.start();
     run.hp = 100000;
-    ok(run.cards.every((c, i) => (i === run.playerCell ? c === null : c !== null)), 'после раздачи поле заполнено');
+    ok(
+      run.cards.every((c, i) => (i === run.playerCell ? c === null : c !== null)),
+      'после раздачи поле заполнено',
+    );
     ok(!run.exitOpen, 'выход закрыт, пока норма не выполнена');
     ok(run.totalEnemies > 0 && run.killsLeft === run.totalEnemies, 'норма комнаты задана');
     let steps = 0;
@@ -555,21 +859,36 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
         ok(empty === 0, `поле не пустеет (пустых клеток ${empty})`);
       }
     }
-    ok(run.over === 'win', `комната закрывается шагом на переход (${run.over ?? 'не закончилась'}, ходов ${steps})`);
+    ok(
+      run.over === 'win',
+      `комната закрывается шагом на переход (${run.over ?? 'не закончилась'}, ходов ${steps})`,
+    );
     ok(run.exitOpen && run.killsLeft === 0, 'выход открылся после нормы');
     // уходя, герой бросает всё, что не подобрал: в этом и выбор
-    ok(run.cards.some((c) => c && c.kind !== 'enemy'), 'добыча остаётся на поле после перехода');
+    ok(
+      run.cards.some((c) => c && c.kind !== 'enemy'),
+      'добыча остаётся на поле после перехода',
+    );
   }
 
   // Норма выполнена — но враги лезть не перестают: либо уходи, либо рискуй и добирай
   {
     const stats = build('warrior');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(61) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(61),
+    });
     run.start();
     run.hp = 100000;
     // выполняем норму искусственно и дальше играем, не трогая переход
     for (let guard = 0; guard < 600 && !run.exitOpen; guard++) {
-      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(
+        (c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit',
+      );
       if (cell === undefined) break;
       run.tap(cell);
       run.hp = 100000;
@@ -577,9 +896,13 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     ok(run.exitOpen, 'норма выполнена');
     let spawned = 0;
     for (let guard = 0; guard < 120 && !run.over; guard++) {
-      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find((c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit');
+      const cell = [0, 1, 2, 3, 4, 5, 6, 7, 8].find(
+        (c) => run.actionFor(c).kind !== 'none' && run.cards[c]?.kind !== 'exit',
+      );
       if (cell === undefined) break;
-      spawned += run.tap(cell).events.filter((e) => e.type === 'spawn' && e.card.kind === 'enemy').length;
+      spawned += run
+        .tap(cell)
+        .events.filter((e) => e.type === 'spawn' && e.card.kind === 'enemy').length;
       run.hp = 100000;
     }
     ok(spawned > 0, `враги продолжают лезть после нормы (${spawned})`);
@@ -588,7 +911,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // Перезарядка способностей и дальность магического выстрела
   {
     const stats = build('mage');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(53) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(53),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 0;
@@ -602,7 +932,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     ok(run.usePerk(shot.id).ok && run.tap(2).ok, 'выстрел применяется');
     run.res = 100;
     const after = run.perkReady(shot);
-    ok(!after.ok && after.reason === 'cooldown', `выстрел на перезарядке (${after.reason ?? 'готов'})`);
+    ok(
+      !after.ok && after.reason === 'cooldown',
+      `выстрел на перезарядке (${after.reason ?? 'готов'})`,
+    );
     ok(run.cooldownOf(shot) === 1, `перезарядка один ход (${run.cooldownOf(shot)})`);
     const chain = PERK_BY_ID.mage_p3;
     run.res = 100;
@@ -616,7 +949,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
       if (!stats.attack.melee) continue;
-      const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(17) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[30],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(17),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
@@ -624,17 +964,31 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.res = 0;
       for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) run.cards[c] = enemy(500, 3);
       ok(!run.cornered(), `${id}: боец рукой в тупик не попадает`);
-      ok([1, 3, 5, 7].some((c) => run.actionFor(c).kind === 'melee'), `${id}: соседний враг доступен рукой`);
+      ok(
+        [1, 3, 5, 7].some((c) => run.actionFor(c).kind === 'melee'),
+        `${id}: соседний враг доступен рукой`,
+      );
     }
   }
 
   // «Растерзание»: мага без маны, зажатого со всех сторон, карты добивают насмерть
   {
-    const surround = (id: ClassId, patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {}) => {
+    const surround = (
+      id: ClassId,
+      patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {},
+    ) => {
       const stats = build(id);
       const run = RunFactory.standard().create({
-        room: ROOMS[30], stats, weapon: null, armor: null,
-        consumables: { ...cons(), potion_regen: patch.potion_regen ?? 0, artifact: patch.artifact ?? 0 }, rng: makeRng(17),
+        room: ROOMS[30],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: {
+          ...cons(),
+          potion_regen: patch.potion_regen ?? 0,
+          artifact: patch.artifact ?? 0,
+        },
+        rng: makeRng(17),
       });
       run.start();
       run.cards.fill(null);
@@ -658,7 +1012,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     // занимает новый враг — и в конце хода отбиваться уже нечем.
     {
       const stats = build('mage');
-      const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(29) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[30],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(29),
+      });
       run.start();
       run.cards.fill(null);
       run.pool.length = 0;
@@ -671,7 +1032,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       run.cards[6] = enemy(100000, 4);
       const res = run.tap(3);
       ok(res.ok, 'шаг на пустую клетку сделан');
-      ok(res.events.some((e) => e.type === 'swarm'), 'карты бросаются на героя');
+      ok(
+        res.events.some((e) => e.type === 'swarm'),
+        'карты бросаются на героя',
+      );
       ok(run.over === 'lose' && run.hp === 0, 'растерзание доводит до смерти');
       const hits = res.events.filter((e) => e.type === 'hit' && e.target === 'player').length;
       ok(hits >= 4, `бьют все карты по очереди (${hits})`);
@@ -695,7 +1059,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     ];
     for (const [id, perkId2, apply] of cases) {
       const stats = build(id);
-      const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(23) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[30],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(23),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
@@ -712,7 +1083,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «Взрыв трупа» по выбранной цели: рвётся именно она, помеченных повторно не метим
   {
     const stats = build('necromancer');
-    const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(19) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[30],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(19),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -743,7 +1121,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «Призрачные слуги»: призрак встаёт на месте заражённого, бьёт крестом три хода, максимум два
   {
     const stats = build('necromancer');
-    const run = RunFactory.standard().create({ room: ROOMS[30], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(23) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[30],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(23),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -780,7 +1165,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // Горение: число на значке — ровно столько тиков, сколько впереди
   {
     const stats = build('pyromancer');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(29) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(29),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -809,7 +1201,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
       const stats = build(id);
       for (const perk of stats.abilities) {
-        const run = RunFactory.standard().create({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(13) });
+        const run = RunFactory.standard().create({
+          room: ROOMS[20],
+          stats,
+          weapon: null,
+          armor: null,
+          consumables: cons(),
+          rng: makeRng(13),
+        });
         run.start();
         run.cards.fill(null);
         run.playerCell = 0;
@@ -826,7 +1225,9 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
           // «Перестановка» требует двух касаний — эффект рисуется на последнем
           events = [...events, ...run.tap(cell).events];
         }
-        const drew = events.some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
+        const drew = events.some(
+          (e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'),
+        );
         if (!drew) noFx++;
         ok(drew, `${id}/${perk.id}: способность рисует эффект`);
       }
@@ -837,7 +1238,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // «один раз за комнату» действительно один раз
   {
     const stats = build('berserk');
-    const run = RunFactory.standard().create({ room: ROOMS[20], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(3) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[20],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(3),
+    });
     run.start();
     run.cards.fill(null);
     for (const c of [0, 1, 3, 5]) run.cards[c] = enemy(400, 2);
@@ -851,7 +1259,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   // оглушение: враг не отвечает
   {
     const stats = build('knight');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(4) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(4),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -862,14 +1277,24 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     run.usePerk('knight_start');
     const res = run.tap(1);
     ok(res.ok, 'таран щитом применяется');
-    ok(res.events.some((e) => e.type === 'miss' && e.kind === 'stun'), 'оглушённый враг пропускает ход врагов');
+    ok(
+      res.events.some((e) => e.type === 'miss' && e.kind === 'stun'),
+      'оглушённый враг пропускает ход врагов',
+    );
     ok(run.hp === before, 'оглушённый враг не наносит урона');
   }
 
   // горение тикает и гаснет
   {
     const stats = build('pyromancer');
-    const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(9) });
+    const run = RunFactory.standard().create({
+      room: ROOMS[10],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(9),
+    });
     run.start();
     run.cards.fill(null);
     run.playerCell = 4;
@@ -891,7 +1316,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     const weak = build('warrior');
     const strong = { ...weak, perkPower: 2 };
     const hit = (stats: typeof weak): number => {
-      const run = RunFactory.standard().create({ room: ROOMS[10], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(21) });
+      const run = RunFactory.standard().create({
+        room: ROOMS[10],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: cons(),
+        rng: makeRng(21),
+      });
       run.start();
       run.cards.fill(null);
       run.playerCell = 4;
@@ -909,24 +1341,67 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 // ---------------------------------------------------------------- забег: перенос между комнатами
 {
   const lin = CLASSES.mage.lineage;
-  const stats = buildPlayerStats({ classId: 'mage', lineage: newLineageSave(TREES[lin]), weapon: null, armor: null });
-  const mk = (carry?: RunCarryStats) => RunFactory.standard().create({ room: ROOMS[1], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(5), carry });
+  const stats = buildPlayerStats({
+    classId: 'mage',
+    lineage: newLineageSave(TREES[lin]),
+    weapon: null,
+    armor: null,
+  });
+  const mk = (carry?: RunCarryStats) =>
+    RunFactory.standard().create({
+      room: ROOMS[1],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: cons(),
+      rng: makeRng(5),
+      carry,
+    });
   const first = mk();
-  ok(first.hp === stats.maxHp && first.res === stats.resMax, 'первая комната забега: полное здоровье и полная шкала');
+  ok(
+    first.hp === stats.maxHp && first.res === stats.resMax,
+    'первая комната забега: полное здоровье и полная шкала',
+  );
   first.hp = 7;
   first.res = 3;
   const next = mk(first.carryOut());
   ok(next.hp === 7 && next.res === 3, 'здоровье и мана переходят в следующую комнату');
-  const clamp = mk({ hp: stats.maxHp * 5, res: stats.resMax * 5, revived: false, selfRevived: false });
+  const clamp = mk({
+    hp: stats.maxHp * 5,
+    res: stats.resMax * 5,
+    revived: false,
+    selfRevived: false,
+  });
   ok(clamp.hp === stats.maxHp && clamp.res === stats.resMax, 'перенос не превышает максимум');
-  ok(mk({ hp: 0, res: -4, revived: false, selfRevived: false }).hp === 1, 'в новую комнату герой входит живым');
-  ok(mk({ hp: 5, res: 0, revived: true, selfRevived: false }).revived, 'воскрешение за рекламу — одно на забег');
+  ok(
+    mk({ hp: 0, res: -4, revived: false, selfRevived: false }).hp === 1,
+    'в новую комнату герой входит живым',
+  );
+  ok(
+    mk({ hp: 5, res: 0, revived: true, selfRevived: false }).revived,
+    'воскрешение за рекламу — одно на забег',
+  );
   // «Возвращение» тоже одно на забег: истраченное в прошлой комнате не возвращается
   const rs = { ...stats, reviveHp: 0.5 };
-  const up = RunFactory.standard().create({ room: ROOMS[1], stats: rs, weapon: null, armor: null, consumables: cons(), rng: makeRng(5) });
+  const up = RunFactory.standard().create({
+    room: ROOMS[1],
+    stats: rs,
+    weapon: null,
+    armor: null,
+    consumables: cons(),
+    rng: makeRng(5),
+  });
   up.over = 'lose';
   ok(!!up.autoRevive(), '«Возвращение» поднимает героя');
-  const after = RunFactory.standard().create({ room: ROOMS[2], stats: rs, weapon: null, armor: null, consumables: cons(), rng: makeRng(6), carry: up.carryOut() });
+  const after = RunFactory.standard().create({
+    room: ROOMS[2],
+    stats: rs,
+    weapon: null,
+    armor: null,
+    consumables: cons(),
+    rng: makeRng(6),
+    carry: up.carryOut(),
+  });
   after.over = 'lose';
   ok(after.autoRevive() === null, '«Возвращение» не срабатывает второй раз в том же забеге');
 }
@@ -934,10 +1409,22 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
 // ---------------------------------------------------------------- мана: 1 за ход, цена ощущается
 {
   const lin = CLASSES.mage.lineage;
-  const stats = buildPlayerStats({ classId: 'mage', lineage: newLineageSave(TREES[lin]), weapon: null, armor: null });
+  const stats = buildPlayerStats({
+    classId: 'mage',
+    lineage: newLineageSave(TREES[lin]),
+    weapon: null,
+    armor: null,
+  });
   ok(stats.regen === 1, `мана восстанавливается по 1 за ход (${stats.regen})`);
   const bolt = PERK_BY_ID.mage_start;
-  const run = RunFactory.standard().create({ room: ROOMS[1], stats: { ...stats, maxHp: 100000 }, weapon: null, armor: null, consumables: cons(), rng: makeRng(7) });
+  const run = RunFactory.standard().create({
+    room: ROOMS[1],
+    stats: { ...stats, maxHp: 100000 },
+    weapon: null,
+    armor: null,
+    consumables: cons(),
+    rng: makeRng(7),
+  });
   run.start();
   run.cards.fill(null);
   run.playerCell = 4;
@@ -946,19 +1433,47 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   run.res = 10;
   run.usePerk('mage_start');
   run.tap(1);
-  ok(run.res === 10 - (bolt.cost ?? 0) + 1, `молния за ${bolt.cost} маны: 10 → ${run.res} (с учётом +1 за ход)`);
+  ok(
+    run.res === 10 - (bolt.cost ?? 0) + 1,
+    `молния за ${bolt.cost} маны: 10 → ${run.res} (с учётом +1 за ход)`,
+  );
   // скидка «Экономия маны» не делает основной удар дешевле двух — иначе он окупался бы регенерацией
-  const cheap = RunFactory.standard().create({ room: ROOMS[1], stats: { ...stats, perkCostDown: 1 }, weapon: null, armor: null, consumables: cons(), rng: makeRng(8) });
-  ok(cheap.perkCostOf(bolt) === 2, `скидка не опускает цену молнии ниже 2 (${cheap.perkCostOf(bolt)})`);
-  ok(cheap.perkCostOf(PERK_BY_ID.mage_p2) === (PERK_BY_ID.mage_p2.cost ?? 0) - 1, 'дорогие заклинания скидка удешевляет');
+  const cheap = RunFactory.standard().create({
+    room: ROOMS[1],
+    stats: { ...stats, perkCostDown: 1 },
+    weapon: null,
+    armor: null,
+    consumables: cons(),
+    rng: makeRng(8),
+  });
+  ok(
+    cheap.perkCostOf(bolt) === 2,
+    `скидка не опускает цену молнии ниже 2 (${cheap.perkCostOf(bolt)})`,
+  );
+  ok(
+    cheap.perkCostOf(PERK_BY_ID.mage_p2) === (PERK_BY_ID.mage_p2.cost ?? 0) - 1,
+    'дорогие заклинания скидка удешевляет',
+  );
 }
 
 // ---------------------------------------------------------------- плавающий крит
 {
   const tree = TREES.mercenary;
-  const base = buildPlayerStats({ classId: 'mercenary', lineage: newLineageSave(tree), weapon: null, armor: null });
+  const base = buildPlayerStats({
+    classId: 'mercenary',
+    lineage: newLineageSave(tree),
+    weapon: null,
+    armor: null,
+  });
   const stats = { ...base, crit: 100, damage: 10, maxHp: 1e6, dodge: 0, parry: 0, block: 0 };
-  const run = RunFactory.standard().create({ room: ROOMS[0], stats, weapon: null, armor: null, consumables: cons(), rng: makeRng(5) });
+  const run = RunFactory.standard().create({
+    room: ROOMS[0],
+    stats,
+    weapon: null,
+    armor: null,
+    consumables: cons(),
+    rng: makeRng(5),
+  });
   run.start();
   run.hp = 1e6;
   const seen = new Set<number>();
@@ -975,7 +1490,10 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   }
   const lo = Math.round(10 * GAMEPLAY.critMulMin);
   const hi = Math.round(10 * GAMEPLAY.critMulMax);
-  ok([...seen].every((v) => v >= lo && v <= hi), `крит-урон в пределах ${lo}..${hi}: ${[...seen].sort((a, b) => a - b).join(',')}`);
+  ok(
+    [...seen].every((v) => v >= lo && v <= hi),
+    `крит-урон в пределах ${lo}..${hi}: ${[...seen].sort((a, b) => a - b).join(',')}`,
+  );
   ok(seen.size >= 5, `крит бьёт по-разному (разных значений: ${seen.size})`);
   const avg = sum / N;
   ok(avg > 10 * 1.4 && avg < 10 * 1.9, `средний крит разумный (${avg.toFixed(2)})`);
@@ -989,7 +1507,12 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     for (const id of perks) ls.ranks[id] = 1;
     const stats = buildPlayerStats({ classId: lin, lineage: ls, weapon: null, armor: null });
     const run = RunFactory.standard().create({
-      room: ROOMS[0], stats, weapon: null, armor: null, consumables: { potion_heal: 2, potion_regen: 2, artifact: 2 }, rng: makeRng(3),
+      room: ROOMS[0],
+      stats,
+      weapon: null,
+      armor: null,
+      consumables: { potion_heal: 2, potion_regen: 2, artifact: 2 },
+      rng: makeRng(3),
     });
     run.start();
     run.cards.fill(null);
@@ -1042,8 +1565,14 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   pick.res = 0;
   const cfg = { heal: true, regen: true, artifact: true };
   ok(pickAutoUse(pick, cfg) === 'potion_heal', 'выбор: сначала жизнь');
-  ok(pickAutoUse(pick, { ...cfg, heal: false }) === 'potion_regen', 'выбор: без лечения берём ресурс');
-  ok(pickAutoUse(pick, { heal: false, regen: false, artifact: false }) === null, 'выбор: всё выключено — ничего не применяется');
+  ok(
+    pickAutoUse(pick, { ...cfg, heal: false }) === 'potion_regen',
+    'выбор: без лечения берём ресурс',
+  );
+  ok(
+    pickAutoUse(pick, { heal: false, regen: false, artifact: false }) === null,
+    'выбор: всё выключено — ничего не применяется',
+  );
 }
 
 // ---------------------------------------------------------------- автопрокачка
@@ -1057,9 +1586,18 @@ for (const lin of LINEAGE_ORDER) {
     const plan = planAutoSkill(tree, ls, 1e9, cfg);
     ok(plan.buys.length >= 8, `автопрокачка ${tag}: купила ветку (${plan.buys.length})`);
     ok(plan.stop === 'meta', `автопрокачка ${tag}: остановилась перед метаморфозой (${plan.stop})`);
-    ok(plan.buys.every((n) => n.kind !== 'class'), `автопрокачка ${tag}: не покупает смену класса`);
-    ok(plan.buys.every((n) => n.kind === 'perk' || n.path === path), `автопрокачка ${tag}: только выбранный путь`);
-    ok(plan.buys.filter((n) => n.kind === 'perk').length === 2, `автопрокачка ${tag}: перки-ворота между ярусами`);
+    ok(
+      plan.buys.every((n) => n.kind !== 'class'),
+      `автопрокачка ${tag}: не покупает смену класса`,
+    );
+    ok(
+      plan.buys.every((n) => n.kind === 'perk' || n.path === path),
+      `автопрокачка ${tag}: только выбранный путь`,
+    );
+    ok(
+      plan.buys.filter((n) => n.kind === 'perk').length === 2,
+      `автопрокачка ${tag}: перки-ворота между ярусами`,
+    );
 
     const sim = newLineageSave(tree);
     let souls = plan.spent;
@@ -1071,24 +1609,41 @@ for (const lin of LINEAGE_ORDER) {
     }
     ok(souls === 0, `автопрокачка ${tag}: потрачено ровно столько, сколько в плане`);
     const again = planAutoSkill(tree, sim, 1e9, cfg);
-    ok(again.buys.length === 0 && again.stop === 'meta', `автопрокачка ${tag}: повтор ничего не покупает`);
+    ok(
+      again.buys.length === 0 && again.stop === 'meta',
+      `автопрокачка ${tag}: повтор ничего не покупает`,
+    );
 
     applyBuy(tree, sim, tree.classNode[tree.second]);
     const next = planAutoSkill(tree, sim, 1e9, cfg);
-    ok(next.buys.length >= 8, `автопрокачка ${tag}: продолжает после метаморфозы (${next.buys.length})`);
-    ok(next.buys.every((n) => n.owner === tree.second), `автопрокачка ${tag}: покупает узлы нового класса`);
+    ok(
+      next.buys.length >= 8,
+      `автопрокачка ${tag}: продолжает после метаморфозы (${next.buys.length})`,
+    );
+    ok(
+      next.buys.every((n) => n.owner === tree.second),
+      `автопрокачка ${tag}: покупает узлы нового класса`,
+    );
   }
   const ls = newLineageSave(tree);
   const small = planAutoSkill(tree, ls, 40, { on: true, path: 'attack' });
-  ok(small.spent <= 40 && small.buys.length > 0, `автопрокачка ${lin}: на малые души купила часть (${small.buys.length}, ${small.spent})`);
+  ok(
+    small.spent <= 40 && small.buys.length > 0,
+    `автопрокачка ${lin}: на малые души купила часть (${small.buys.length}, ${small.spent})`,
+  );
   ok(small.stop === 'souls', `автопрокачка ${lin}: остановилась из-за нехватки душ`);
-  ok(planAutoSkill(tree, ls, 0, { on: true, path: 'vitality' }).buys.length === 0, `автопрокачка ${lin}: без душ ничего не покупает`);
+  ok(
+    planAutoSkill(tree, ls, 0, { on: true, path: 'vitality' }).buys.length === 0,
+    `автопрокачка ${lin}: без душ ничего не покупает`,
+  );
 }
 {
   const tree = TREES.warrior;
   const ls = newLineageSave(tree);
   ok(inferBranch(tree, ls) === null, 'путь автопрокачки: без покупок неизвестен');
-  const guard = tree.nodes.find((n) => n.kind === 'talent' && n.owner === 'warrior' && n.path === 'guard' && n.tier === 1)!;
+  const guard = tree.nodes.find(
+    (n) => n.kind === 'talent' && n.owner === 'warrior' && n.path === 'guard' && n.tier === 1,
+  )!;
   applyBuy(tree, ls, guard);
   ok(inferBranch(tree, ls)?.path === 'guard', 'путь автопрокачки: берётся из последней покупки');
   ok(branchOf(guard).path === 'guard', 'узел таланта задаёт путь');
@@ -1103,31 +1658,65 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   list.forEach((tr) => TRAIT_IDS.add(tr.id));
   const lineage = CLASSES[id].lineage;
   ok(list.length >= 2 && list.length <= 4, `сводка ${id}: 2–4 строки (${list.length})`);
-  ok(lineage === 'warrior' ? !list.some((tr) => tr.id === 'mech') : list[0].id === 'mech', `сводка ${id}: механика линейки`);
+  ok(
+    lineage === 'warrior' ? !list.some((tr) => tr.id === 'mech') : list[0].id === 'mech',
+    `сводка ${id}: механика линейки`,
+  );
   ok(new Set(list.map((tr) => tr.id)).size === list.length, `сводка ${id}: без повторов`);
-  ok((lineage === 'mage') === list.some((tr) => tr.id === 'artifact'), `сводка ${id}: артефакты только у магов`);
-  ok((lineage === 'mercenary') === list.some((tr) => tr.id === 'gold'), `сводка ${id}: бонус золота только у наёмников`);
+  ok(
+    (lineage === 'mage') === list.some((tr) => tr.id === 'artifact'),
+    `сводка ${id}: артефакты только у магов`,
+  );
+  ok(
+    (lineage === 'mercenary') === list.some((tr) => tr.id === 'gold'),
+    `сводка ${id}: бонус золота только у наёмников`,
+  );
 }
 for (const id of TRAIT_IDS) {
   if (id === 'mech') continue;
   ok(`trait.${id}` in ru && `trait.${id}` in en, `перевод строки сводки trait.${id}`);
 }
-ok(Object.keys(ru).every((k) => k in en), 'английский словарь покрывает все ключи');
-ok(Object.keys(en).every((k) => k in ru), 'в английском словаре нет лишних ключей');
-for (const cls of classesOfLineage('warrior')) ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
+ok(
+  Object.keys(ru).every((k) => k in en),
+  'английский словарь покрывает все ключи',
+);
+ok(
+  Object.keys(en).every((k) => k in ru),
+  'в английском словаре нет лишних ключей',
+);
+for (const cls of classesOfLineage('warrior'))
+  ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
 
 // ---------------------------------------------------------------- определения классов и герой
 {
   for (const id of Object.keys(CLASSES) as ClassId[]) {
     const def = CLASS_DEFINITIONS[id];
     const cls = CLASSES[id];
-    ok(!!def && def.lineage.id === cls.lineage && def.stage === cls.stage && def.parent === cls.parent, `${id}: определение класса совпадает с классом фабрики`);
+    ok(
+      !!def &&
+        def.lineage.id === cls.lineage &&
+        def.stage === cls.stage &&
+        def.parent === cls.parent,
+      `${id}: определение класса совпадает с классом фабрики`,
+    );
     const base = def.lineage.base;
-    ok((Object.keys(base) as Array<keyof typeof base>).every((k) => def.baseStats[k] === base[k] + (cls.mods[k] ?? 0)), `${id}: база класса = база линейки + бонусы класса`);
-    ok(JSON.stringify(def.abilities.map((p) => p.id)) === JSON.stringify(perksOfClass(id).map((p) => p.id)), `${id}: способности класса по слотам`);
+    ok(
+      (Object.keys(base) as Array<keyof typeof base>).every(
+        (k) => def.baseStats[k] === base[k] + (cls.mods[k] ?? 0),
+      ),
+      `${id}: база класса = база линейки + бонусы класса`,
+    );
+    ok(
+      JSON.stringify(def.abilities.map((p) => p.id)) ===
+        JSON.stringify(perksOfClass(id).map((p) => p.id)),
+      `${id}: способности класса по слотам`,
+    );
     ok(def.talents.length === talentsOfClass(id).length, `${id}: таланты класса`);
     const children = (Object.keys(CLASSES) as ClassId[]).filter((c) => CLASSES[c].parent === id);
-    ok(JSON.stringify([...def.next].sort()) === JSON.stringify(children.sort()), `${id}: метаморфоза ведёт в дочерние классы (${def.next.join(',')})`);
+    ok(
+      JSON.stringify([...def.next].sort()) === JSON.stringify(children.sort()),
+      `${id}: метаморфоза ведёт в дочерние классы (${def.next.join(',')})`,
+    );
   }
 
   // жизненный цикл: маг → магистр → пиромант, тот же экземпляр героя; отмена — назад к магистру
@@ -1138,7 +1727,13 @@ for (const cls of classesOfLineage('warrior')) ok(`class.${cls}.name` in ru, `п
   const tree = hero.tree;
   const buyOwn = (owner: ClassId): void => {
     for (let guard = 0; guard < 400; guard++) {
-      const next = tree.nodes.find((n) => n.owner === owner && n.kind !== 'class' && isPurchasable(n) && canInvest(tree, hero.save, n));
+      const next = tree.nodes.find(
+        (n) =>
+          n.owner === owner &&
+          n.kind !== 'class' &&
+          isPurchasable(n) &&
+          canInvest(tree, hero.save, n),
+      );
       if (!next) return;
       applyBuy(tree, hero.save, next);
     }
@@ -1147,12 +1742,18 @@ for (const cls of classesOfLineage('warrior')) ok(`class.${cls}.name` in ru, `п
   ok(!hero.canMetamorphose('magister', 1e9).ok, 'метаморфоза закрыта, пока ярус не пройден');
   ok(!hero.canMetamorphose('pyromancer', 1e9).ok, 'через ступень не перепрыгнуть');
   buyOwn('mage');
-  ok(hero.canMetamorphose('magister', 1e9).ok, 'после третьего яруса открыта метаморфоза в магистра');
+  ok(
+    hero.canMetamorphose('magister', 1e9).ok,
+    'после третьего яруса открыта метаморфоза в магистра',
+  );
   ok(!hero.canMetamorphose('magister', 0).ok, 'без душ метаморфоза не покупается');
   hero.metamorphose('magister');
   ok(profile.activeHero === hero, 'после метаморфозы — тот же экземпляр героя');
   ok(hero.classId === 'magister' && profile.activeClass === 'magister', 'герой стал магистром');
-  ok(hero.combatStats(null, null).abilities.some((p) => p.id === 'mage_start'), 'молния мага осталась у магистра');
+  ok(
+    hero.combatStats(null, null).abilities.some((p) => p.id === 'mage_start'),
+    'молния мага осталась у магистра',
+  );
   let threw = false;
   try {
     hero.metamorphose('necromancer');
@@ -1162,20 +1763,33 @@ for (const cls of classesOfLineage('warrior')) ok(`class.${cls}.name` in ru, `п
   ok(threw, 'финальный класс закрыт, пока ярус магистра не пройден');
   buyOwn('magister');
   hero.metamorphose('pyromancer');
-  ok(hero.classId === 'pyromancer' && hero.classState.next.length === 0, 'пиромант — финальный класс');
+  ok(
+    hero.classId === 'pyromancer' && hero.classState.next.length === 0,
+    'пиромант — финальный класс',
+  );
   ok(hero.classState === HeroClassState.of('pyromancer'), 'состояние класса одно на класс');
-  ok(hero.classState.attack instanceof SpellAttack && !hero.classState.attack.melee, 'пиромант атакует как маг — только заклинаниями');
-  ok(hero.classState.getAbilities() === CLASS_DEFINITIONS.pyromancer.abilities, 'способности состояния — из определения класса');
+  ok(
+    hero.classState.attack instanceof SpellAttack && !hero.classState.attack.melee,
+    'пиромант атакует как маг — только заклинаниями',
+  );
+  ok(
+    hero.classState.getAbilities() === CLASS_DEFINITIONS.pyromancer.abilities,
+    'способности состояния — из определения класса',
+  );
   ok(!hero.canMetamorphose('necromancer', 1e9).ok, 'соседний финальный класс закрыт');
   ok(hero.canCancelMetamorphosis, 'метаморфозу в финальный класс можно отменить');
   const back = hero.cancelMetamorphosis();
-  ok(back.to === 'magister' && back.refund > 0 && hero.classId === 'magister', `отмена вернула магистра (возврат ${back.refund})`);
+  ok(
+    back.to === 'magister' && back.refund > 0 && hero.classId === 'magister',
+    `отмена вернула магистра (возврат ${back.refund})`,
+  );
   ok(profile.activeHero === hero, 'после отмены — всё тот же герой');
   ok(!hero.canCancelMetamorphosis, 'метаморфозу в магистра не отменить');
 }
 
 // ---------------------------------------------------------------- фазз-тест поля боя
-const dist = (a: number, b: number): number => Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
+const dist = (a: number, b: number): number =>
+  Math.abs(Math.floor(a / 3) - Math.floor(b / 3)) + Math.abs((a % 3) - (b % 3));
 let runs = 0;
 let autoPicks = 0;
 let perkUses = 0;
@@ -1192,7 +1806,14 @@ for (const lin of LINEAGE_ORDER) {
     for (let k = 0; k < 24; k++) {
       const rng = makeRng(room * 1000 + k + 7);
       const stats = buildPlayerStats({ classId: terminal, lineage: ls, weapon: null, armor: null });
-      const run = RunFactory.standard().create({ room: ROOMS[room], stats, weapon: null, armor: null, consumables: { potion_heal: 3, potion_regen: 2, artifact: 2 }, rng });
+      const run = RunFactory.standard().create({
+        room: ROOMS[room],
+        stats,
+        weapon: null,
+        armor: null,
+        consumables: { potion_heal: 3, potion_regen: 2, artifact: 2 },
+        rng,
+      });
       run.start();
       runs++;
       for (let step = 0; step < 400 && !run.over; step++) {
@@ -1215,23 +1836,35 @@ for (const lin of LINEAGE_ORDER) {
             }
           }
         } else run.tap(rng.pick(cells));
-        const auto = run.over ? null : pickAutoUse(run, { heal: true, regen: true, artifact: true });
+        const auto = run.over
+          ? null
+          : pickAutoUse(run, { heal: true, regen: true, artifact: true });
         if (auto) {
           autoPicks++;
-          ok(run.useItem(auto).ok, `${lin} ${ROOMS[room].id}: автоприменение предложило невозможное действие ${auto}`);
+          ok(
+            run.useItem(auto).ok,
+            `${lin} ${ROOMS[room].id}: автоприменение предложило невозможное действие ${auto}`,
+          );
         }
         ok(run.hp <= run.stats.maxHp, 'hp не превышает максимум');
         ok(run.res >= 0 && run.res <= run.stats.resMax, 'ресурс в пределах');
         ok(run.cards[run.playerCell] === null, 'клетка игрока пуста в массиве карт');
-        ok(run.cards.every((c) => !c || c.hp <= c.maxHp || c.kind !== 'enemy'), 'здоровье врага не превышает максимум');
+        ok(
+          run.cards.every((c) => !c || c.hp <= c.maxHp || c.kind !== 'enemy'),
+          'здоровье врага не превышает максимум',
+        );
         if (run.pool.length === 0 && !run.over && !run.armed) {
           const seen = new Set([run.playerCell]);
           const q = [run.playerCell];
           while (q.length) {
             const c = q.shift()!;
-            for (let n = 0; n < 9; n++) if (dist(c, n) === 1 && run.cards[n] && !seen.has(n)) (seen.add(n), q.push(n));
+            for (let n = 0; n < 9; n++)
+              if (dist(c, n) === 1 && run.cards[n] && !seen.has(n)) (seen.add(n), q.push(n));
           }
-          ok(!run.cards.some((c, i) => c && !seen.has(i)), `${lin} ${ROOMS[room].id}: пустые клетки разделили карты`);
+          ok(
+            !run.cards.some((c, i) => c && !seen.has(i)),
+            `${lin} ${ROOMS[room].id}: пустые клетки разделили карты`,
+          );
         }
         if (run.over) break;
       }
@@ -1278,7 +1911,11 @@ for (const lin of LINEAGE_ORDER) {
         state: new GetHubState(p, new ShopCatalog(p)),
         daily: new ClaimDailyReward(p, ads),
         gift: new ClaimTowerGift(p, ads),
-        view: { autoSkilled: (n) => void log.push(`auto:${n}`), rewarded: () => void log.push('reward'), showRewards: () => undefined },
+        view: {
+          autoSkilled: (n) => void log.push(`auto:${n}`),
+          rewarded: () => void log.push('reward'),
+          showRewards: () => undefined,
+        },
         dialogs: { daily: async () => (asked++, choice()), gift: async () => (asked++, choice()) },
         navigator: { open: (m) => void opened.push(m), play: () => void opened.push('play') },
         clock,
@@ -1289,16 +1926,28 @@ for (const lin of LINEAGE_ORDER) {
     let choice: RewardChoice = 'double';
     const h = hubFor(p, true, () => choice);
     const entry = new EnterHub(p, h.platform).execute();
-    ok(h.calls[0] === 'ready' && entry.autoSkillBuys === 0, 'хаб: вход сообщает платформе о готовности');
+    ok(
+      h.calls[0] === 'ready' && entry.autoSkillBuys === 0,
+      'хаб: вход сообщает платформе о готовности',
+    );
     h.hub.execute({ type: 'daily' });
     await settle();
-    ok(p.gold === DAILY_REWARDS[0].gold! * 2 && !p.dailyStatus().available && h.log.includes('reward'), 'хаб: награда дня за досмотренное видео — вдвое');
+    ok(
+      p.gold === DAILY_REWARDS[0].gold! * 2 &&
+        !p.dailyStatus().available &&
+        h.log.includes('reward'),
+      'хаб: награда дня за досмотренное видео — вдвое',
+    );
     choice = 'single';
     const gold1 = p.gold;
     h.hub.execute({ type: 'gift' });
     await settle();
-    ok(p.gold - gold1 === GIFT_REWARD.gold && !p.giftReady() && h.calls.filter((c) => c === 'rewarded').length === 1,
-      'хаб: «Дар башни» без видео — обычный, реклама не показывается');
+    ok(
+      p.gold - gold1 === GIFT_REWARD.gold &&
+        !p.giftReady() &&
+        h.calls.filter((c) => c === 'rewarded').length === 1,
+      'хаб: «Дар башни» без видео — обычный, реклама не показывается',
+    );
     h.hub.execute({ type: 'open', menu: 'levels' });
     h.hub.execute({ type: 'play' });
     h.hub.execute({ type: 'open', menu: 'shop' });
@@ -1313,11 +1962,18 @@ for (const lin of LINEAGE_ORDER) {
     const fromGame = back('game');
     await fromGame.done;
     await settle();
-    ok(fromGame.r.log[0] === 'auto:3' && fromGame.r.asked() === 1 && fromGame.q.gold === DAILY_REWARDS[0].gold,
-      'хаб: из боя — итог автопрокачки и награда дня (видео не досмотрено — обычная)');
+    ok(
+      fromGame.r.log[0] === 'auto:3' &&
+        fromGame.r.asked() === 1 &&
+        fromGame.q.gold === DAILY_REWARDS[0].gold,
+      'хаб: из боя — итог автопрокачки и награда дня (видео не досмотрено — обычная)',
+    );
     const fromMenu = back('shop');
     await fromMenu.done;
-    ok(fromMenu.r.asked() === 0 && fromMenu.q.dailyStatus().available, 'хаб: из меню награду дня сам не предлагает');
+    ok(
+      fromMenu.r.asked() === 0 && fromMenu.q.dailyStatus().available,
+      'хаб: из меню награду дня сам не предлагает',
+    );
   }
 
   // лавка: покупка, повтор, починка, «слабее надетого», предел зелий, нехватка золота
@@ -1333,36 +1989,70 @@ for (const lin of LINEAGE_ORDER) {
       stackFull: (def) => void log.push(`full:${def.id}`),
       denied: () => void log.push('denied'),
     };
-    const shop = new ShopController({ buyItem: new BuyItem(p), buyConsumable: new BuyConsumable(p), view, navigator: { close: () => void closes++ } });
+    const shop = new ShopController({
+      buyItem: new BuyItem(p),
+      buyConsumable: new BuyConsumable(p),
+      view,
+      navigator: { close: () => void closes++ },
+    });
     const catalog = new ShopCatalog(p);
     const [w1, w2] = catalog.items('weapon').map((o) => o.item);
-    ok(catalog.items('weapon').every((o) => o.item.lineage === 'warrior') && catalog.items('weapon')[0].action === 'buy', 'лавка: оружие — только линейки героя');
+    ok(
+      catalog.items('weapon').every((o) => o.item.lineage === 'warrior') &&
+        catalog.items('weapon')[0].action === 'buy',
+      'лавка: оружие — только линейки героя',
+    );
     shop.execute({ type: 'buy-item', item: w1 });
-    ok(log.at(-1) === `bought:${w1.id}` && catalog.items('weapon')[0].action === 'equipped', 'лавка: купленная вещь надета');
+    ok(
+      log.at(-1) === `bought:${w1.id}` && catalog.items('weapon')[0].action === 'equipped',
+      'лавка: купленная вещь надета',
+    );
     shop.execute({ type: 'buy-item', item: w1 });
     ok(log.at(-1) === 'denied', 'лавка: целую надетую вещь второй раз не продаём');
     p.equipped('weapon')!.durability = 1;
     const repair = catalog.items('weapon')[0];
     const gold0 = p.gold;
     shop.execute({ type: 'buy-item', item: w1 });
-    ok(repair.action === 'repair' && log.at(-1) === `repaired:${w1.id}` && gold0 - p.gold === repair.price, 'лавка: починка стоит столько, сколько обещано');
+    ok(
+      repair.action === 'repair' &&
+        log.at(-1) === `repaired:${w1.id}` &&
+        gold0 - p.gold === repair.price,
+      'лавка: починка стоит столько, сколько обещано',
+    );
     shop.execute({ type: 'buy-item', item: w2 });
-    ok(catalog.items('weapon')[0].action === 'weaker', 'лавка: вещь слабее надетой больше не нужна');
+    ok(
+      catalog.items('weapon')[0].action === 'weaker',
+      'лавка: вещь слабее надетой больше не нужна',
+    );
     shop.execute({ type: 'buy-item', item: w1 });
     ok(log.at(-1) === 'denied', 'лавка: вещь слабее надетой не продаём');
     for (let i = 0; i < 10; i++) shop.execute({ type: 'buy-consumable', id: 'potion_heal' });
-    ok(p.heroSave.consumables.potion_heal === CONSUMABLES.potion_heal.max && log.at(-1) === 'full:potion_heal', 'лавка: зелья — не больше предела запаса');
+    ok(
+      p.heroSave.consumables.potion_heal === CONSUMABLES.potion_heal.max &&
+        log.at(-1) === 'full:potion_heal',
+      'лавка: зелья — не больше предела запаса',
+    );
     shop.execute({ type: 'close' });
     shop.execute({ type: 'close' });
     ok(closes === 1, 'лавка: закрывается один раз');
-    ok(new ShopCatalog(p).hasAffordableUpgrade(), 'лавка: при золоте на следующую ступень значок «есть что купить» есть');
+    ok(
+      new ShopCatalog(p).hasAffordableUpgrade(),
+      'лавка: при золоте на следующую ступень значок «есть что купить» есть',
+    );
     const poor = heroProfile('warrior');
     const poorLog: string[] = [];
     new ShopController({
-      buyItem: new BuyItem(poor), buyConsumable: new BuyConsumable(poor),
-      view: { ...view, noGold: () => void poorLog.push('gold') }, navigator: { close: () => undefined },
+      buyItem: new BuyItem(poor),
+      buyConsumable: new BuyConsumable(poor),
+      view: { ...view, noGold: () => void poorLog.push('gold') },
+      navigator: { close: () => undefined },
     }).execute({ type: 'buy-item', item: w1 });
-    ok(poorLog[0] === 'gold' && !poor.equipped('weapon') && !new ShopCatalog(poor).hasAffordableUpgrade(), 'лавка: без золота не купить, значка нет');
+    ok(
+      poorLog[0] === 'gold' &&
+        !poor.equipped('weapon') &&
+        !new ShopCatalog(poor).hasAffordableUpgrade(),
+      'лавка: без золота не купить, значка нет',
+    );
   }
 
   // дерево навыков: первая покупка, метаморфоза с подтверждением, отказ от финального класса, автопрокачка
@@ -1380,8 +2070,12 @@ for (const lin of LINEAGE_ORDER) {
     const treeFor = (p: Profile) => {
       const query = new SkillTreeQuery(p);
       const ctl = new SkillTreeController({
-        query, buySkill: new BuySkill(p), metamorphose: new Metamorphose(p), cancelMetamorphosis: new CancelMetamorphosis(p),
-        autoSkill: new AutoSkill(p), view,
+        query,
+        buySkill: new BuySkill(p),
+        metamorphose: new Metamorphose(p),
+        cancelMetamorphosis: new CancelMetamorphosis(p),
+        autoSkill: new AutoSkill(p),
+        view,
         dialogs: { confirmMetamorphosis: async () => confirm, confirmCancel: async () => confirm },
         navigator: { close: () => void closes++, switchClass: () => undefined },
         clock,
@@ -1394,11 +2088,16 @@ for (const lin of LINEAGE_ORDER) {
     const tree = query.tree;
     const first = query.tutorialTarget()!;
     ctl.execute({ type: 'buy', node: first });
-    ok(log.at(-1) === `learned:${first.id}` && p.tutorial.skill && query.tutorialTarget() === null, 'дерево: первая покупка завершает обучение');
+    ok(
+      log.at(-1) === `learned:${first.id}` && p.tutorial.skill && query.tutorialTarget() === null,
+      'дерево: первая покупка завершает обучение',
+    );
     /** Проходит ярус класса `owner` командами дерева, пока не откроется метаморфоза в `to`. */
     const passTier = (owner: ClassId, to: ClassId): boolean => {
       for (let i = 0; i < 200 && !query.check(tree.classNode[to]).ok; i++) {
-        const n = tree.nodes.find((x) => x.kind !== 'class' && x.owner === owner && query.check(x).ok);
+        const n = tree.nodes.find(
+          (x) => x.kind !== 'class' && x.owner === owner && query.check(x).ok,
+        );
         if (!n) break;
         ctl.execute({ type: 'buy', node: n });
       }
@@ -1411,8 +2110,12 @@ for (const lin of LINEAGE_ORDER) {
     confirm = true;
     ctl.execute({ type: 'buy', node: tree.classNode.magister });
     await settle();
-    ok(p.activeClass === 'magister' && p.data.stats.metamorphoses === 1 && log.at(-1) === `learned:${tree.classNode.magister.id}`,
-      'дерево: метаморфоза в магистра — с подтверждением и в счётчике');
+    ok(
+      p.activeClass === 'magister' &&
+        p.data.stats.metamorphoses === 1 &&
+        log.at(-1) === `learned:${tree.classNode.magister.id}`,
+      'дерево: метаморфоза в магистра — с подтверждением и в счётчике',
+    );
     ok(passTier('magister', 'pyromancer'), 'дерево: ярус магистра открывает финальные классы');
     ctl.execute({ type: 'buy', node: tree.classNode.pyromancer });
     await settle();
@@ -1420,7 +2123,10 @@ for (const lin of LINEAGE_ORDER) {
     ok(p.activeClass === 'pyromancer', 'дерево: метаморфоза в пироманта');
     ctl.execute({ type: 'cancel-metamorphosis' });
     await settle();
-    ok(p.activeClass === 'magister' && p.souls > souls0 && log.at(-1) === 'cancelled:magister', 'дерево: отказ от пироманта возвращает магистра и часть душ');
+    ok(
+      p.activeClass === 'magister' && p.souls > souls0 && log.at(-1) === 'cancelled:magister',
+      'дерево: отказ от пироманта возвращает магистра и часть душ',
+    );
     ctl.execute({ type: 'toggle-auto' });
     ok(log.includes('toggle:true') && p.autoSkillCfg().on, 'дерево: автопрокачка включается');
     ctl.execute({ type: 'toggle-auto' });
@@ -1430,7 +2136,9 @@ for (const lin of LINEAGE_ORDER) {
     ok(closes === 1, 'дерево: закрывается один раз');
     const poor = heroProfile('mage');
     const pt = treeFor(poor);
-    const target = pt.query.tree.nodes.find((n) => n.kind !== 'class' && pt.query.state(n) === 'available')!;
+    const target = pt.query.tree.nodes.find(
+      (n) => n.kind !== 'class' && pt.query.state(n) === 'available',
+    )!;
     pt.ctl.execute({ type: 'buy', node: target });
     ok(log.at(-1) === 'refused:souls' && !poor.tutorial.skill, 'дерево: без душ не купить');
   }
@@ -1445,10 +2153,13 @@ for (const lin of LINEAGE_ORDER) {
     const selectFor = (mode: ClassSelectMode) => {
       const selection = new ClassSelection(p, mode);
       const ctl = new ClassSelectController({
-        selection, platform,
+        selection,
+        platform,
         view: {
-          started: () => void log.push('started'), unlocked: (c) => void log.push(`unlocked:${c}`),
-          noGold: () => void log.push('gold'), switched: () => void log.push('switched'),
+          started: () => void log.push('started'),
+          unlocked: (c) => void log.push(`unlocked:${c}`),
+          noGold: () => void log.push('gold'),
+          switched: () => void log.push('switched'),
         },
         dialogs: { confirmSwitch: async () => true },
         navigator: { startGame: () => void games++, back: () => void backs++ },
@@ -1457,31 +2168,60 @@ for (const lin of LINEAGE_ORDER) {
     };
     const first = selectFor('first');
     first.ctl.start();
-    ok(p.isFirstRun && calls.includes('ready') && first.selection.choices().every((c) => c.opened && c.action === 'start'), 'выбор героя: в первый запуск доступны все герои');
+    ok(
+      p.isFirstRun &&
+        calls.includes('ready') &&
+        first.selection.choices().every((c) => c.opened && c.action === 'start'),
+      'выбор героя: в первый запуск доступны все герои',
+    );
     first.ctl.execute({ type: 'choose', classId: 'archer' });
     await settle();
-    ok(p.activeClass === 'archer' && !p.isFirstRun && games === 1 && log.at(-1) === 'started', 'выбор героя: первый выбор открывает героя и ведёт в забег');
+    ok(
+      p.activeClass === 'archer' && !p.isFirstRun && games === 1 && log.at(-1) === 'started',
+      'выбор героя: первый выбор открывает героя и ведёт в забег',
+    );
     const sw = selectFor('switch');
-    ok(sw.selection.choice('archer').action === 'current' && sw.selection.choice('mage').action === 'unlock', 'выбор героя: текущий герой отмечен, закрытые — за золото');
+    ok(
+      sw.selection.choice('archer').action === 'current' &&
+        sw.selection.choice('mage').action === 'unlock',
+      'выбор героя: текущий герой отмечен, закрытые — за золото',
+    );
     sw.ctl.execute({ type: 'choose', classId: 'mage' });
     await settle();
-    ok(log.at(-1) === 'gold' && !p.isLineageUnlocked('mage'), 'выбор героя: без золота героя не открыть');
+    ok(
+      log.at(-1) === 'gold' && !p.isLineageUnlocked('mage'),
+      'выбор героя: без золота героя не открыть',
+    );
     p.addGold(GAMEPLAY.classUnlockCost + 100, false);
     sw.ctl.execute({ type: 'choose', classId: 'mage' });
     await settle();
-    ok(log.at(-1) === 'unlocked:mage' && p.activeClass === 'archer' && p.gold === 100 && sw.selection.choice('mage').action === 'pick',
-      'выбор героя: открытие стоит своё и героя не меняет');
+    ok(
+      log.at(-1) === 'unlocked:mage' &&
+        p.activeClass === 'archer' &&
+        p.gold === 100 &&
+        sw.selection.choice('mage').action === 'pick',
+      'выбор героя: открытие стоит своё и героя не меняет',
+    );
     sw.ctl.execute({ type: 'choose', classId: 'mage' });
     await settle();
-    ok(p.activeClass === 'mage' && backs === 1 && log.at(-1) === 'switched', 'выбор героя: смена героя — с подтверждением');
-    ok(p.gold === 0 && p.heroSaveOf('archer').gold === 100, 'выбор героя: у каждого героя свой кошелёк');
+    ok(
+      p.activeClass === 'mage' && backs === 1 && log.at(-1) === 'switched',
+      'выбор героя: смена героя — с подтверждением',
+    );
+    ok(
+      p.gold === 0 && p.heroSaveOf('archer').gold === 100,
+      'выбор героя: у каждого героя свой кошелёк',
+    );
   }
 
   // настройки: кнопка звука, ползунок громкости, язык
   {
     const p = heroProfile('warrior');
     const out: string[] = [];
-    const audio = new AudioSettings(p, { setVolume: (v) => void out.push(`vol:${v}`), setMuted: (m) => void out.push(`mute:${m}`) });
+    const audio = new AudioSettings(p, {
+      setVolume: (v) => void out.push(`vol:${v}`),
+      setMuted: (m) => void out.push(`mute:${m}`),
+    });
     const applied: Lang[] = [];
     const shown: Array<[number, boolean]> = [];
     let reloads = 0;
@@ -1491,15 +2231,24 @@ for (const lin of LINEAGE_ORDER) {
       view: { showVolume: (v, silent) => void shown.push([v, silent]) },
       navigator: { close: () => undefined, reload: () => void reloads++ },
     });
-    ok(audio.toggleMuted() && p.muted && out.at(-1) === 'mute:true', 'настройки: кнопка звука выключает звук и помнит выбор');
+    ok(
+      audio.toggleMuted() && p.muted && out.at(-1) === 'mute:true',
+      'настройки: кнопка звука выключает звук и помнит выбор',
+    );
     ctl.execute({ type: 'volume', value: 0.4 });
-    ok(p.volume === 0.4 && !p.muted && shown.at(-1)?.[1] === false && out.includes('vol:0.4'), 'настройки: ползунок громкости снимает «без звука»');
+    ok(
+      p.volume === 0.4 && !p.muted && shown.at(-1)?.[1] === false && out.includes('vol:0.4'),
+      'настройки: ползунок громкости снимает «без звука»',
+    );
     ctl.execute({ type: 'volume', value: 0 });
     ok(shown.at(-1)?.[1] === true, 'настройки: на нулевой громкости звука нет');
     ctl.execute({ type: 'language', lang: 'ru' });
     ok(reloads === 0 && applied.length === 0, 'настройки: тот же язык ничего не меняет');
     ctl.execute({ type: 'language', lang: 'en' });
-    ok(reloads === 1 && p.lang === 'en' && applied.join() === 'en', 'настройки: новый язык сохраняется, применяется и пересобирает экран');
+    ok(
+      reloads === 1 && p.lang === 'en' && applied.join() === 'en',
+      'настройки: новый язык сохраняется, применяется и пересобирает экран',
+    );
   }
 
   // реклама: полноэкранная — не в первых комнатах и не чаще кулдауна, видео с наградой — пауза игры
@@ -1513,18 +2262,26 @@ for (const lin of LINEAGE_ORDER) {
     ok(shown() === 0, 'реклама: полноэкранной нет в первых комнатах');
     p.bump('roomsCleared', AD_POLICY.firstAdAfterRooms);
     await ads.interstitial();
-    ok(shown() === 1 && p.lastInterstitial === now, 'реклама: после нескольких комнат — показана и запомнена');
+    ok(
+      shown() === 1 && p.lastInterstitial === now,
+      'реклама: после нескольких комнат — показана и запомнена',
+    );
     now += AD_POLICY.interstitialCooldownMs - 1;
     await ads.interstitial();
     ok(shown() === 1, 'реклама: не чаще собственного кулдауна');
     now += 1;
     await ads.interstitial();
     ok(shown() === 2, 'реклама: после кулдауна — снова');
-    ok((await ads.rewarded()) && calls.includes('stop'), 'реклама: видео с наградой ставит игру на паузу');
+    ok(
+      (await ads.rewarded()) && calls.includes('stop'),
+      'реклама: видео с наградой ставит игру на паузу',
+    );
   }
 }
 
 ok(autoPicks > 20, `автоприменение срабатывает в фазз-тесте (${autoPicks})`);
 ok(perkUses > 200, `способности применяются в фазз-тесте (${perkUses})`);
-console.log(`Прогонов боя: ${runs} (автоприменений: ${autoPicks}, способностей: ${perkUses}). ${failed ? `ОШИБОК: ${failed}` : 'Все проверки пройдены.'}`);
+console.log(
+  `Прогонов боя: ${runs} (автоприменений: ${autoPicks}, способностей: ${perkUses}). ${failed ? `ОШИБОК: ${failed}` : 'Все проверки пройдены.'}`,
+);
 if (failed) throw new Error('selftest failed');

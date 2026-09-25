@@ -1,11 +1,12 @@
 import type Phaser from 'phaser';
+
 import type { Card } from '../../domain/game-data/card/Card';
 import type { IRunState } from '../../domain/logic/run';
 import type { PlayerStats } from '../../domain/logic/stats';
 import type { Point } from '../animations/interfaces/Point';
-import { HEX } from '../theme';
 import { plateTexture } from '../components';
 import { CARD_H, CARD_W } from '../textures/Textures';
+import { HEX } from '../theme';
 import { BoardLayout } from './BoardLayout';
 import type { CardView, CardViewFactory } from './card-view';
 
@@ -18,10 +19,19 @@ export class BoardView {
   readonly player: CardView;
   private readonly views = new Map<number, CardView>();
 
-  constructor(scene: Phaser.Scene, private readonly factory: CardViewFactory, stats: PlayerStats, hp: number, playerCell: number) {
+  constructor(
+    scene: Phaser.Scene,
+    private readonly factory: CardViewFactory,
+    stats: PlayerStats,
+    hp: number,
+    playerCell: number,
+  ) {
     for (let i = 0; i < 9; i++) {
       const p = BoardLayout.cellPos(i);
-      scene.add.image(p.x, p.y, plateTexture(scene, CARD_W - 8, CARD_H - 8, 1, 'dark', 22)).setAlpha(0.45).setDepth(-10);
+      scene.add
+        .image(p.x, p.y, plateTexture(scene, CARD_W - 8, CARD_H - 8, 1, 'dark', 22))
+        .setAlpha(0.45)
+        .setDepth(-10);
     }
     this.player = factory.createHero(stats, hp, playerCell, BoardLayout.cellPos(playerCell));
   }

@@ -1,5 +1,5 @@
-import type { ConsumableId, EquipmentSave } from '../../../types';
 import type { RoomDef, RoomPlan } from '../../../data/levels';
+import type { ConsumableId, EquipmentSave } from '../../../types';
 import type { Rng } from '../../rng';
 import type { PlayerStats } from '../../stats';
 import type { RunCarryStats } from './RunCarryStats';

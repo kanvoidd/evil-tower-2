@@ -1,5 +1,5 @@
-import type { ConsumableId } from '../../../types';
 import type { GameEvent } from '../../../game-data/events';
+import type { ConsumableId } from '../../../types';
 import type { TurnResult } from './TurnResult';
 
 /**

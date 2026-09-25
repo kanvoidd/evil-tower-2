@@ -1,9 +1,9 @@
-import type { AutoUseSave, EquipmentSave, HeroSave, LineageId, SaveData } from '../../domain/types';
+import type { IProfileStorage } from '../../application/ports/IProfileStorage';
 import { CLASSES } from '../../domain/data/classes';
 import { LINEAGE_ORDER } from '../../domain/data/heroes';
 import { DEFAULT_AUTO_USE } from '../../domain/logic/autoUse';
 import { Profile } from '../../domain/logic/profile';
-import type { IProfileStorage } from '../../application/ports/IProfileStorage';
+import type { AutoUseSave, EquipmentSave, HeroSave, LineageId, SaveData } from '../../domain/types';
 import type { CloudSaves } from './interfaces/CloudSaves';
 
 /**
@@ -42,7 +42,9 @@ export class ProfileStore implements IProfileStorage {
       local = null;
     }
     const cloud = (await this.cloud.loadCloud()) as SaveData | null;
-    const pick = [local, cloud].filter((x): x is SaveData => !!x && typeof x === 'object' && x.v === ProfileStore.VERSION);
+    const pick = [local, cloud].filter(
+      (x): x is SaveData => !!x && typeof x === 'object' && x.v === ProfileStore.VERSION,
+    );
     pick.sort((a, b) => (b.savedAt ?? 0) - (a.savedAt ?? 0));
     const base = Profile.freshData('ru', Date.now());
     const data = pick.length ? this.merge(base, pick[0]) : base;
@@ -63,8 +65,14 @@ export class ProfileStore implements IProfileStorage {
     out.ads = { ...base.ads, ...src.ads };
     // Старые сохранения не знают про автоприменение и автопрокачку — подставляем значения по умолчанию.
     // Раньше у автоприменения был общий переключатель `on`: если он был выключен, все расходники остаются выключенными.
-    const auto = (src as Partial<SaveData>).auto as { use?: Partial<AutoUseSave> & { on?: boolean }; skill?: SaveData['auto']['skill'] } | undefined;
-    const use: AutoUseSave = { heal: !!auto?.use?.heal, regen: !!auto?.use?.regen, artifact: !!auto?.use?.artifact };
+    const auto = (src as Partial<SaveData>).auto as
+      | { use?: Partial<AutoUseSave> & { on?: boolean }; skill?: SaveData['auto']['skill'] }
+      | undefined;
+    const use: AutoUseSave = {
+      heal: !!auto?.use?.heal,
+      regen: !!auto?.use?.regen,
+      artifact: !!auto?.use?.artifact,
+    };
     if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
     out.auto = { use, skill: { ...auto?.skill } };
     out.lineages = { ...src.lineages };
@@ -73,7 +81,10 @@ export class ProfileStore implements IProfileStorage {
     // списком пройденных комнат. Всё общее отдаём той линейке, которой играли; рекорд
     // забега каждой линейки — сколько комнат она уже прошла.
     const old = src as unknown as {
-      gold?: number; souls?: number; consumables?: HeroSave['consumables']; armor?: EquipmentSave | null;
+      gold?: number;
+      souls?: number;
+      consumables?: HeroSave['consumables'];
+      armor?: EquipmentSave | null;
       cleared?: string[] | Partial<Record<LineageId, string[]>>;
     };
     if (!src.heroes) {
@@ -82,16 +93,20 @@ export class ProfileStore implements IProfileStorage {
       for (const lin of LINEAGE_ORDER) {
         const done = (cleared as Partial<Record<LineageId, string[]>>)[lin]?.length ?? 0;
         if (lin !== active && !done && !src.lineages?.[lin]) continue;
-        out.heroes[lin] = lin === active
-          ? {
-            gold: old.gold ?? 0, souls: old.souls ?? 0,
-            consumables: { ...Profile.emptyHero().consumables, ...old.consumables },
-            armor: old.armor ?? null, best: done,
-          }
-          : { ...Profile.emptyHero(), best: done };
+        out.heroes[lin] =
+          lin === active
+            ? {
+                gold: old.gold ?? 0,
+                souls: old.souls ?? 0,
+                consumables: { ...Profile.emptyHero().consumables, ...old.consumables },
+                armor: old.armor ?? null,
+                best: done,
+              }
+            : { ...Profile.emptyHero(), best: done };
       }
     }
-    for (const k of ['gold', 'souls', 'consumables', 'armor', 'cleared']) delete (out as unknown as Record<string, unknown>)[k];
+    for (const k of ['gold', 'souls', 'consumables', 'armor', 'cleared'])
+      delete (out as unknown as Record<string, unknown>)[k];
     return out;
   }
 
@@ -139,4 +154,3 @@ export class ProfileStore implements IProfileStorage {
     this.flush();
   }
 }
-

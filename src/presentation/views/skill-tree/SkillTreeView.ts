@@ -1,10 +1,19 @@
 import Phaser from 'phaser';
+
 import type { ISkillTreeView } from '../../../application/skill-tree/interfaces/ISkillTreeView';
 import type { AutoSkillPlan } from '../../../domain/logic/autoSkill';
 import type { NodeState, Tree, TreeNode } from '../../../domain/logic/skillTree';
 import type { ClassId } from '../../../domain/types';
 import { t } from '../../../i18n';
-import { background, PanController, staggerIn, tapHint, toast, txt, UiSound } from '../../components';
+import {
+  background,
+  PanController,
+  staggerIn,
+  tapHint,
+  toast,
+  txt,
+  UiSound,
+} from '../../components';
 import { zoomIn } from '../../navigation/SceneTransitions';
 import { pathHex } from '../../textures/Textures';
 import { GAME_H, GAME_W, HEX } from '../../theme';
@@ -37,7 +46,10 @@ export class SkillTreeView implements ISkillTreeView {
   /** Игрок уходит из дерева — узлы больше не выбираются. */
   private leaving = false;
 
-  constructor(private readonly scene: Phaser.Scene, private readonly d: SkillTreeViewDeps) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly d: SkillTreeViewDeps,
+  ) {
     const K = SkillTreeView.K;
     this.tree = d.query.tree;
     background(scene);
@@ -50,9 +62,21 @@ export class SkillTreeView implements ISkillTreeView {
       minY: 0,
       maxY: b.maxY * K + SkillTreeView.OFFSET_Y + 300,
     };
-    this.pan = new PanController(scene, bounds, new Phaser.Geom.Rectangle(0, 140, GAME_W, GAME_H - 140 - SkillInfoPanel.H), 'xy');
+    this.pan = new PanController(
+      scene,
+      bounds,
+      new Phaser.Geom.Rectangle(0, 140, GAME_W, GAME_H - 140 - SkillInfoPanel.H),
+      'xy',
+    );
     this.ring = scene.add.image(0, 0, 'ring').setDepth(30).setVisible(false);
-    scene.tweens.add({ targets: this.ring, alpha: { from: 1, to: 0.45 }, duration: 1300, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    scene.tweens.add({
+      targets: this.ring,
+      alpha: { from: 1, to: 0.45 },
+      duration: 1300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
 
     this.header = new SkillTreeHeader(scene, d.query, d.wallet, d.commands, () => this.close());
     this.panel = new SkillInfoPanel(scene, d.query, d.commands);
@@ -131,7 +155,18 @@ export class SkillTreeView implements ISkillTreeView {
       return;
     }
     if (plan?.buys.length) this.autoBought(plan);
-    else toast(this.scene, t(plan?.stop === 'meta' ? 'auto.skill.meta' : plan?.stop === 'done' ? 'auto.skill.done' : 'auto.skill.enabled'), 'svg_auto');
+    else
+      toast(
+        this.scene,
+        t(
+          plan?.stop === 'meta'
+            ? 'auto.skill.meta'
+            : plan?.stop === 'done'
+              ? 'auto.skill.done'
+              : 'auto.skill.enabled',
+        ),
+        'svg_auto',
+      );
   }
 
   // ------------------------------------------------------------------------------ мир
@@ -150,10 +185,16 @@ export class SkillTreeView implements ISkillTreeView {
       const na = tree.byId.get(a)!;
       const nb = tree.byId.get(b)!;
       const talent = nb.kind === 'talent' ? nb : na.kind === 'talent' ? na : null;
-      this.edges.push(new EdgeView(
-        this.scene, a, b, { x: this.wx(na), y: this.wy(na) }, { x: this.wx(nb), y: this.wy(nb) },
-        talent ? pathHex(talent.path!) : 0xf5c518,
-      ));
+      this.edges.push(
+        new EdgeView(
+          this.scene,
+          a,
+          b,
+          { x: this.wx(na), y: this.wy(na) },
+          { x: this.wx(nb), y: this.wy(nb) },
+          talent ? pathHex(talent.path!) : 0xf5c518,
+        ),
+      );
     }
     for (const n of tree.nodes) {
       const view = new NodeView(this.scene, n, this.wx(n), this.wy(n), this.textureOf(n), () => {
@@ -174,7 +215,8 @@ export class SkillTreeView implements ISkillTreeView {
   private refresh(): void {
     const q = this.d.query;
     for (const n of this.tree.nodes) this.states.set(n.id, q.state(n));
-    for (const [id, v] of this.nodes) v.paint(this.states.get(id)!, q.rank(v.node), q.maxRank(v.node));
+    for (const [id, v] of this.nodes)
+      v.paint(this.states.get(id)!, q.rank(v.node), q.maxRank(v.node));
     for (const e of this.edges) e.paint(this.states.get(e.a)!, this.states.get(e.b)!);
   }
 
@@ -188,7 +230,10 @@ export class SkillTreeView implements ISkillTreeView {
       return;
     }
     const v = this.nodes.get(n.id)!;
-    this.ring.setVisible(true).setPosition(v.x, v.y).setDisplaySize(v.size + 24, v.size + 24);
+    this.ring
+      .setVisible(true)
+      .setPosition(v.x, v.y)
+      .setDisplaySize(v.size + 24, v.size + 24);
     UiSound.play('click');
     this.showInfo(n);
     this.clearHint();
@@ -220,14 +265,33 @@ export class SkillTreeView implements ISkillTreeView {
   private burst(x: number, y: number, color: number): void {
     const s = this.scene;
     const ring = s.add.image(x, y, 'ring').setTint(color).setDepth(40).setDisplaySize(40, 40);
-    s.tweens.add({ targets: ring, displayWidth: 240, displayHeight: 240, alpha: 0, duration: 500, onComplete: () => ring.destroy() });
+    s.tweens.add({
+      targets: ring,
+      displayWidth: 240,
+      displayHeight: 240,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => ring.destroy(),
+    });
     for (let i = 0; i < 14; i++) {
       // мягкие точки света, а не звёздочки — «сюрикенов» в игре нет нигде
-      const dot = s.add.image(x, y, 'dot').setTint(color).setDepth(40)
-        .setDisplaySize(14, 14).setBlendMode(Phaser.BlendModes.ADD).setScale(0.7 + Math.random() * 0.8);
+      const dot = s.add
+        .image(x, y, 'dot')
+        .setTint(color)
+        .setDepth(40)
+        .setDisplaySize(14, 14)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setScale(0.7 + Math.random() * 0.8);
       const a = Math.random() * Math.PI * 2;
       const dist = 60 + Math.random() * 90;
-      s.tweens.add({ targets: dot, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, duration: 550, onComplete: () => dot.destroy() });
+      s.tweens.add({
+        targets: dot,
+        x: x + Math.cos(a) * dist,
+        y: y + Math.sin(a) * dist,
+        alpha: 0,
+        duration: 550,
+        onComplete: () => dot.destroy(),
+      });
     }
   }
 
@@ -238,7 +302,12 @@ export class SkillTreeView implements ISkillTreeView {
     const v = this.nodes.get(target.id)!;
     this.select(target);
     this.pan.setCenter(v.x, v.y + 90);
-    const text = txt(this.scene, GAME_W / 2, 176, t('tut.skill_buy'), 26, { color: HEX.gold, wrap: 640 }).setScrollFactor(0).setDepth(720);
+    const text = txt(this.scene, GAME_W / 2, 176, t('tut.skill_buy'), 26, {
+      color: HEX.gold,
+      wrap: 640,
+    })
+      .setScrollFactor(0)
+      .setDepth(720);
     const hand = tapHint(this.scene, v.x, v.y + 36);
     this.hint.push(text, hand);
   }

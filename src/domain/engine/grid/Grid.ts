@@ -20,7 +20,12 @@ export class Grid {
     const r = Math.floor(i / 3);
     const c = i % 3;
     const out: number[] = [];
-    for (const [dr, dc] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    for (const [dr, dc] of [
+      [-1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
+    ]) {
       const nr = r + dr;
       const nc = c + dc;
       if (nr >= 0 && nr < 3 && nc >= 0 && nc < 3) out.push(nr * 3 + nc);

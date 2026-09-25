@@ -1,5 +1,5 @@
-import type { LineageId, ResourceKind, Stats } from '../../../types';
 import type { IAttackStrategy } from '../../../logic/hero/attack/interfaces/IAttackStrategy';
+import type { LineageId, ResourceKind, Stats } from '../../../types';
 import type { CheatDeathPrice } from './CheatDeathPrice';
 
 export interface LineageDef {

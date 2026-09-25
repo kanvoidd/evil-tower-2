@@ -1,8 +1,8 @@
-import type { ClassId } from '../domain/types';
 import { CLASSES } from '../domain/data/classes';
 import { ROOMS } from '../domain/data/levels';
-import type { ProfileStore } from '../infrastructure/store/ProfileStore';
 import { applyBuy, canInvest, costOf, isPurchasable, TREES } from '../domain/logic/skillTree';
+import type { ClassId } from '../domain/types';
+import type { ProfileStore } from '../infrastructure/store/ProfileStore';
 
 /** Покупает до `steps` самых дешёвых доступных узлов (приоритет: способности, класс, таланты). */
 const autoSkill = (store: ProfileStore, steps: number): void => {
@@ -13,7 +13,8 @@ const autoSkill = (store: ProfileStore, steps: number): void => {
     let best: (typeof tree.nodes)[number] | null = null;
     let bestScore = Infinity;
     for (const n of tree.nodes) {
-      if (!isPurchasable(n) || !canInvest(tree, ls, n) || costOf(ls, n) > store.profile.souls) continue;
+      if (!isPurchasable(n) || !canInvest(tree, ls, n) || costOf(ls, n) > store.profile.souls)
+        continue;
       const score = pr[n.kind] * 1_000_000 + costOf(ls, n);
       if (score < bestScore) {
         bestScore = score;
@@ -41,7 +42,8 @@ export const applyDevParams = (store: ProfileStore): void => {
     // класс героя выводится из дерева: продвинутый класс открываем всей цепочкой метаморфоз (без цены и ворот)
     const lineage = CLASSES[cls].lineage;
     const ls = store.profile.unlockLineage(lineage);
-    for (let c: ClassId | null = cls; c && CLASSES[c].parent; c = CLASSES[c].parent) ls.ranks[TREES[lineage].classNode[c].id] = 1;
+    for (let c: ClassId | null = cls; c && CLASSES[c].parent; c = CLASSES[c].parent)
+      ls.ranks[TREES[lineage].classNode[c].id] = 1;
     store.profile.setActiveClass(cls);
   }
   const gold = Number(q.get('gold') ?? 0);
@@ -52,10 +54,15 @@ export const applyDevParams = (store: ProfileStore): void => {
   if (clear >= 0) {
     store.profile.heroSave.best = Math.min(clear, ROOMS.length);
   }
-  if (q.get('tut') === '1') store.data.tutorial = { fight: true, hub: true, skill: true, shop: true, perk: true };
+  if (q.get('tut') === '1')
+    store.data.tutorial = { fight: true, hub: true, skill: true, shop: true, perk: true };
   const wt = Number(q.get('weapon') ?? 0);
   const at = Number(q.get('armor') ?? 0);
-  if (wt > 0) store.data.weapon[store.profile.activeLineage] = { id: `w_${store.profile.activeLineage}_${wt}`, durability: 40 };
+  if (wt > 0)
+    store.data.weapon[store.profile.activeLineage] = {
+      id: `w_${store.profile.activeLineage}_${wt}`,
+      durability: 40,
+    };
   if (at > 0) store.profile.heroSave.armor = { id: `a_${at}`, durability: 40 };
   const auto = Number(q.get('autoskill') ?? 0);
   if (auto > 0) autoSkill(store, auto);

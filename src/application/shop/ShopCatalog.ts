@@ -1,5 +1,5 @@
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/data/consumables';
-import { ITEM_BY_ID, ITEMS, type ItemDef } from '../../domain/data/items';
+import { ITEM_BY_ID, type ItemDef, ITEMS } from '../../domain/data/items';
 import type { Profile } from '../../domain/logic/profile';
 import type { LineageId } from '../../domain/types';
 import type { ConsumableOffer } from './interfaces/ConsumableOffer';
@@ -20,7 +20,9 @@ export class ShopCatalog {
   /** Оружие линейки героя или броня — в порядке каталога (по ступеням). */
   items(slot: 'weapon' | 'armor'): ItemOffer[] {
     const lin = this.profile.activeLineage;
-    return ITEMS.filter((i) => i.slot === slot && (i.slot === 'armor' || i.lineage === lin)).map((it) => this.offer(it));
+    return ITEMS.filter((i) => i.slot === slot && (i.slot === 'armor' || i.lineage === lin)).map(
+      (it) => this.offer(it),
+    );
   }
 
   consumables(): ConsumableOffer[] {
@@ -49,11 +51,37 @@ export class ShopCatalog {
     const p = this.profile;
     const cur = p.equipped(item.slot);
     if (cur && cur.id === item.id) {
-      if (cur.durability >= item.durability) return { item, action: 'equipped', price: 0, durability: cur.durability, affordable: false };
+      if (cur.durability >= item.durability)
+        return {
+          item,
+          action: 'equipped',
+          price: 0,
+          durability: cur.durability,
+          affordable: false,
+        };
       const price = p.repairCost(item);
-      return { item, action: 'repair', price, durability: cur.durability, affordable: p.gold >= price };
+      return {
+        item,
+        action: 'repair',
+        price,
+        durability: cur.durability,
+        affordable: p.gold >= price,
+      };
     }
-    if (cur && ITEM_BY_ID[cur.id].tier >= item.tier) return { item, action: 'weaker', price: item.price, durability: item.durability, affordable: false };
-    return { item, action: 'buy', price: item.price, durability: item.durability, affordable: p.gold >= item.price };
+    if (cur && ITEM_BY_ID[cur.id].tier >= item.tier)
+      return {
+        item,
+        action: 'weaker',
+        price: item.price,
+        durability: item.durability,
+        affordable: false,
+      };
+    return {
+      item,
+      action: 'buy',
+      price: item.price,
+      durability: item.durability,
+      affordable: p.gold >= item.price,
+    };
   }
 }

@@ -1,7 +1,15 @@
 import type { ClassId, EquipmentSave, LineageId, LineageSave } from '../../types';
 import {
-  applyBuy, applyCancelMetamorphosis, canBuy, canCancelMetamorphosis, currentClassOf, openedClasses, TREES,
-  type BuyResult, type Tree, type TreeNode,
+  applyBuy,
+  applyCancelMetamorphosis,
+  type BuyResult,
+  canBuy,
+  canCancelMetamorphosis,
+  currentClassOf,
+  openedClasses,
+  type Tree,
+  type TreeNode,
+  TREES,
 } from '../skillTree';
 import { buildPlayerStats, type PlayerStats } from '../stats';
 import { HeroClassState } from './hero-class-state/HeroClassState';
@@ -67,7 +75,8 @@ export class Hero {
 
   /** Метаморфоза: тот же герой становится классом `to`. Ничего не отнимает — способности и таланты остаются. */
   metamorphose(to: ClassId): void {
-    if (!this.canMetamorphose(to, Infinity).ok) throw new Error(`метаморфоза ${this.classId} → ${to} недоступна`);
+    if (!this.canMetamorphose(to, Infinity).ok)
+      throw new Error(`метаморфоза ${this.classId} → ${to} недоступна`);
     applyBuy(this.tree, this.progress, this.tree.classNode[to]);
     this.onChange();
   }
@@ -80,7 +89,8 @@ export class Hero {
   /** Ветка финального класса сбрасывается, часть душ возвращается; герой снова — класс-родитель. */
   cancelMetamorphosis(): { refund: number; to: ClassId } {
     const from = this.classState;
-    if (!this.canCancelMetamorphosis || !from.parent) throw new Error(`метаморфозу ${from.id} не отменить`);
+    if (!this.canCancelMetamorphosis || !from.parent)
+      throw new Error(`метаморфозу ${from.id} не отменить`);
     const { refund } = applyCancelMetamorphosis(this.tree, this.progress, from.id);
     this.onChange();
     return { refund, to: from.parent };

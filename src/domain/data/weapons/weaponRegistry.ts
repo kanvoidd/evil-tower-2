@@ -22,24 +22,44 @@ const WEAPON_TIERS: ItemTier[] = [
 
 const WEAPON_NAMES: Record<LineageId, Array<[string, string]>> = {
   warrior: [
-    ['Ржавый меч', 'Rusty Sword'], ['Стальной меч', 'Steel Sword'], ['Боевой топор', 'Battle Axe'],
-    ['Клеймор', 'Claymore'], ['Меч стража башни', "Tower Guard's Sword"], ['Клинок разрушителя', 'Devastator Blade'],
-    ['Молот кузни', 'Forge Hammer'], ['Разлом небес', 'Skysplitter'],
+    ['Ржавый меч', 'Rusty Sword'],
+    ['Стальной меч', 'Steel Sword'],
+    ['Боевой топор', 'Battle Axe'],
+    ['Клеймор', 'Claymore'],
+    ['Меч стража башни', "Tower Guard's Sword"],
+    ['Клинок разрушителя', 'Devastator Blade'],
+    ['Молот кузни', 'Forge Hammer'],
+    ['Разлом небес', 'Skysplitter'],
   ],
   mage: [
-    ['Посох ученика', 'Apprentice Staff'], ['Дубовый посох', 'Oak Staff'], ['Кристальный жезл', 'Crystal Wand'],
-    ['Посох магистра', "Magister's Staff"], ['Жезл архимага', "Archmage's Rod"], ['Посох первозданной бури', 'Staff of Primal Storm'],
-    ['Скипетр пепла', 'Sceptre of Ash'], ['Ось мироздания', 'Axis of Creation'],
+    ['Посох ученика', 'Apprentice Staff'],
+    ['Дубовый посох', 'Oak Staff'],
+    ['Кристальный жезл', 'Crystal Wand'],
+    ['Посох магистра', "Magister's Staff"],
+    ['Жезл архимага', "Archmage's Rod"],
+    ['Посох первозданной бури', 'Staff of Primal Storm'],
+    ['Скипетр пепла', 'Sceptre of Ash'],
+    ['Ось мироздания', 'Axis of Creation'],
   ],
   archer: [
-    ['Короткий лук', 'Short Bow'], ['Охотничий лук', 'Hunting Bow'], ['Составной лук', 'Composite Bow'],
-    ['Эльфийский лук', 'Elven Bow'], ['Лук соколиного глаза', 'Hawkeye Bow'], ['Грозовой лук', 'Stormbow'],
-    ['Лук ледяных залов', 'Bow of Frozen Halls'], ['Звёздная тетива', 'Starstring'],
+    ['Короткий лук', 'Short Bow'],
+    ['Охотничий лук', 'Hunting Bow'],
+    ['Составной лук', 'Composite Bow'],
+    ['Эльфийский лук', 'Elven Bow'],
+    ['Лук соколиного глаза', 'Hawkeye Bow'],
+    ['Грозовой лук', 'Stormbow'],
+    ['Лук ледяных залов', 'Bow of Frozen Halls'],
+    ['Звёздная тетива', 'Starstring'],
   ],
   mercenary: [
-    ['Кинжал', 'Dagger'], ['Стилет', 'Stiletto'], ['Кривой нож', 'Kukri'],
-    ['Клинки теней', 'Shadow Blades'], ['Парные кинжалы', 'Twin Daggers'], ['Лезвие ассасина', "Assassin's Edge"],
-    ['Коготь пустоты', 'Void Claw'], ['Последний довод', 'Final Argument'],
+    ['Кинжал', 'Dagger'],
+    ['Стилет', 'Stiletto'],
+    ['Кривой нож', 'Kukri'],
+    ['Клинки теней', 'Shadow Blades'],
+    ['Парные кинжалы', 'Twin Daggers'],
+    ['Лезвие ассасина', "Assassin's Edge"],
+    ['Коготь пустоты', 'Void Claw'],
+    ['Последний довод', 'Final Argument'],
   ],
 };
 
@@ -48,8 +68,17 @@ export const WEAPONS: ItemDef[] = (Object.keys(WEAPON_NAMES) as LineageId[]).fla
   WEAPON_NAMES[lineage].map(([ru, en], i): ItemDef => {
     const t = WEAPON_TIERS[i];
     return {
-      id: `w_${lineage}_${i + 1}`, slot: 'weapon', lineage, tier: i + 1, icon: `item_w_${lineage}_${i + 1}`,
-      name: { ru, en }, damage: t.dmg, defense: 0, health: 0, durability: t.dur, price: t.price,
+      id: `w_${lineage}_${i + 1}`,
+      slot: 'weapon',
+      lineage,
+      tier: i + 1,
+      icon: `item_w_${lineage}_${i + 1}`,
+      name: { ru, en },
+      damage: t.dmg,
+      defense: 0,
+      health: 0,
+      durability: t.dur,
+      price: t.price,
     };
   }),
 );

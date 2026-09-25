@@ -1,7 +1,7 @@
-import type { ClassId, LineageId } from '../types';
 import { CLASSES } from '../data/classes';
 import { LINEAGES } from '../data/heroes';
 import { perkOf } from '../data/perks';
+import type { ClassId, LineageId } from '../types';
 import { newLineageSave, TREES } from './skillTree';
 import { buildPlayerStats, type PlayerStats } from './stats';
 
@@ -9,7 +9,18 @@ import { buildPlayerStats, type PlayerStats } from './stats';
  * Краткая сводка «что даёт класс». Строится из реальных данных (характеристики, пассивка линейки,
  * стартовая способность), поэтому при правке баланса текст не расходится с игрой.
  */
-export type TraitId = 'mech' | 'artifact' | 'gold' | 'ability' | 'crit' | 'dodge' | 'parry' | 'armor' | 'dmg' | 'hp' | 'res';
+export type TraitId =
+  | 'mech'
+  | 'artifact'
+  | 'gold'
+  | 'ability'
+  | 'crit'
+  | 'dodge'
+  | 'parry'
+  | 'armor'
+  | 'dmg'
+  | 'hp'
+  | 'res';
 
 export interface Trait {
   id: TraitId;
@@ -29,7 +40,12 @@ export const MAX_TRAITS = 4;
 
 /** Характеристики класса «с нуля»: база линейки и бонусы класса — без талантов и предметов. */
 export const classStartStats = (classId: ClassId): PlayerStats =>
-  buildPlayerStats({ classId, lineage: newLineageSave(TREES[CLASSES[classId].lineage]), weapon: null, armor: null });
+  buildPlayerStats({
+    classId,
+    lineage: newLineageSave(TREES[CLASSES[classId].lineage]),
+    weapon: null,
+    armor: null,
+  });
 
 export const classTraits = (classId: ClassId, max = MAX_TRAITS): Trait[] => {
   const cls = CLASSES[classId];

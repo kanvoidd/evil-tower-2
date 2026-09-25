@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import { COLOR } from '../../theme';
 
 /** Вертикальный список с маской, перетаскиванием, колесом мыши и тонкой полосой прокрутки. */
@@ -18,13 +19,21 @@ export class ScrollList {
   private readonly clipping: Set<ScrollList>;
   moved = 0;
 
-  constructor(scene: Phaser.Scene, readonly rect: Phaser.Geom.Rectangle, contentHeight: number) {
+  constructor(
+    scene: Phaser.Scene,
+    readonly rect: Phaser.Geom.Rectangle,
+    contentHeight: number,
+  ) {
     this.content = scene.add.container(rect.x, rect.y);
     const g = scene.make.graphics({ x: 0, y: 0 }, false);
     g.fillStyle(0xffffff).fillRect(rect.x, rect.y, rect.width, rect.height);
     this.content.setMask(g.createGeometryMask());
-    this.track = scene.add.rectangle(rect.right + 6, rect.y + rect.height / 2, 4, rect.height, 0xffffff, 0.06).setDepth(900);
-    this.thumb = scene.add.rectangle(rect.right + 6, rect.y + 30, 6, 60, COLOR.scrollbar, 0.55).setDepth(901);
+    this.track = scene.add
+      .rectangle(rect.right + 6, rect.y + rect.height / 2, 4, rect.height, 0xffffff, 0.06)
+      .setDepth(900);
+    this.thumb = scene.add
+      .rectangle(rect.right + 6, rect.y + 30, 6, 60, COLOR.scrollbar, 0.55)
+      .setDepth(901);
     scene.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (!this.contains(p)) return;
       this.start = { y: p.y, off: this.offset };
@@ -105,9 +114,13 @@ export class ScrollList {
     this.track.setVisible(show);
     this.thumb.setVisible(show);
     if (show) {
-      const th = Math.max(50, (this.rect.height * this.rect.height) / (this.maxOffset + this.rect.height));
+      const th = Math.max(
+        50,
+        (this.rect.height * this.rect.height) / (this.maxOffset + this.rect.height),
+      );
       this.thumb.setSize(6, th);
-      this.thumb.y = this.rect.y + th / 2 + (this.offset / this.maxOffset) * (this.rect.height - th);
+      this.thumb.y =
+        this.rect.y + th / 2 + (this.offset / this.maxOffset) * (this.rect.height - th);
     }
   }
 

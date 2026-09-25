@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+
 import type { GiftState } from '../../../application/hub/interfaces/GiftState';
 import type { HubHint } from '../../../application/hub/interfaces/HubHint';
 import type { HubRecord } from '../../../application/hub/interfaces/HubRecord';
@@ -6,7 +7,17 @@ import type { IHubView } from '../../../application/hub/interfaces/IHubView';
 import type { DailyStatus } from '../../../domain/logic/profile';
 import { fmtTime, t, type TKey } from '../../../i18n';
 import {
-  addEmbers, background, CurrencyBar, HeroCard, PlateButton, plateTexture, shadowTexture, soundButton, tapHint, toast, txt,
+  addEmbers,
+  background,
+  CurrencyBar,
+  HeroCard,
+  PlateButton,
+  plateTexture,
+  shadowTexture,
+  soundButton,
+  tapHint,
+  toast,
+  txt,
   UiSound,
 } from '../../components';
 import { dollyIn, zoomIn } from '../../navigation/SceneTransitions';
@@ -28,7 +39,10 @@ export class HubView implements IHubView {
   private readonly items: Phaser.GameObjects.GameObject[] = [];
   private readonly hints: Phaser.GameObjects.GameObject[] = [];
 
-  constructor(private readonly scene: Phaser.Scene, d: HubViewDeps) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    d: HubViewDeps,
+  ) {
     const L = HubLayout;
     const state = d.state();
     const fromMenu = d.from && d.from !== 'game' ? d.from : undefined;
@@ -38,14 +52,23 @@ export class HubView implements IHubView {
     if (!fromMenu) dollyIn(scene, 360);
 
     // --- верхняя панель: логотип, достижения, звук, валюта
-    const logo = txt(scene, L.logo.x, L.logo.y, 'EVIL TOWER 2', 30, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 5 });
+    const logo = txt(scene, L.logo.x, L.logo.y, 'EVIL TOWER 2', 30, {
+      font: 'title',
+      origin: [0, 0.5],
+      color: HEX.gold,
+      strokeThickness: 5,
+    });
     // Название растянуто вплоть до иконки достижений (с небольшим зазором).
     const logoMax = L.trophy.x - L.trophy.size / 2 - 16 - L.logo.x;
     let logoSize = Math.min(64, Math.floor((30 * logoMax) / logo.width));
     logo.setFontSize(logoSize).setStroke(HEX.dark, Math.max(5, Math.round(logoSize / 7)));
     while (logo.width > logoMax && logoSize > 24) logo.setFontSize(--logoSize);
     const trophy = new PlateButton(scene, L.trophy.x, L.trophy.y, {
-      w: L.trophy.size, h: L.trophy.size, icon: 'svg_trophy', iconSize: 34, radius: 18,
+      w: L.trophy.size,
+      h: L.trophy.size,
+      icon: 'svg_trophy',
+      iconSize: 34,
+      radius: 18,
       onClick: () => d.commands({ type: 'open', menu: 'achievements' }),
     });
     const sound = soundButton(scene, L.sound.x, L.sound.y, d.audio, L.sound.size);
@@ -64,17 +87,33 @@ export class HubView implements IHubView {
 
     // --- навигация справа
     this.shopBtn = new PlateButton(scene, L.shop.x, L.shop.y, {
-      w: L.shop.w, h: L.shop.h, label: t('hub.shop'), font: 'title', fontSize: 52, sub: t('hub.shop_sub'),
-      pulse: { cycle: TIMING.uiPulseCycle, scale: TIMING.uiPulseScale }, radius: 30,
+      w: L.shop.w,
+      h: L.shop.h,
+      label: t('hub.shop'),
+      font: 'title',
+      fontSize: 52,
+      sub: t('hub.shop_sub'),
+      pulse: { cycle: TIMING.uiPulseCycle, scale: TIMING.uiPulseScale },
+      radius: 30,
       onClick: () => d.commands({ type: 'open', menu: 'shop' }),
     });
     const levels = new PlateButton(scene, L.levels.x, L.levels.y, {
-      w: L.levels.w, h: L.levels.h, label: t('hub.levels'), font: 'title', fontSize: 38,
-      sub: t('hub.next', { r: `${state.record.cleared} / ${state.record.total}` }), radius: 26,
+      w: L.levels.w,
+      h: L.levels.h,
+      label: t('hub.levels'),
+      font: 'title',
+      fontSize: 38,
+      sub: t('hub.next', { r: `${state.record.cleared} / ${state.record.total}` }),
+      radius: 26,
       onClick: () => d.commands({ type: 'open', menu: 'levels' }),
     });
     const settings = new PlateButton(scene, L.settings.x, L.settings.y, {
-      w: L.settings.w, h: L.settings.h, label: t('hub.settings'), font: 'title', fontSize: 38, radius: 26,
+      w: L.settings.w,
+      h: L.settings.h,
+      label: t('hub.settings'),
+      font: 'title',
+      fontSize: 38,
+      radius: 26,
       onClick: () => d.commands({ type: 'open', menu: 'settings' }),
     });
     this.items.push(this.shopBtn, levels, settings);
@@ -83,11 +122,26 @@ export class HubView implements IHubView {
 
     // --- подарки
     this.giftBtn = new PlateButton(scene, L.gift.x, L.gift.y, {
-      w: L.gift.w, h: L.gift.h, label: t('hub.gift'), fontSize: 27, sub: '', icon: 'item_artifact', iconSize: 60, style: 'green', radius: 28,
+      w: L.gift.w,
+      h: L.gift.h,
+      label: t('hub.gift'),
+      fontSize: 27,
+      sub: '',
+      icon: 'item_artifact',
+      iconSize: 60,
+      style: 'green',
+      radius: 28,
       onClick: () => d.commands({ type: 'gift' }),
     });
     this.dailyBtn = new PlateButton(scene, L.daily.x, L.daily.y, {
-      w: L.daily.w, h: L.daily.h, label: t('hub.daily'), fontSize: 27, sub: '', icon: 'svg_gift', iconSize: 44, radius: 28,
+      w: L.daily.w,
+      h: L.daily.h,
+      label: t('hub.daily'),
+      fontSize: 27,
+      sub: '',
+      icon: 'svg_gift',
+      iconSize: 44,
+      radius: 28,
       onClick: () => d.commands({ type: 'daily' }),
     });
     this.items.push(this.giftBtn, this.dailyBtn);
@@ -103,12 +157,31 @@ export class HubView implements IHubView {
 
     // --- комната, прогресс и «Играть»
     this.buildRecord(state.record);
-    const glow = scene.add.image(L.play.x, L.play.y, 'glow').setTint(COLOR.gold).setBlendMode(Phaser.BlendModes.ADD)
-      .setDisplaySize(L.play.w + 120, L.play.h + 150).setAlpha(0);
-    scene.tweens.add({ targets: glow, alpha: { from: 0.1, to: 0.32 }, delay: 500, duration: TIMING.playPulseCycle / 2, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const glow = scene.add
+      .image(L.play.x, L.play.y, 'glow')
+      .setTint(COLOR.gold)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDisplaySize(L.play.w + 120, L.play.h + 150)
+      .setAlpha(0);
+    scene.tweens.add({
+      targets: glow,
+      alpha: { from: 0.1, to: 0.32 },
+      delay: 500,
+      duration: TIMING.playPulseCycle / 2,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
     const play = new PlateButton(scene, L.play.x, L.play.y, {
-      w: L.play.w, h: L.play.h, label: t('hub.play'), font: 'title', fontSize: 62, style: 'gold', radius: 36,
-      pulse: { cycle: TIMING.playPulseCycle, scale: TIMING.playPulseScale }, onClick: () => d.commands({ type: 'play' }),
+      w: L.play.w,
+      h: L.play.h,
+      label: t('hub.play'),
+      font: 'title',
+      fontSize: 62,
+      style: 'gold',
+      radius: 36,
+      pulse: { cycle: TIMING.playPulseCycle, scale: TIMING.playPulseScale },
+      onClick: () => d.commands({ type: 'play' }),
     });
     glow.setDepth(-1);
     this.items.push(play);
@@ -137,12 +210,16 @@ export class HubView implements IHubView {
     this.giftBtn.setSub(gift.ready ? t('common.claim') : fmtTime(gift.remainingMs));
     this.giftBtn.setLocked(!gift.ready);
     this.dailyBtn.setBadge(daily.available);
-    this.dailyBtn.setSub(daily.available ? t('daily.day', { n: daily.dayIndex + 1 }) : t('daily.tomorrow_short'));
+    this.dailyBtn.setSub(
+      daily.available ? t('daily.day', { n: daily.dayIndex + 1 }) : t('daily.tomorrow_short'),
+    );
   }
 
   /** Перед лавкой всё, кроме её кнопки, гаснет: окно лавки вырастает из кнопки на пустом фоне. */
   clearForShop(): void {
-    this.items.filter((o) => o !== this.shopBtn).forEach((o) => this.scene.tweens.add({ targets: o, alpha: 0, duration: 200 }));
+    this.items
+      .filter((o) => o !== this.shopBtn)
+      .forEach((o) => this.scene.tweens.add({ targets: o, alpha: 0, duration: 200 }));
     this.hints.forEach((h) => (h as Phaser.GameObjects.Text).setVisible(false));
   }
 
@@ -152,7 +229,14 @@ export class HubView implements IHubView {
     const y = g.y;
     g.setAlpha(0);
     g.y = y + 18;
-    this.scene.tweens.add({ targets: g, alpha: 1, y, duration: 380, delay: 60 + delay, ease: 'Cubic.easeOut' });
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 1,
+      y,
+      duration: 380,
+      delay: 60 + delay,
+      ease: 'Cubic.easeOut',
+    });
   }
 
   /**
@@ -166,17 +250,47 @@ export class HubView implements IHubView {
     c.add(s.add.image(0, 8, shadowTexture(s, r.w, r.h, 28, 18)).setAlpha(0.85));
     c.add(s.add.image(0, 0, plateTexture(s, r.w, r.h, 1, 'panel', 28)));
     const left = -r.w / 2 + 32;
-    c.add(txt(s, left, -22, t(`floor.${rec.floor}.name` as TKey).toUpperCase(), 19, { origin: [0, 0.5], color: HEX.textMute, weight: 800, strokeThickness: 0 }));
-    c.add(txt(s, left, 8, rec.cleared > 0 ? t('game.record', { n: rec.roomId }) : t('game.room', { r: rec.roomId }), 36, { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 }));
-    c.add(txt(s, r.w / 2 - 32, -6, `${rec.cleared} / ${rec.total}`, 26, { origin: [1, 0.5], color: HEX.textDim, weight: 800, strokeThickness: 0 }));
+    c.add(
+      txt(s, left, -22, t(`floor.${rec.floor}.name` as TKey).toUpperCase(), 19, {
+        origin: [0, 0.5],
+        color: HEX.textMute,
+        weight: 800,
+        strokeThickness: 0,
+      }),
+    );
+    c.add(
+      txt(
+        s,
+        left,
+        8,
+        rec.cleared > 0 ? t('game.record', { n: rec.roomId }) : t('game.room', { r: rec.roomId }),
+        36,
+        { font: 'title', origin: [0, 0.5], color: HEX.gold, strokeThickness: 0 },
+      ),
+    );
+    c.add(
+      txt(s, r.w / 2 - 32, -6, `${rec.cleared} / ${rec.total}`, 26, {
+        origin: [1, 0.5],
+        color: HEX.textDim,
+        weight: 800,
+        strokeThickness: 0,
+      }),
+    );
     // прогресс башни: три этажа
     const bw = r.w - 64;
     const by = 36;
     c.add(s.add.image(0, by, plateTexture(s, bw, 12, 1, 'dark', 6)));
     const fillW = Math.max(12, (bw * rec.cleared) / rec.total);
-    if (rec.cleared > 0) c.add(s.add.image(-bw / 2 + fillW / 2, by, plateTexture(s, fillW, 12, 1, 'gold', 6)));
+    if (rec.cleared > 0)
+      c.add(s.add.image(-bw / 2 + fillW / 2, by, plateTexture(s, fillW, 12, 1, 'gold', 6)));
     for (let f = 1; f < rec.floors; f++) {
-      c.add(s.add.image(-bw / 2 + (bw * f) / rec.floors, by, 'px').setTint(0xffffff).setAlpha(0.28).setDisplaySize(2, 12));
+      c.add(
+        s.add
+          .image(-bw / 2 + (bw * f) / rec.floors, by, 'px')
+          .setTint(0xffffff)
+          .setAlpha(0.28)
+          .setDisplaySize(2, 12),
+      );
     }
     this.items.push(c);
   }
@@ -184,7 +298,10 @@ export class HubView implements IHubView {
   private buildHints(hint: HubHint | null): void {
     const L = HubLayout;
     if (hint === 'skill') {
-      this.hints.push(txt(this.scene, GAME_W / 2, 118, t('tut.hub_skill'), 24, { color: HEX.gold, wrap: 640 }), tapHint(this.scene, L.hero.x, L.hero.y + 30));
+      this.hints.push(
+        txt(this.scene, GAME_W / 2, 118, t('tut.hub_skill'), 24, { color: HEX.gold, wrap: 640 }),
+        tapHint(this.scene, L.hero.x, L.hero.y + 30),
+      );
     } else if (hint === 'play') {
       // после первого улучшения — только «палец» у «Играть», без лозунга
       this.hints.push(tapHint(this.scene, L.play.x + 200, L.play.y));

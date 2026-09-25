@@ -1,6 +1,6 @@
-import type { ClassId, LineageId, Stats } from '../../../types';
 import { CLASS_DEFINITIONS, type ClassDefinition } from '../../../data/classes';
 import type { PerkDef } from '../../../data/perks';
+import type { ClassId, LineageId, Stats } from '../../../types';
 import type { IAttackStrategy } from '../attack/interfaces/IAttackStrategy';
 
 /**

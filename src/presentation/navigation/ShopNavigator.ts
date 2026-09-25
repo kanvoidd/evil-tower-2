@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+
 import type { IShopNavigator } from '../../application/shop/interfaces/IShopNavigator';
 import { MenuExit } from './MenuExit';
 
