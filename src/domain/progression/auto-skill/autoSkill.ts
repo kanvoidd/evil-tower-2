@@ -1,4 +1,5 @@
-import type { AutoSkillSave, LineageSave, TalentPath } from '../../types';
+import type { TalentPath } from '../../catalog';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
   canInvest,
@@ -7,6 +8,7 @@ import {
   type Tree,
   type TreeNode,
 } from '../skill-tree/skillTree';
+import type { AutoSkillSave } from './interfaces/AutoSkillSave';
 
 export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, path: 'attack' };
 

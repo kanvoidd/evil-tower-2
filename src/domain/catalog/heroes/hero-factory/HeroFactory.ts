@@ -1,11 +1,14 @@
-import type { ClassId, LineageId, Stats, TalentPath } from '../../../types';
 import type { ClassDef } from '../../classes/interfaces/ClassDef';
 import type { ClassDefinition } from '../../classes/interfaces/ClassDefinition';
+import type { ClassId } from '../../classes/interfaces/ClassId';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { PerkSlot } from '../../perks/interfaces/PerkSlot';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
 import type { TalentFx } from '../../talents/interfaces/TalentFx';
+import type { TalentPath } from '../../talents/interfaces/TalentPath';
 import type { LineageDef } from '../interfaces/LineageDef';
+import type { LineageId } from '../interfaces/LineageId';
+import type { Stats } from '../interfaces/Stats';
 import type { PerkSpec } from './interfaces/PerkSpec';
 import type { TalentSeed } from './interfaces/TalentSeed';
 import type { TalentTier } from './interfaces/TalentTier';

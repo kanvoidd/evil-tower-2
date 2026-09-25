@@ -1,4 +1,4 @@
-import type { ClassId } from '../../types';
+import type { ClassId } from '../classes/interfaces/ClassId';
 import { HERO_FACTORIES } from '../heroes/heroRegistry';
 import type { PerkDef } from './interfaces/PerkDef';
 import type { PerkSlot } from './interfaces/PerkSlot';

@@ -1,5 +1,5 @@
 import type { Profile } from '../../domain/account';
-import type { ClassId } from '../../domain/types';
+import type { ClassId } from '../../domain/catalog';
 
 /**
  * Отказ от финального класса: его ветка сбрасывается, часть потраченных душ возвращается,

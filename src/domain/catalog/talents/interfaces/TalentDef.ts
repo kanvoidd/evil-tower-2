@@ -1,5 +1,6 @@
-import type { ClassId, TalentPath } from '../../../types';
+import type { ClassId } from '../../classes/interfaces/ClassId';
 import type { TalentFx } from './TalentFx';
+import type { TalentPath } from './TalentPath';
 
 export interface TalentDef {
   /** `warrior/a1-2` — класс, путь (a/v/g), ярус и место в цепочке. */

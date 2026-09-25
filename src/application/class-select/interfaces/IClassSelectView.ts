@@ -1,4 +1,4 @@
-import type { ClassId } from '../../../domain/types';
+import type { ClassId } from '../../../domain/catalog';
 
 /** Выбор героя на экране — отклик на решения игрока. */
 export interface IClassSelectView {

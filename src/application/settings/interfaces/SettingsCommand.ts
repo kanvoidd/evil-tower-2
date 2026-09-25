@@ -1,4 +1,4 @@
-import type { Lang } from '../../../domain/types';
+import type { Lang } from '../../../domain/shared';
 
 /** Что игрок сделал в настройках. */
 export type SettingsCommand =

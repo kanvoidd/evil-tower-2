@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 import type { IClassSelectView } from '../../../application/class-select/interfaces/IClassSelectView';
+import type { ClassId, LineageId } from '../../../domain/catalog';
 import type { Trait, TraitId } from '../../../domain/progression';
-import type { ClassId, LineageId } from '../../../domain/types';
 import { describeTrait, t, type TKey } from '../../../i18n';
 import {
   addEmbers,

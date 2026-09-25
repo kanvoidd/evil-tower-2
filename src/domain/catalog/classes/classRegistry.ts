@@ -1,7 +1,8 @@
-import type { ClassId, LineageId } from '../../types';
 import { HERO_FACTORIES } from '../heroes/heroRegistry';
+import type { LineageId } from '../heroes/interfaces/LineageId';
 import type { ClassDef } from './interfaces/ClassDef';
 import type { ClassDefinition } from './interfaces/ClassDefinition';
+import type { ClassId } from './interfaces/ClassId';
 
 const CLASS_LIST: ClassDef[] = HERO_FACTORIES.flatMap((f) => f.createClasses());
 

@@ -46,7 +46,6 @@ src/
     economy/           починка вещей
     rewards/           награда дня, «Дар башни», достижения
     account/           профиль игрока (profile/Profile)
-    types.ts           общие типы: id, формат сохранения
     gameplay.ts        числа правил (GAMEPLAY)
   application/         потоки экранов и операции: бой (game/), хаб (hub/), лавка (shop/), дерево навыков (skill-tree/), выбор героя (class-select/), настройки (settings/), награды (rewards/), реклама (ads/); ports/ — что приложению нужно от платформы
   presentation/        Phaser: сцены-координаторы (scenes/), виды экранов (views/), поле и HUD боя (board/, hud/), анимации (animations/), общие компоненты (components/), окна (dialogs/), переходы (navigation/), порты на Phaser (phaser/), текстуры (textures/), тема (theme/)

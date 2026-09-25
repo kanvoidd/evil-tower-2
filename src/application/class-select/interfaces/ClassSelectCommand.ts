@@ -1,4 +1,4 @@
-import type { ClassId } from '../../../domain/types';
+import type { ClassId } from '../../../domain/catalog';
 
 /** Что игрок сделал в выборе героя. Листание карусели — дело экрана. */
 export type ClassSelectCommand =

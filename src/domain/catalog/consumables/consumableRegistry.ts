@@ -1,5 +1,5 @@
-import type { ConsumableId } from '../../types';
 import type { ConsumableDef } from './interfaces/ConsumableDef';
+import type { ConsumableId } from './interfaces/ConsumableId';
 
 export const CONSUMABLES: Record<ConsumableId, ConsumableDef> = {
   potion_heal: { id: 'potion_heal', icon: 'item_potion_heal', price: 55, sold: true, max: 5 },

@@ -1,5 +1,4 @@
-import type { ItemDef } from '../../../domain/catalog';
-import type { ConsumableId } from '../../../domain/types';
+import type { ConsumableId, ItemDef } from '../../../domain/catalog';
 
 /** Что игрок сделал в лавке. */
 export type ShopCommand =

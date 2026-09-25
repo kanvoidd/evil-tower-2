@@ -1,7 +1,6 @@
 import type Phaser from 'phaser';
 
-import { CONSUMABLES } from '../../../domain/catalog';
-import type { ConsumableId } from '../../../domain/types';
+import { type ConsumableId, CONSUMABLES } from '../../../domain/catalog';
 import { icon, outlineTexture, plateTexture } from '../../components';
 import type { Point } from '../interfaces/Point';
 

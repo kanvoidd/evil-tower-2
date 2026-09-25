@@ -1,11 +1,19 @@
 import type { Profile } from '../../domain/account';
-import { LINEAGES, PERK_BY_ID, type PerkDef, type TalentDef } from '../../domain/catalog';
+import {
+  type ClassId,
+  LINEAGES,
+  PERK_BY_ID,
+  type PerkDef,
+  type ResourceKind,
+  type TalentDef,
+} from '../../domain/catalog';
 import {
   type BuyResult,
   canBuy,
   canCancelMetamorphosis,
   costOf,
   isMaxed,
+  type LineageSave,
   maxRankOf,
   type NodeState,
   nodeState,
@@ -17,7 +25,6 @@ import {
   type TreeNode,
   TREES,
 } from '../../domain/progression';
-import type { ClassId, LineageSave, ResourceKind } from '../../domain/types';
 
 /**
  * Дерево навыков активного героя для показа: состояние и ранг каждого узла, цена, можно ли купить

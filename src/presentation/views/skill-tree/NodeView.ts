@@ -1,8 +1,7 @@
 import Phaser from 'phaser';
 
-import { SYNERGY_FX, TALENT_BY_ID } from '../../../domain/catalog';
+import { SYNERGY_FX, TALENT_BY_ID, type TalentPath } from '../../../domain/catalog';
 import type { NodeState, TreeNode } from '../../../domain/progression';
-import type { TalentPath } from '../../../domain/types';
 import { icon, plateTexture, txt } from '../../components';
 import { pathHex } from '../../textures/Textures';
 import { HEX } from '../../theme';

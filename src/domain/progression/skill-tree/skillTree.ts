@@ -1,7 +1,9 @@
 import {
   CLASSES,
   classesOfLineage,
+  type ClassId,
   LINEAGE_ORDER,
+  type LineageId,
   maxRank,
   PATH_ORDER,
   PERK_BY_ID,
@@ -14,14 +16,15 @@ import {
   talentChain,
   type TalentDef,
   type TalentFx,
+  type TalentPath,
   talentsOfClass,
   talentValue,
   talentValue2,
   terminalsOf,
 } from '../../catalog';
 import { GAMEPLAY } from '../../gameplay';
-import type { ClassId, LineageId, LineageSave, TalentPath } from '../../types';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';
+import type { LineageSave } from './interfaces/LineageSave';
 
 export type NodeKind = 'class' | 'perk' | 'talent' | 'evo';
 

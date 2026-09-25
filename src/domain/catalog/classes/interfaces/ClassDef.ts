@@ -1,4 +1,6 @@
-import type { ClassId, LineageId, Stats } from '../../../types';
+import type { LineageId } from '../../heroes/interfaces/LineageId';
+import type { Stats } from '../../heroes/interfaces/Stats';
+import type { ClassId } from './ClassId';
 
 export interface ClassDef {
   id: ClassId;

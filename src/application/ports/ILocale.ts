@@ -1,4 +1,4 @@
-import type { Lang } from '../../domain/types';
+import type { Lang } from '../../domain/shared';
 
 /** Язык интерфейса: словарь текстов и язык страницы. Реализация — в presentation. */
 export interface ILocale {

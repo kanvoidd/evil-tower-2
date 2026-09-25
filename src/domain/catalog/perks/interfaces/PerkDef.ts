@@ -1,4 +1,4 @@
-import type { ClassId } from '../../../types';
+import type { ClassId } from '../../classes/interfaces/ClassId';
 import type { AbilityId } from './AbilityId';
 import type { PerkSlot } from './PerkSlot';
 import type { PerkTarget } from './PerkTarget';

@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import type { ISkillTreeDialogs } from '../../application/skill-tree/interfaces/ISkillTreeDialogs';
-import type { ClassId } from '../../domain/types';
+import type { ClassId } from '../../domain/catalog';
 import { t, type TKey } from '../../i18n';
 import { Dialog, icon, plateTexture, txt } from '../components';
 import { HEX } from '../theme';

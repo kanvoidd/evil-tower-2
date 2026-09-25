@@ -1,5 +1,6 @@
+import type { ClassId, EquipmentSave, LineageId } from '../../catalog';
 import type { PlayerStats } from '../../combat';
-import type { ClassId, EquipmentSave, LineageId, LineageSave } from '../../types';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import {
   applyBuy,
   applyCancelMetamorphosis,

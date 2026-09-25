@@ -1,4 +1,5 @@
-import type { ItemSlot, LineageId } from '../../../types';
+import type { LineageId } from '../../heroes/interfaces/LineageId';
+import type { ItemSlot } from './ItemSlot';
 
 export interface ItemDef {
   id: string;

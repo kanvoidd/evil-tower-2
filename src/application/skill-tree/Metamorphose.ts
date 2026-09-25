@@ -1,6 +1,6 @@
 import type { Profile } from '../../domain/account';
+import type { ClassId } from '../../domain/catalog';
 import type { BuyResult } from '../../domain/progression';
-import type { ClassId } from '../../domain/types';
 
 /**
  * Метаморфоза за души: тот же герой становится следующим классом своей линейки. Способности

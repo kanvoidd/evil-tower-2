@@ -1,6 +1,6 @@
-import type { EnemyTag } from '../../../types';
 import type { EnemyDef } from '../../enemies/interfaces/EnemyDef';
 import type { EnemyRole } from '../../enemies/interfaces/EnemyRole';
+import type { EnemyTag } from '../../enemies/interfaces/EnemyTag';
 import type { EnemyTraits } from '../../enemies/interfaces/EnemyTraits';
 import type { RoomDef } from '../../levels/interfaces/RoomDef';
 import type { FloorTune } from './interfaces/FloorTune';

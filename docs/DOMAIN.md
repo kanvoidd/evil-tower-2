@@ -22,12 +22,12 @@
 | Забег | `expedition/` | правила забега между комнатами: оплата комнаты, рекорд, перенос героя. Сейчас — в `application/game/TowerRun`, в домен переедут на этапе E1 | забег, сумка, рекорд |
 | Аккаунт | `account/` | профиль игрока `Profile` — корень агрегата: держит кошельки, героев, награды и настройки и сохраняет их одним документом | профиль, сохранение, настройки, обучение |
 
-Два файла в корне домена — переходные и общие для всех областей, пока их не разберут:
-
-- `types.ts` — id, формат сохранения, виды карт и статусов; этап C1 разнесёт типы по владельцам;
-- `gameplay.ts` — числа правил `GAMEPLAY`; этап C3 заменит его балансом областей.
-
-Сами они ничего не импортируют.
+Типы живут у владельцев: id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath` …)
+— в каталоге рядом с определениями, формат сохранения (`SaveData`, `HeroSave`) — в `account/save/`,
+купленное в дереве (`LineageSave`) — в прогрессе, настройки автоприменения — в бою, язык — в
+`shared/`. Один файл в корне домена — переходный и общий для всех областей, пока его не разберут:
+`gameplay.ts` — числа правил `GAMEPLAY`; этап C3 заменит его балансом областей. Сам он ничего
+не импортирует.
 
 ## Карта зависимостей
 
@@ -45,7 +45,7 @@
 | `expedition` | `progression`, `combat`, `economy`, `catalog`, `shared` |
 | `account` | `progression`, `combat`, `economy`, `rewards`, `catalog`, `shared` |
 
-Каждая область может брать переходные `types.ts` и `gameplay.ts`.
+Каждая область может брать переходный `gameplay.ts`.
 
 Почему стрелки идут так:
 
@@ -82,13 +82,13 @@
 
 | Область | Что даёт |
 |---|---|
-| `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal` |
-| `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
+| `shared` | `Rng`, `makeRng`, `randomSeed`, `Signal`, язык `Lang` |
+| `catalog` | реестры и фабрики содержимого (`LINEAGES`, `HERO_FACTORIES`, `CLASSES`, `CLASS_DEFINITIONS`, `PERKS`, `TALENTS`, `FLOORS`, `FLOOR_FACTORIES`, `ENEMIES`, `ROOMS`, `MODIFIERS`, `ITEMS`, `WEAPONS`, `ARMORS`, `CONSUMABLES`) и их поиск (`perkOf`, `rollRoom`, `ITEM_BY_ID` …), id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath`, `CardKind` …), надетая вещь `EquipmentSave`, типы определений (`LineageDef`, `ClassDefinition`, `PerkDef`, `AbilityId`, `TalentDef`, `EnemyDef`, `RoomDef`, `ItemDef` …) |
 | `combat` | бой в комнате (`RoomBattle`, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
 | `progression` | `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах, автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
 | `economy` | цена починки (`REPAIR_RATIO`) |
-| `rewards` | награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) |
-| `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`) |
+| `rewards` | награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
+| `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`) |
 
 ## Глоссарий: слово игры → имя в коде
 
@@ -110,7 +110,8 @@
 | бой в комнате | `RoomBattle`; команды — `IBattleSession`, чтение — `IBattleState` | бой |
 | ход | `TurnResult`, `Action` | бой |
 | поле 3×3, клетка | `Engine`, `Grid`, индекс клетки 0–8 | бой |
-| карта на поле | `Card`, `CardKind` | бой |
+| карта на поле | `Card` | бой |
+| вид карты (враг, золото, сундук …) | `CardKind` | каталог |
 | колода комнаты | `RoomCardFactory`, `IDeckSupply`, `DeckPlan` | бой |
 | статус на враге (оглушение, горение, яд …) | `StatusKind`, `CardStatus` | бой |
 | событие боя | `GameEvent` | бой |
@@ -148,4 +149,4 @@
 | `account/profile/Profile` | награда дня, «Дар башни», достижения; день по `new Date` | `rewards/` и календарь, этапы G1–G2 |
 | `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |
 | `shared/rng` | `randomSeed()` через `Math.random` | порт источника зерна, этап E5 |
-| `types.ts`, `gameplay.ts` | общие типы и числа правил | владельцам, этапы C1 и C3 |
+| `gameplay.ts` | числа правил `GAMEPLAY` | балансу областей, этап C3 |

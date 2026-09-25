@@ -4,6 +4,7 @@
  * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
  * RUNS=<n> — сколько забегов максимум.
  */
+import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/catalog';
 import { CLASSES } from '../src/domain/catalog/classes';
 import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
 import { ROOMS } from '../src/domain/catalog/levels';
@@ -24,7 +25,6 @@ import {
 } from '../src/domain/progression/skill-tree/skillTree';
 import { buildPlayerStats } from '../src/domain/progression/stats/stats';
 import { makeRng } from '../src/domain/shared/rng/rng';
-import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/types';
 
 const lineage = (process.argv[2] ?? 'warrior') as LineageId;
 const N = Number(process.argv[3] ?? 20);

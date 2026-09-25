@@ -1,4 +1,4 @@
-import type { CardKind } from '../../types';
+import type { CardKind } from './interfaces/CardKind';
 
 export const CARD_KINDS: CardKind[] = [
   'enemy',

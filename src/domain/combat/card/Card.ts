@@ -1,4 +1,4 @@
-import type { CardKind } from '../../types';
+import type { CardKind } from '../../catalog';
 import type { CardInit } from './interfaces/CardInit';
 import type { CardStatus } from './interfaces/CardStatus';
 

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import type { ISettingsView } from '../../../application/settings/interfaces/ISettingsView';
-import type { Lang } from '../../../domain/types';
+import type { Lang } from '../../../domain/shared';
 import { t, type TKey } from '../../../i18n';
 import {
   background,

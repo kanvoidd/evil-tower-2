@@ -1,4 +1,4 @@
-import type { CardKind } from '../../../types';
+import type { CardKind } from '../../../catalog';
 
 /** Из чего собирается карта. Всё, что не указано, начинается с нуля. */
 export interface CardInit {

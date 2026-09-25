@@ -1,5 +1,8 @@
-import type { AttackStyleId, LineageId, ResourceKind, Stats } from '../../../types';
+import type { AttackStyleId } from './AttackStyleId';
 import type { CheatDeathPrice } from './CheatDeathPrice';
+import type { LineageId } from './LineageId';
+import type { ResourceKind } from './ResourceKind';
+import type { Stats } from './Stats';
 
 export interface LineageDef {
   id: LineageId;

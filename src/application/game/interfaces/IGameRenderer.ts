@@ -1,5 +1,4 @@
-import type { PerkDef } from '../../../domain/catalog';
-import type { ConsumableId } from '../../../domain/types';
+import type { ConsumableId, PerkDef } from '../../../domain/catalog';
 import type { CellRejection } from './CellRejection';
 import type { TutorialStep } from './TutorialStep';
 

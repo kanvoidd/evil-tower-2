@@ -1,5 +1,12 @@
-import type { LineageDef, PerkDef, RoomDef, RoomModifier } from '../../../catalog';
-import type { ConsumableId, EquipmentSave, LineageId } from '../../../types';
+import type {
+  ConsumableId,
+  EquipmentSave,
+  LineageDef,
+  LineageId,
+  PerkDef,
+  RoomDef,
+  RoomModifier,
+} from '../../../catalog';
 import type { Card } from '../../card/Card';
 import type { PlayerStats } from '../../player';
 import type { Action } from './Action';

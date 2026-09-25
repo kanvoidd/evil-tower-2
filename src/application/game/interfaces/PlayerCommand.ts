@@ -1,4 +1,4 @@
-import type { ConsumableId } from '../../../domain/types';
+import type { ConsumableId } from '../../../domain/catalog';
 
 /**
  * Что сделал игрок — намерение, а не результат. Касание клетки может оказаться ударом, выстрелом,

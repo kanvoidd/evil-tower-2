@@ -1,4 +1,5 @@
 export { CARD_KINDS } from './cardKinds';
+export type { CardKind } from './interfaces/CardKind';
 export type { RoomDef } from './interfaces/RoomDef';
 export type { RoomPlan } from './interfaces/RoomPlan';
 export { rollRoom } from './rollRoom';

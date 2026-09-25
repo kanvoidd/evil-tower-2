@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 
 import type { ISkillTreeView } from '../../../application/skill-tree/interfaces/ISkillTreeView';
+import type { ClassId } from '../../../domain/catalog';
 import type { AutoSkillPlan, NodeState, Tree, TreeNode } from '../../../domain/progression';
-import type { ClassId } from '../../../domain/types';
 import { t } from '../../../i18n';
 import {
   background,

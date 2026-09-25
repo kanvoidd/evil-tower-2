@@ -1,8 +1,7 @@
 import type { Profile } from '../../domain/account';
-import { CLASSES, LINEAGE_ORDER, ROOMS } from '../../domain/catalog';
+import { CLASSES, type ClassId, LINEAGE_ORDER, type LineageId, ROOMS } from '../../domain/catalog';
 import { GAMEPLAY } from '../../domain/gameplay';
 import { classStartStats, classTraits } from '../../domain/progression';
-import type { ClassId, LineageId } from '../../domain/types';
 import type { ClassSelectMode } from './interfaces/ClassSelectMode';
 import type { HeroChoice } from './interfaces/HeroChoice';
 

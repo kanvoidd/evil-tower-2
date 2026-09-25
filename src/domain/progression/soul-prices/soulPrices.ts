@@ -1,5 +1,4 @@
-import { CLASSES, type PerkSlot } from '../../catalog';
-import type { ClassId } from '../../types';
+import { CLASSES, type ClassId, type PerkSlot } from '../../catalog';
 
 /**
  * Экономика опыта душ. Узлов стало мало (девять талантов на класс вместо сотни шариков),

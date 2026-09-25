@@ -1,6 +1,6 @@
-import type { AbilityId } from '../../../catalog';
-import type { ConsumableId, StatusKind } from '../../../types';
+import type { AbilityId, ConsumableId } from '../../../catalog';
 import type { Card } from '../../card/Card';
+import type { StatusKind } from '../../card/interfaces/StatusKind';
 import type { FxStyle } from './FxStyle';
 import type { Loot } from './Loot';
 

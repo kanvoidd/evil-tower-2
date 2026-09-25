@@ -1,6 +1,8 @@
 import {
+  type ConsumableId,
   ELITE,
   type EnemyDef,
+  type EquipmentSave,
   FULL_BAR,
   isHolyTarget,
   ITEM_BY_ID,
@@ -13,7 +15,6 @@ import {
 } from '../../catalog';
 import { GAMEPLAY } from '../../gameplay';
 import type { Rng } from '../../shared';
-import type { ConsumableId, EquipmentSave } from '../../types';
 import type { Card } from '../card/Card';
 import type { CardFactory } from '../card/card-factory/CardFactory';
 import { Grid } from '../engine/grid/Grid';

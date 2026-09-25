@@ -1,5 +1,5 @@
+import type { ClassId, EquipmentSave } from '../../../../domain/catalog';
 import type { PlayerStats } from '../../../../domain/combat';
-import type { ClassId, EquipmentSave } from '../../../../domain/types';
 
 /** Что показывает карточка героя: класс, характеристики и надетое снаряжение. */
 export interface IHeroCardSource {

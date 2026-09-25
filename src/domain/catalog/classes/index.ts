@@ -10,3 +10,4 @@ export {
 } from './classRegistry';
 export type { ClassDef } from './interfaces/ClassDef';
 export type { ClassDefinition } from './interfaces/ClassDefinition';
+export type { ClassId } from './interfaces/ClassId';

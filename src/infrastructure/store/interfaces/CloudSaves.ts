@@ -1,4 +1,4 @@
-import type { Lang } from '../../../domain/types';
+import type { Lang } from '../../../domain/shared';
 
 /** Облачные сохранения платформы и язык игрока для нового профиля. */
 export interface CloudSaves {

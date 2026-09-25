@@ -1,5 +1,5 @@
 import type { PlayerCommand } from '../../../application/game/interfaces/PlayerCommand';
-import type { ConsumableId } from '../../../domain/types';
+import type { ConsumableId } from '../../../domain/catalog';
 
 /**
  * Что HUD может попросить. Кнопки панели не трогают бой — они отдают команду игрока,

@@ -1,7 +1,15 @@
-import { CLASSES, hasButton, ITEM_BY_ID, LINEAGES, PERK_BY_ID } from '../../catalog';
+import {
+  CLASSES,
+  type ClassId,
+  type EquipmentSave,
+  hasButton,
+  ITEM_BY_ID,
+  LINEAGES,
+  PERK_BY_ID,
+} from '../../catalog';
 import { ATTACK_STRATEGIES, type PlayerStats } from '../../combat';
 import { GAMEPLAY } from '../../gameplay';
-import type { ClassId, EquipmentSave, LineageSave } from '../../types';
+import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import { activePerkIds, talentBonuses, talentBonuses2, TREES } from '../skill-tree/skillTree';
 
 export interface Loadout {

@@ -1,9 +1,13 @@
 import Phaser from 'phaser';
 
 import type { ISoundPlayer } from '../../application/ports';
-import { CONSUMABLE_SLOTS, CONSUMABLES } from '../../domain/catalog';
+import {
+  CONSUMABLE_SLOTS,
+  type ConsumableId,
+  CONSUMABLES,
+  type LineageId,
+} from '../../domain/catalog';
 import { type IBattleState, needsHeal, needsRegen, worthArtifact } from '../../domain/combat';
-import type { ConsumableId, LineageId } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';

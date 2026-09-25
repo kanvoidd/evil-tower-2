@@ -1,8 +1,8 @@
 import type Phaser from 'phaser';
 
 import type { ISoundPlayer } from '../../application/ports';
+import type { ConsumableId } from '../../domain/catalog';
 import type { IBattleState } from '../../domain/combat';
-import type { ConsumableId } from '../../domain/types';
 import type { Animations } from '../animations/Animations';
 import type { Point } from '../animations/interfaces/Point';
 import { type IMuteSwitch, PlateButton, soundButton } from '../components';

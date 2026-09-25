@@ -1,4 +1,4 @@
-import type { LineageId } from '../../types';
+import type { LineageId } from '../heroes/interfaces/LineageId';
 import type { ItemDef } from '../items/interfaces/ItemDef';
 import type { ItemTier } from '../items/interfaces/ItemTier';
 

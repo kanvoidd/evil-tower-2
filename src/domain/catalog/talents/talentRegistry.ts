@@ -1,6 +1,7 @@
-import type { ClassId, TalentPath } from '../../types';
+import type { ClassId } from '../classes/interfaces/ClassId';
 import { HERO_FACTORIES } from '../heroes/heroRegistry';
 import type { TalentDef } from './interfaces/TalentDef';
+import type { TalentPath } from './interfaces/TalentPath';
 
 /**
  * Таланты выпускают фабрики героев (src/domain/catalog/heroes) — здесь только реестр.

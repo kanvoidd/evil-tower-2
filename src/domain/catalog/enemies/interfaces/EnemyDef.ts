@@ -1,5 +1,5 @@
-import type { EnemyTag } from '../../../types';
 import type { EnemyRole } from './EnemyRole';
+import type { EnemyTag } from './EnemyTag';
 import type { EnemyTraits } from './EnemyTraits';
 
 export interface EnemyDef extends EnemyTraits {

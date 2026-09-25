@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
+import type { ResourceKind } from '../../domain/catalog';
 import { GAMEPLAY } from '../../domain/gameplay';
-import type { ResourceKind } from '../../domain/types';
 import { t, type TKey } from '../../i18n';
 import { plateTexture, shadowTexture, txt } from '../components';
 import { GAME_W, HEX } from '../theme';

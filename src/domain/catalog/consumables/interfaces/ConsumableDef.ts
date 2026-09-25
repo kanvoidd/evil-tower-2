@@ -1,4 +1,5 @@
-import type { ConsumableId, LineageId } from '../../../types';
+import type { LineageId } from '../../heroes/interfaces/LineageId';
+import type { ConsumableId } from './ConsumableId';
 
 export interface ConsumableDef {
   id: ConsumableId;

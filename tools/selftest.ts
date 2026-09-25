@@ -29,6 +29,7 @@ import { Metamorphose } from '../src/application/skill-tree/Metamorphose';
 import { SkillTreeController } from '../src/application/skill-tree/SkillTreeController';
 import { SkillTreeQuery } from '../src/application/skill-tree/SkillTreeQuery';
 import { Profile } from '../src/domain/account/profile';
+import type { ClassId, LineageId, TalentPath } from '../src/domain/catalog';
 import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/catalog/classes';
 import { CONSUMABLES } from '../src/domain/catalog/consumables';
 import { ENEMY_LIST } from '../src/domain/catalog/enemies';
@@ -68,6 +69,7 @@ import {
   RoomBattleFactory,
 } from '../src/domain/combat/room-battle';
 import { GAMEPLAY } from '../src/domain/gameplay';
+import type { AutoSkillSave } from '../src/domain/progression';
 import {
   branchOf,
   inferBranch,
@@ -98,8 +100,8 @@ import { buildPlayerStats, CAPS } from '../src/domain/progression/stats/stats';
 import { classTraits, type TraitId } from '../src/domain/progression/traits/traits';
 import { DAILY_REWARDS } from '../src/domain/rewards/daily';
 import { GIFT_REWARD } from '../src/domain/rewards/tower-gift';
+import type { Lang } from '../src/domain/shared';
 import { makeRng } from '../src/domain/shared/rng/rng';
-import type { AutoSkillSave, ClassId, Lang, LineageId, TalentPath } from '../src/domain/types';
 import { en } from '../src/i18n/en';
 import { ru } from '../src/i18n/ru';
 

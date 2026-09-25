@@ -6,7 +6,7 @@ import {
   talentValue2,
 } from '../domain/catalog';
 import type { Trait } from '../domain/progression';
-import type { Lang } from '../domain/types';
+import type { Lang } from '../domain/shared';
 import { en } from './en';
 import { ru, type TKey } from './ru';
 

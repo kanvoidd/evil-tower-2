@@ -5,8 +5,8 @@ import {
   ITEM_BY_ID,
   type ItemDef,
   ITEMS,
+  type LineageId,
 } from '../../domain/catalog';
-import type { LineageId } from '../../domain/types';
 import type { ConsumableOffer } from './interfaces/ConsumableOffer';
 import type { ItemOffer } from './interfaces/ItemOffer';
 

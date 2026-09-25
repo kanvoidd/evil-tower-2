@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { CardKind } from '../../../../domain/types';
+import type { CardKind } from '../../../../domain/catalog';
 import type { Pill } from '../../../components';
 
 /** Карточка на поле: контейнер и детали, которые сцена меняет по ходу боя. */

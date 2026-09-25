@@ -1,5 +1,5 @@
 import type { Profile } from '../../domain/account';
-import type { Lang } from '../../domain/types';
+import type { Lang } from '../../domain/shared';
 import type { ILocale } from '../ports';
 
 /** Язык игры: выбор игрока сохраняется в профиле и сразу переключает интерфейс. */

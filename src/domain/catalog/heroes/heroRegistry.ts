@@ -1,7 +1,7 @@
-import type { LineageId } from '../../types';
 import { ArcherFactory } from './archer-factory/ArcherFactory';
 import type { HeroFactory } from './hero-factory/HeroFactory';
 import type { LineageDef } from './interfaces/LineageDef';
+import type { LineageId } from './interfaces/LineageId';
 import { MageFactory } from './mage-factory/MageFactory';
 import { MercenaryFactory } from './mercenary-factory/MercenaryFactory';
 import { WarriorFactory } from './warrior-factory/WarriorFactory';

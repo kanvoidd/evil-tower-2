@@ -1,7 +1,8 @@
-import type { ClassId, Stats } from '../../../types';
 import type { LineageDef } from '../../heroes/interfaces/LineageDef';
+import type { Stats } from '../../heroes/interfaces/Stats';
 import type { PerkDef } from '../../perks/interfaces/PerkDef';
 import type { TalentDef } from '../../talents/interfaces/TalentDef';
+import type { ClassId } from './ClassId';
 
 /**
  * Определение класса — что класс даёт любому герою, который им станет. Это данные, а не герой:

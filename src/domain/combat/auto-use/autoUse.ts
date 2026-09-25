@@ -1,8 +1,8 @@
-import { FULL_BAR } from '../../catalog';
-import type { AutoUseSave, ConsumableId } from '../../types';
+import { type ConsumableId, FULL_BAR } from '../../catalog';
 import { Grid } from '../engine/grid/Grid';
 import type { PlayerStats } from '../player';
 import type { IBattleState } from '../room-battle';
+import type { AutoUseSave } from './interfaces/AutoUseSave';
 
 /** По умолчанию всё выключено: игрок включает автоприменение сам, рядом с нужным расходником. */
 export const DEFAULT_AUTO_USE: AutoUseSave = { heal: false, regen: false, artifact: false };

@@ -1,4 +1,4 @@
-import type { AttackStyleId } from '../../types';
+import type { AttackStyleId } from '../../catalog';
 import { BackstabAttack } from './backstab-attack/BackstabAttack';
 import { HandAttack } from './hand-attack/HandAttack';
 import type { IAttackStrategy } from './interfaces/IAttackStrategy';

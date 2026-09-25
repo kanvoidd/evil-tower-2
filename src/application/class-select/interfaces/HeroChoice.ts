@@ -1,5 +1,5 @@
+import type { ClassId, LineageId } from '../../../domain/catalog';
 import type { Trait } from '../../../domain/progression';
-import type { ClassId, LineageId } from '../../../domain/types';
 
 /** Герой в карусели выбора. */
 export interface HeroChoice {

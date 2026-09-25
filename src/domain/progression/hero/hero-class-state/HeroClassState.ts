@@ -1,6 +1,12 @@
-import { CLASS_DEFINITIONS, type ClassDefinition, type PerkDef } from '../../../catalog';
+import {
+  CLASS_DEFINITIONS,
+  type ClassDefinition,
+  type ClassId,
+  type LineageId,
+  type PerkDef,
+  type Stats,
+} from '../../../catalog';
 import { ATTACK_STRATEGIES, type IAttackStrategy } from '../../../combat';
-import type { ClassId, LineageId, Stats } from '../../../types';
 
 /**
  * Состояние героя «играет за класс» (паттерн State). Всё, что зависит от текущего класса, герой

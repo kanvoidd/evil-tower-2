@@ -1,15 +1,16 @@
-import type { SaveData } from '../../types';
 import type { AchievementDef } from './interfaces/AchievementDef';
+import type { AchievementFacts } from './interfaces/AchievementFacts';
+import type { PlayerCounters } from './interfaces/PlayerCounters';
 
 const count =
-  (key: keyof SaveData['stats']) =>
-  (s: SaveData): number =>
+  (key: keyof PlayerCounters) =>
+  (s: AchievementFacts): number =>
     s.stats[key];
 // Достижения общие на профиль: этаж считается взятым, если хоть один герой прошёл его за один забег
 // (в этаже пять комнат, рекорд героя — сколько комнат подряд он прошёл).
 const floorCleared =
   (f: number) =>
-  (s: SaveData): number =>
+  (s: AchievementFacts): number =>
     Object.values(s.heroes).some((h) => (h?.best ?? 0) >= f * 5) ? 1 : 0;
 
 export const ACHIEVEMENTS: AchievementDef[] = [

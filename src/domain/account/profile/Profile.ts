@@ -1,15 +1,27 @@
-import { CLASSES, CONSUMABLES, ITEM_BY_ID, type ItemDef, LINEAGE_ORDER } from '../../catalog';
-import { DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
+import {
+  CLASSES,
+  type ClassId,
+  type ConsumableId,
+  CONSUMABLES,
+  type EquipmentSave,
+  ITEM_BY_ID,
+  type ItemDef,
+  LINEAGE_ORDER,
+  type LineageId,
+} from '../../catalog';
+import { type AutoUseSave, DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
 import { REPAIR_RATIO } from '../../economy';
 import { GAMEPLAY } from '../../gameplay';
 import {
   applyBuy,
   type AutoSkillPlan,
+  type AutoSkillSave,
   branchOf,
   costOf,
   DEFAULT_AUTO_SKILL,
   Hero,
   inferBranch,
+  type LineageSave,
   newLineageSave,
   planAutoSkill,
   type TreeNode,
@@ -23,19 +35,9 @@ import {
   GIFT_COOLDOWN_MS,
   GIFT_REWARD,
 } from '../../rewards';
-import { Signal } from '../../shared';
-import type {
-  AutoSkillSave,
-  AutoUseSave,
-  ClassId,
-  ConsumableId,
-  EquipmentSave,
-  HeroSave,
-  Lang,
-  LineageId,
-  LineageSave,
-  SaveData,
-} from '../../types';
+import { type Lang, Signal } from '../../shared';
+import type { HeroSave } from '../save/interfaces/HeroSave';
+import type { SaveData } from '../save/interfaces/SaveData';
 import type { ConsumablePurchase } from './interfaces/ConsumablePurchase';
 import type { DailyStatus } from './interfaces/DailyStatus';
 import type { ItemPurchase } from './interfaces/ItemPurchase';

@@ -1,5 +1,5 @@
+import type { ClassId } from '../../../domain/catalog';
 import type { AutoSkillPlan, TreeNode } from '../../../domain/progression';
-import type { ClassId } from '../../../domain/types';
 
 /** Дерево навыков на экране — отклик на покупки, метаморфозы и автопрокачку. */
 export interface ISkillTreeView {

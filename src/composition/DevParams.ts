@@ -1,6 +1,5 @@
-import { CLASSES, ROOMS } from '../domain/catalog';
+import { CLASSES, type ClassId, ROOMS } from '../domain/catalog';
 import { applyBuy, canInvest, costOf, isPurchasable, TREES } from '../domain/progression';
-import type { ClassId } from '../domain/types';
 import type { ProfileStore } from '../infrastructure/store/ProfileStore';
 
 /** Покупает до `steps` самых дешёвых доступных узлов (приоритет: способности, класс, таланты). */

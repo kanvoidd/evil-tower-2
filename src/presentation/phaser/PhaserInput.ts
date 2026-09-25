@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import type { IInput } from '../../application/game/interfaces/IInput';
 import type { PlayerCommand } from '../../application/game/interfaces/PlayerCommand';
-import type { ConsumableId } from '../../domain/types';
+import type { ConsumableId } from '../../domain/catalog';
 import { BoardLayout } from '../board/BoardLayout';
 
 /**

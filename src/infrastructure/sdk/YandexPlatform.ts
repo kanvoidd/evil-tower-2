@@ -1,5 +1,5 @@
 import type { IPlatform } from '../../application/ports/IPlatform';
-import type { Lang } from '../../domain/types';
+import type { Lang } from '../../domain/shared';
 
 declare global {
   interface Window {
