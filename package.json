@@ -15,6 +15,7 @@
     "sim": "tsx tools/sim.ts",
     "selftest": "tsx tools/selftest/index.ts",
     "archtest": "tsx tools/archtest.ts",
+    "smoke": "node tools/smoke.mjs",
     "store": "tsx tools/store-assets.ts && python store/render.py",
     "zip": "node tools/zip-dist.mjs",
     "apk:assets": "vite build --mode apk && node tools/apk-assets.mjs",
