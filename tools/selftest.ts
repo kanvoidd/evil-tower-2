@@ -5,7 +5,7 @@ import { ENEMY_LIST } from '../src/domain/data/enemies';
 import { MODIFIERS, ROOMS, ROOMS_PER_FLOOR, rollRoom } from '../src/domain/data/levels';
 import { FLOORS } from '../src/domain/data/floors';
 import { hasButton, PERKS, PERK_BY_ID, perkOf, perksOfClass, FULL_BAR, VFX_STYLES } from '../src/domain/data/perks';
-import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier, talentValue } from '../src/domain/data/talents';
+import { PATH_ORDER, SYNERGY_FX, TALENTS, maxRank, talentChain, talentsOfClass, talentsOfTier } from '../src/domain/data/talents';
 import { DAILY_REWARDS, GIFT_REWARD, perkCost, talentRankCost } from '../src/domain/data/economy';
 import { CONSUMABLES } from '../src/domain/data/consumables';
 import {

@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint && npm run format:check",
+    "format": "prettier --write \"src/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"*.{ts,mjs}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tools/**/*.{ts,mjs}\" \"*.{ts,mjs}\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "sim": "tsx tools/sim.ts",
@@ -23,8 +26,12 @@
     "phaser": "^3.90.0"
   },
   "devDependencies": {
+    "eslint": "^10.11.0",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "prettier": "^3.9.9",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
+    "typescript-eslint": "^8.70.1",
     "vite": "^7.0.0"
   }
 }
