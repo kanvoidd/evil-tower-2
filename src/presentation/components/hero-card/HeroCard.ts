@@ -2,8 +2,7 @@ import Phaser from 'phaser';
 
 import { CLASSES, type EquipmentSave, ITEM_BY_ID, LINEAGES } from '../../../domain/catalog';
 import { t, type TKey } from '../../../i18n';
-import { LINEAGE_COLOR } from '../../textures/Textures';
-import { COLOR, HEX } from '../../theme';
+import { COLOR, HEX, LINEAGE_COLOR } from '../../theme';
 import { icon } from '../icon/Icon';
 import { outlineTexture, plateTexture, shadowTexture } from '../plate/Plates';
 import { statChip } from '../stat-badge/StatBadges';

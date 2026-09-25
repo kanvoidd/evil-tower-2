@@ -20,8 +20,7 @@ import {
   UiSound,
 } from '../../components';
 import { dollyIn } from '../../navigation/SceneTransitions';
-import { LINEAGE_COLOR, statHex } from '../../textures/Textures';
-import { CAROUSEL, GAME_W, HEX } from '../../theme';
+import { CAROUSEL, GAME_W, HEX, LINEAGE_COLOR, statHex } from '../../theme';
 import type { CarouselItem } from './interfaces/CarouselItem';
 import type { ClassSelectViewDeps } from './interfaces/ClassSelectViewDeps';
 

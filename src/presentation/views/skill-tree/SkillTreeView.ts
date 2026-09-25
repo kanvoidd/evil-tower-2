@@ -14,8 +14,7 @@ import {
   UiSound,
 } from '../../components';
 import { zoomIn } from '../../navigation/SceneTransitions';
-import { pathHex } from '../../textures/Textures';
-import { GAME_H, GAME_W, HEX } from '../../theme';
+import { GAME_H, GAME_W, HEX, pathHex } from '../../theme';
 import { EdgeView } from './EdgeView';
 import type { SkillTreeViewDeps } from './interfaces/SkillTreeViewDeps';
 import { NodeView } from './NodeView';

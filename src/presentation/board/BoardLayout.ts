@@ -1,5 +1,5 @@
 import type { Point } from '../animations/interfaces/Point';
-import { CARD_H, CARD_W } from '../textures/Textures';
+import { CARD_H, CARD_W } from '../theme';
 
 /** Геометрия поля 3×3 на экране: где центр клетки и какая клетка под пальцем. */
 export class BoardLayout {

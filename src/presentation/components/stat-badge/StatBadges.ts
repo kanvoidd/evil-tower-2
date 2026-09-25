@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import { statHex } from '../../textures/Textures';
+import { statHex } from '../../theme';
 import { icon } from '../icon/Icon';
 import { plateTexture } from '../plate/Plates';
 import { fitText, txt } from '../text/Text';

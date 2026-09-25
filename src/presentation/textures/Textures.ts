@@ -1,58 +1,9 @@
 import Phaser from 'phaser';
 
 import { CLASS_ORDER, CLASSES, ENEMIES, ITEMS, PERKS, type VfxStyle } from '../../domain/catalog';
+import { CARD_H, CARD_W, LINEAGE_COLOR, PATH_COLOR, STAT_COLOR } from '../theme';
 import { armorArt, type Draw, ENEMY_ART, Grid, HEROES, ITEM_ART, weaponArt } from './PixelArt';
 import { SVG_ICONS } from './SvgIcons';
-
-export const LINEAGE_COLOR: Record<string, string> = {
-  warrior: '#e67e22',
-  mage: '#5b8def',
-  archer: '#3fae55',
-  mercenary: '#9b59b6',
-};
-
-/**
- * Цвета характеристик. Оттенки разнесены по кругу (красный, янтарный, зелёный, голубой, синий, фиолетовый),
- * чтобы значки урона и здоровья, а также соседние ветки дерева не сливались.
- */
-export const STAT_COLOR: Record<string, string> = {
-  damage: '#f0483a',
-  crit: '#ffb31a',
-  health: '#3fdb84',
-  dodge: '#22c9e6',
-  defense: '#3f8cf4',
-  parry: '#a07cf6',
-  luck: '#f472b6',
-};
-
-/** Цвета путей дерева талантов: урон / жизнь / защита. */
-export const PATH_COLOR: Record<string, string> = {
-  attack: STAT_COLOR.damage,
-  vitality: STAT_COLOR.health,
-  guard: STAT_COLOR.defense,
-};
-
-/** Цвета значков состояний на карточках врагов. */
-export const STATUS_TINT: Record<string, number> = {
-  stun: 0xffd86b,
-  burn: 0xff7a2a,
-  poison: 0x9fd12a,
-  mark: 0xb287ff,
-  link: 0x7e57d8,
-  vuln: 0xff4d6d,
-  weak: 0x7fc4ff,
-  corpse: 0x8fd14f,
-  haunt: 0xa9e8ff,
-  ghost: 0xa9e8ff,
-};
-
-export const pathHex = (path: string): number =>
-  parseInt((PATH_COLOR[path] ?? '#888888').slice(1), 16);
-
-export const statHex = (stat: string): number => {
-  const h = STAT_COLOR[stat];
-  return h ? parseInt(h.slice(1), 16) : 0x888888;
-};
 
 /**
  * Файлы из src/assets/images подхватываются автоматически: имя файла без расширения = ключ текстуры
@@ -622,9 +573,6 @@ const VFX_GLYPH: Record<VfxStyle, (ctx: Ctx) => void> = {
     ctx.fill();
   },
 };
-
-export const CARD_W = 200;
-export const CARD_H = 228;
 
 /** Светлый оттенок для иконок на тёмных кнопках и панелях. */
 const ICON_LIGHT = '#f4eddc';

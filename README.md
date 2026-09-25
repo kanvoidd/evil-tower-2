@@ -48,7 +48,7 @@ src/
     rewards/           награда дня, «Дар башни», достижения
     account/           профиль игрока (profile/Profile — фасад над частями: настройки, автоматизация, герои, кошельки, достижения, награды по времени) и формат сохранения (save/)
   application/         потоки экранов и операции: бой (game/), хаб (hub/), лавка (shop/), дерево навыков (skill-tree/), выбор героя (class-select/), настройки (settings/), награды (rewards/), реклама (ads/); ports/ — что приложению нужно от платформы
-  presentation/        Phaser: сцены-координаторы (scenes/), виды экранов (views/), поле и HUD боя (board/, hud/), анимации (animations/), общие компоненты (components/), окна (dialogs/), переходы (navigation/), порты на Phaser (phaser/), текстуры (textures/), тема (theme/)
+  presentation/        Phaser: сцены-координаторы (scenes/), виды экранов (views/), поле и HUD боя (board/, hud/), анимации (animations/), общие компоненты (components/), окна (dialogs/), переходы (navigation/), порты на Phaser (phaser/), текстуры — сменный блок процедурной графики (textures/, наружу — только index.ts: `bakeTextures`, `queueExternalArt`, ключи картинок `ART_KEY_FAMILIES`), тема (theme/)
   infrastructure/      SDK Яндекс Игр и заглушка (sdk/YandexPlatform), сохранения (store/ProfileStore), процедурный звук (audio/WebAudioPlayer), зёрна случайностей боя (random/MathRandomSeeds), день игрока по местному времени (time/LocalCalendar)
   i18n/                словари ru/ и en/ по темам (интерфейс, способности, таланты, враги, вещи, достижения), ключи типизированы; тексты контента — по id сущности
 tools/                 симулятор баланса, самопроверка, проверка архитектуры, генератор материалов, упаковщик zip
@@ -105,7 +105,7 @@ store/                 иконка/обложка каталога и текс�
 
 ### Остальное
 
-- **Иконки/спрайты (jpg/png/bmp/webp):** положите файл в `src/assets/images/` с именем ключа — он подхватится сам, иначе рисуется процедурная заглушка. Ключи: `hero_<classId>`, `cls_<classId>`, `enemy_<id>`, `perk_<classId>_<slot>`, `item_w_<lineage>_<tier>`, `item_a_<tier>`, `item_potion_heal|regen`, `item_artifact`, `ico_gold`, `ico_soul`, `spr_chest`, `spr_gold`, `bg_stone`.
+- **Иконки/спрайты (jpg/png/bmp/webp):** положите файл в `src/assets/images/` с именем ключа — он подхватится сам, иначе рисуется процедурная заглушка. Все семейства ключей — `ART_KEY_FAMILIES` (`src/presentation/textures/artKeys.ts`), ключи картинок содержимого — `contentArtKeys()`; например: `hero_<classId>`, `cls_<classId>`, `enemy_<id>`, `perk_<classId>_<slot>`, `item_w_<lineage>_<tier>`, `item_a_<tier>`, `item_potion_heal|regen`, `item_artifact`, `ico_gold`, `ico_soul`, `spr_chest`, `spr_gold`, `bg_stone`.
 - **Правила добычи:** золото и души комнаты копятся в «кошеле» и уходят в кошелёк героя, когда комната пройдена; гибель или побег их теряют. Сундук даёт золото и с шансом 35 % расходник (ещё один — 8 %); пустой сундук не даёт ничего.
 - **Крит:** множитель плавающий — каждый крит бьёт по-новому в диапазоне `CombatBalance.critMulMin … critMulMax`; таланты «крит. урон» поднимают верхнюю границу.
 - **«Играть»** в хабе всегда начинает новый забег с 1-1; «Уровни» — карта рекорда, комнату оттуда не запустить.
@@ -113,7 +113,7 @@ store/                 иконка/обложка каталога и текс�
 - **Метаморфозы и смена класса:** в окне выбора класса одна запись на линейку — улучшенный класс *заменяет* прежний. «Отмена метаморфозы» осталась функцией дерева (возврат части душ).
 - **Сохранения:** версия 2. Сохранения прежней версии игры несовместимы (полностью изменились дерево и способности) и не загружаются.
 - **Переходы между экранами** (`src/presentation/navigation/SceneTransitions.ts`): меню открывается «окном», вырастающим из своей кнопки; бой и хаб входят «наездом» камеры; содержимое появляется каскадом.
-- **Оформление:** цвета характеристик и путей — `STAT_COLOR` / `PATH_COLOR` (`src/presentation/textures/Textures.ts`), шрифты, палитра и тайминги — `src/presentation/theme/`, числа общих правил — баланс своей области (`src/domain/combat/balance/`, `src/domain/progression/balance/`).
+- **Оформление:** цвета линеек, характеристик, путей и статусов (`LINEAGE_COLOR`, `STAT_COLOR`, `PATH_COLOR`, `STATUS_TINT`), размер карточки, шрифты, палитра и тайминги — `src/presentation/theme/`, числа общих правил — баланс своей области (`src/domain/combat/balance/`, `src/domain/progression/balance/`).
 
 ## APK для телефона
 

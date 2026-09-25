@@ -171,6 +171,7 @@ import { makeRng } from '../src/domain/shared/rng/rng';
 import { en } from '../src/i18n/en';
 import { perkValues } from '../src/i18n/perkValues';
 import { ru } from '../src/i18n/ru';
+import { contentArtKeys } from '../src/presentation/textures/artKeys';
 import { SkillTreeLayout } from '../src/presentation/views/skill-tree/SkillTreeLayout';
 
 let failed = 0;
@@ -1940,6 +1941,23 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       !partial.tutorial.hub &&
       partial.daily.streak === 0,
     'сохранение: недостающие поля и поля групп берутся у нового игрока',
+  );
+}
+
+// ---------------------------------------------------------------- сменный блок графики: ключи картинок
+{
+  const keys = new Set(contentArtKeys());
+  const icons = [
+    ...ENEMY_LIST.map((e) => e.icon),
+    ...ITEMS.map((i) => i.icon),
+    ...PERKS.map((p) => p.icon),
+    ...Object.values(CONSUMABLES).map((c) => c.icon),
+    ...Object.keys(CLASSES).flatMap((c) => [`hero_${c}`, `cls_${c}`]),
+  ];
+  const missing = icons.filter((k) => !keys.has(k));
+  ok(
+    missing.length === 0,
+    `у всего содержимого есть ключ картинки в списке сменного блока (${missing.join(', ')})`,
   );
 }
 

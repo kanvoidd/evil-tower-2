@@ -11,6 +11,8 @@
  *    могут смотреть внутрь областей.
  * 4. Внутри боя поле и колода (`domain/combat/engine`) не знают правил боя (`room-battle`, `attack`,
  *    `auto-use`) и прогресса героя.
+ *    Сменный блок процедурной графики (`presentation/textures`) виден снаружи только через свой
+ *    `index.ts`: остальной код знает ключи текстур, а не то, как они нарисованы.
  * 5. Все относительные импорты в `src` и `tools` ведут в существующие файлы (tools не проверяет tsc).
  * 6. Нет циклов среди импортов, которые остаются после сборки (`import type` не считается).
  */
@@ -240,6 +242,15 @@ for (const file of [...srcFiles, ...toolFiles]) {
       )
     ) {
       problems.push(`${where} — движок не должен знать правил боя (${rel(target)})`);
+    }
+    // сменный блок графики виден снаружи только через свой index.ts
+    const block = 'src/presentation/textures/';
+    if (
+      rel(target).startsWith(block) &&
+      !rel(file).startsWith(block) &&
+      rel(target) !== `${block}index.ts`
+    ) {
+      problems.push(`${where} — процедурная графика — только через ${block}index.ts`);
     }
   }
 }

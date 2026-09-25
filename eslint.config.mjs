@@ -28,15 +28,24 @@ const warnings = {
 /**
  * Переходный список: код, написанный до правил. Сложность в этих файлах пока — предупреждение;
  * буква — этап плана (docs/REFACTORING-PLAN-2.md), который файл разберёт и уберёт из списка.
- * Новый код сюда не попадает. К концу второго круга список пуст (кроме сменного блока H).
+ * Новый код сюда не попадает. К концу второго круга список пуст.
  */
 const legacyComplexity = {
-  'src/presentation/animations/effects/vfx/Vfx.ts': 'H',
-  'src/infrastructure/audio/WebAudioPlayer.ts': 'H',
   'src/composition/DevParams.ts': 'I',
   'tools/sim.ts': 'I',
   'tools/selftest.ts': 'I',
 };
+
+/**
+ * Сменный блок: процедурная графика и звук — временные заглушки, которые заменят картинки и файлы
+ * (PROJECT-DECISIONS.md, «Процедурная графика и звук — сменный блок»). Внутри их не разбираем:
+ * размер и сложность — не повод для правки; импорты и форматирование проверяются как везде.
+ */
+const replaceableBlock = [
+  'src/presentation/textures/**',
+  'src/presentation/animations/effects/vfx/**',
+  'src/infrastructure/audio/**',
+];
 
 /**
  * Числа в правилах игры и в потоках приложения — только с именем: полем баланса, константой
@@ -101,6 +110,17 @@ export default tseslint.config(
     files: ['**/*.mjs'],
     plugins: { 'simple-import-sort': simpleImportSort },
     rules: { ...errors, ...warnings },
+  },
+  {
+    files: replaceableBlock,
+    rules: {
+      complexity: 'off',
+      'max-depth': 'off',
+      'max-nested-callbacks': 'off',
+      'max-lines': 'off',
+      'max-lines-per-function': 'off',
+      'max-params': 'off',
+    },
   },
   {
     files: Object.keys(legacyComplexity),

@@ -3,8 +3,7 @@ import Phaser from 'phaser';
 import { SYNERGY_FX, TALENT_BY_ID, type TalentPath } from '../../../domain/catalog';
 import type { NodeState, TreeNode } from '../../../domain/progression';
 import { icon, plateTexture, txt } from '../../components';
-import { pathHex } from '../../textures/Textures';
-import { HEX } from '../../theme';
+import { HEX, pathHex } from '../../theme';
 
 /**
  * Узел дерева на экране: плитка, свечение, значок пути у таланта, рамка максимального ранга

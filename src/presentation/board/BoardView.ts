@@ -4,8 +4,7 @@ import { type Card, Grid, type IBattleState, type PlayerStats } from '../../doma
 import type { CellIndex } from '../../domain/shared';
 import type { Point } from '../animations/interfaces/Point';
 import { plateTexture } from '../components';
-import { CARD_H, CARD_W } from '../textures/Textures';
-import { HEX } from '../theme';
+import { CARD_H, CARD_W, HEX } from '../theme';
 import { BoardLayout } from './BoardLayout';
 import type { CardView, CardViewFactory } from './card-view';
 

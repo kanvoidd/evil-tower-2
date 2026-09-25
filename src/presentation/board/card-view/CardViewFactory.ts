@@ -6,8 +6,7 @@ import type { CellIndex } from '../../../domain/shared';
 import type { TKey } from '../../../i18n';
 import { enemyName, t } from '../../../i18n';
 import { plateTexture, statPill, txt } from '../../components';
-import { CARD_W, STATUS_TINT } from '../../textures/Textures';
-import { HEX } from '../../theme';
+import { CARD_W, HEX, STATUS_TINT } from '../../theme';
 import type { CardView } from './interfaces/CardView';
 
 /**
