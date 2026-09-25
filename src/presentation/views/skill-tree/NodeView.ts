@@ -95,12 +95,15 @@ export class NodeView {
     this.ico?.setAlpha(dim ? 0.3 : 1);
     this.glow.setAlpha(st === 'owned' ? 0.7 : st === 'partial' ? 0.45 : 0);
     this.main.setAlpha(n.kind === 'class' && dim ? 0.7 : 1);
-    if (n.kind === 'talent') {
-      this.maxFrame?.setVisible(rank >= max);
-      this.badge?.setVisible(!dim || rank > 0);
-      this.badgeText?.setText(`${rank}/${max}`);
-      this.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
-    }
+    if (n.kind === 'talent') this.paintRanks(dim, rank, max);
+  }
+
+  /** Ранги таланта: рамка максимума, значок «ранг/максимум» и его цвет. */
+  private paintRanks(dim: boolean, rank: number, max: number): void {
+    this.maxFrame?.setVisible(rank >= max);
+    this.badge?.setVisible(!dim || rank > 0);
+    this.badgeText?.setText(`${rank}/${max}`);
+    this.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
   }
 
   /** «Дыхание» свечения у узлов, которые можно купить. */

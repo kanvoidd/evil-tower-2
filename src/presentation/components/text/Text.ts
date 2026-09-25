@@ -3,6 +3,22 @@ import type Phaser from 'phaser';
 import { FONT_TITLE, FONT_UI, HEX } from '../../theme';
 import type { TxtOpts } from './interfaces/TxtOpts';
 
+/** Стиль текста по единым правилам игры: шрифт, начертание, обводка по размеру. */
+const styleOf = (size: number, o: TxtOpts): Phaser.Types.GameObjects.Text.TextStyle => {
+  const title = o.font === 'title';
+  return {
+    fontFamily: title ? FONT_TITLE : FONT_UI,
+    fontSize: `${size}px`,
+    fontStyle: title ? '800' : String(o.weight ?? (o.bold === false ? 700 : 800)),
+    color: o.color ?? HEX.text,
+    stroke: o.stroke ?? HEX.dark,
+    strokeThickness: o.strokeThickness ?? (size >= 30 ? 5 : size >= 22 ? 4 : 3),
+    align: o.align ?? 'center',
+    wordWrap: o.wrap ? { width: o.wrap, useAdvancedWrap: true } : undefined,
+    lineSpacing: o.lineSpacing ?? 2,
+  };
+};
+
 /** Текст интерфейса: шрифт, обводка и начертание по единым правилам игры. */
 export const txt = (
   scene: Phaser.Scene,
@@ -12,20 +28,7 @@ export const txt = (
   size = 26,
   o: TxtOpts = {},
 ): Phaser.GameObjects.Text => {
-  const title = o.font === 'title';
-  const weight = title ? '800' : String(o.weight ?? (o.bold === false ? 700 : 800));
-  const stroke = o.strokeThickness ?? (size >= 30 ? 5 : size >= 22 ? 4 : 3);
-  const t = scene.add.text(x, y, text, {
-    fontFamily: title ? FONT_TITLE : FONT_UI,
-    fontSize: `${size}px`,
-    fontStyle: weight,
-    color: o.color ?? HEX.text,
-    stroke: o.stroke ?? HEX.dark,
-    strokeThickness: stroke,
-    align: o.align ?? 'center',
-    wordWrap: o.wrap ? { width: o.wrap, useAdvancedWrap: true } : undefined,
-    lineSpacing: o.lineSpacing ?? 2,
-  });
+  const t = scene.add.text(x, y, text, styleOf(size, o));
   const org = o.origin ?? [0.5, 0.5];
   t.setOrigin(org[0], org[1]);
   t.setResolution(2);

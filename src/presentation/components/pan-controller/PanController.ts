@@ -111,29 +111,36 @@ export class PanController {
   }
 
   update(dt: number): void {
-    if (!this.start && (Math.abs(this.vel.x) > 8 || Math.abs(this.vel.y) > 8)) {
-      this.setCenter(
-        this.centerX + (this.vel.x * dt) / 1000,
-        this.centerY + (this.vel.y * dt) / 1000,
-      );
-      const f = Math.pow(0.0025, dt / 1000);
-      this.vel.x *= f;
-      this.vel.y *= f;
-    }
+    this.glide(dt);
+    this.keyPan(dt);
+  }
+
+  /** Инерция после броска пальцем: холст катится дальше и замедляется. */
+  private glide(dt: number): void {
+    if (this.start || (Math.abs(this.vel.x) <= 8 && Math.abs(this.vel.y) <= 8)) return;
+    this.setCenter(
+      this.centerX + (this.vel.x * dt) / 1000,
+      this.centerY + (this.vel.y * dt) / 1000,
+    );
+    const f = Math.pow(0.0025, dt / 1000);
+    this.vel.x *= f;
+    this.vel.y *= f;
+  }
+
+  /** Стрелки и WASD двигают холст. */
+  private keyPan(dt: number): void {
     const k = this.keys;
-    if (k.UP) {
-      const sp = 0.9 * dt;
-      const up = k.UP.isDown || k.W.isDown;
-      const dn = k.DOWN.isDown || k.S.isDown;
-      const lf = k.LEFT.isDown || k.A.isDown;
-      const rt = k.RIGHT.isDown || k.D.isDown;
-      if (up || dn || lf || rt) {
-        this.setCenter(
-          this.centerX + ((rt ? 1 : 0) - (lf ? 1 : 0)) * (this.axes === 'xy' ? sp : 0),
-          this.centerY + ((dn ? 1 : 0) - (up ? 1 : 0)) * sp,
-        );
-      }
-    }
+    if (!k.UP) return;
+    const sp = 0.9 * dt;
+    const up = k.UP.isDown || k.W.isDown;
+    const dn = k.DOWN.isDown || k.S.isDown;
+    const lf = k.LEFT.isDown || k.A.isDown;
+    const rt = k.RIGHT.isDown || k.D.isDown;
+    if (!(up || dn || lf || rt)) return;
+    this.setCenter(
+      this.centerX + ((rt ? 1 : 0) - (lf ? 1 : 0)) * (this.axes === 'xy' ? sp : 0),
+      this.centerY + ((dn ? 1 : 0) - (up ? 1 : 0)) * sp,
+    );
   }
 
   private buildBars(): void {

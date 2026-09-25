@@ -25,6 +25,7 @@ import {
 } from '../../components';
 import { GAME_H, GAME_W, HEX } from '../../theme';
 import type { NodeInfo } from './interfaces/NodeInfo';
+import type { PanelAction } from './interfaces/PanelAction';
 import { NodeView } from './NodeView';
 
 /**
@@ -50,13 +51,23 @@ export class SkillInfoPanel {
   }
 
   show(n: TreeNode, st: NodeState): void {
+    this.root.removeAll(true);
+    const info = this.infoOf(n);
+    const y0 = GAME_H - SkillInfoPanel.H;
+    this.drawHeader(info, y0);
+    this.drawDesc(n, st, info.desc, y0);
+    const cost = this.query.cost(n);
+    const rowY = GAME_H - 54;
+    const action = this.action(n, st, cost, rowY);
+    this.drawPrice(st, cost, rowY, action);
+    pinToScreen(this.root);
+  }
+
+  /** Плита панели, значок узла, название и подзаголовок. */
+  private drawHeader(info: NodeInfo, y0: number): void {
     const s = this.scene;
-    const q = this.query;
     const p = this.root;
     const H = SkillInfoPanel.H;
-    p.removeAll(true);
-    const info = this.infoOf(n);
-    const y0 = GAME_H - H;
     const pw = GAME_W - 16;
     p.add(s.add.image(GAME_W / 2, y0 + H / 2 - 4, shadowTexture(s, pw, H, 34, 24)).setAlpha(0.9));
     p.add(s.add.image(GAME_W / 2, y0 + H / 2 + 2, plateTexture(s, pw, H, 1, 'panel', 34)));
@@ -82,14 +93,18 @@ export class SkillInfoPanel {
           maxWidth: 520,
         }),
       );
-    let desc = info.desc;
+  }
+
+  /** Описание узла; у способности прежнего класса — откуда она, у закрытого — чего не хватает. */
+  private drawDesc(n: TreeNode, st: NodeState, base: string, y0: number): void {
+    let desc = base;
     // Способности прежних классов остаются с героем — показываем, откуда она пришла.
-    if (n.kind === 'perk' && n.owner !== q.activeClass) {
+    if (n.kind === 'perk' && n.owner !== this.query.activeClass) {
       desc += `\n${t('skill.from_class', { c: t(`class.${n.owner}.name` as TKey) })}`;
     }
     if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class'))
       desc += `\n${t('skill.gate')}`;
-    const descText = txt(s, 158, y0 + 104, desc, 21, {
+    const descText = txt(this.scene, 158, y0 + 104, desc, 21, {
       origin: [0, 0],
       wrap: 520,
       weight: 700,
@@ -98,16 +113,15 @@ export class SkillInfoPanel {
       align: 'left',
     });
     fitHeight(descText, 108, 14);
-    p.add(descText);
+    this.root.add(descText);
+  }
 
-    const cost = q.cost(n);
-    const rowY = GAME_H - 54;
-    let btn: PlateButton | null = null;
-    let status = '';
-    let statusColor: string = HEX.textDim;
-
+  /** Что можно сделать с узлом: кнопка (купить, улучшить, отказаться) или строка состояния. */
+  private action(n: TreeNode, st: NodeState, cost: number, rowY: number): PanelAction {
+    const s = this.scene;
+    const q = this.query;
     if (n.kind === 'class' && st === 'owned' && q.canCancel(n)) {
-      btn = new PlateButton(s, GAME_W - 200, rowY, {
+      const btn = new PlateButton(s, GAME_W - 200, rowY, {
         w: 340,
         h: 70,
         label: t('skill.cancel_meta'),
@@ -116,12 +130,16 @@ export class SkillInfoPanel {
         radius: 24,
         onClick: () => this.commands({ type: 'cancel-metamorphosis' }),
       });
-    } else if (st === 'owned') {
-      status = n.kind === 'talent' ? t('skill.maxed') : t('skill.owned');
-      statusColor = HEX.good;
-    } else if (st === 'available' || st === 'partial') {
-      const can = q.souls >= cost;
-      btn = new PlateButton(s, GAME_W - 190, rowY, {
+      return { btn, status: '', statusColor: HEX.textDim };
+    }
+    if (st === 'owned')
+      return {
+        btn: null,
+        status: n.kind === 'talent' ? t('skill.maxed') : t('skill.owned'),
+        statusColor: HEX.good,
+      };
+    if (st === 'available' || st === 'partial') {
+      const btn = new PlateButton(s, GAME_W - 190, rowY, {
         w: 320,
         h: 70,
         label: st === 'partial' ? t('skill.upgrade') : t('skill.buy'),
@@ -132,38 +150,42 @@ export class SkillInfoPanel {
         iconSize: 32,
         onClick: () => this.commands({ type: 'buy', node: n }),
       });
-      btn.setLocked(!can);
-    } else if (st === 'blocked') {
-      status = t('skill.blocked');
-      statusColor = HEX.bad;
-    } else {
-      status = t('skill.locked');
+      btn.setLocked(!(q.souls >= cost));
+      return { btn, status: '', statusColor: HEX.textDim };
     }
-    if (cost > 0 && st !== 'owned') {
+    if (st === 'blocked') return { btn: null, status: t('skill.blocked'), statusColor: HEX.bad };
+    return { btn: null, status: t('skill.locked'), statusColor: HEX.textDim };
+  }
+
+  /** Цена в душах, строка состояния и кнопка — в нижнем ряду панели. */
+  private drawPrice(st: NodeState, cost: number, rowY: number, a: PanelAction): void {
+    const s = this.scene;
+    const p = this.root;
+    const priced = cost > 0 && st !== 'owned';
+    if (priced) {
       p.add(s.add.image(56, rowY, 'ico_soul').setDisplaySize(36, 36));
       p.add(
         txt(s, 82, rowY, fmt(cost), 30, {
           origin: [0, 0.5],
           weight: 900,
-          color: q.souls >= cost ? HEX.soul : HEX.bad,
+          color: this.query.souls >= cost ? HEX.soul : HEX.bad,
         }),
       );
     }
-    if (status) {
-      const sx = cost > 0 && st !== 'owned' ? 200 : 56;
+    if (a.status) {
+      const sx = priced ? 200 : 56;
       p.add(
-        txt(s, sx, rowY, status, 20, {
+        txt(s, sx, rowY, a.status, 20, {
           origin: [0, 0.5],
           align: 'left',
           wrap: GAME_W - 32 - sx,
-          color: statusColor,
+          color: a.statusColor,
           weight: 700,
           strokeThickness: 0,
         }),
       );
     }
-    if (btn) p.add(btn);
-    pinToScreen(p);
+    if (a.btn) p.add(a.btn);
   }
 
   private infoOf(n: TreeNode): NodeInfo {

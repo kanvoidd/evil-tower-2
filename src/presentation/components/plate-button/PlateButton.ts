@@ -54,41 +54,55 @@ export class PlateButton extends Phaser.GameObjects.Container {
     this.plate = scene.add.image(0, 0, plateTexture(scene, o.w, o.h, 1, this.style, this.radius));
     this.pulseC.add(this.plate);
 
-    if (o.icon) {
-      this.iconSize = o.iconSize ?? Math.round(Math.min(o.w, o.h) * 0.5);
-      this.iconImg = icon(scene, 0, 0, PlateButton.iconFor(o.icon, this.style), this.iconSize);
-      this.pulseC.add(this.iconImg);
-    }
-    if (o.label !== undefined) {
-      const dark = this.style === 'gold';
-      this.labelText = txt(scene, 0, 0, o.label, o.fontSize ?? 28, {
-        font: o.font ?? 'ui',
-        color: o.labelColor ?? (dark ? '#2b1c06' : HEX.text),
-        strokeThickness: dark ? 0 : undefined,
-        stroke: HEX.dark,
-      });
-      this.pulseC.add(this.labelText);
-    }
-    if (o.sub !== undefined) {
-      const subDefault: Record<string, string> = {
-        gold: '#5a3d0e',
-        green: '#e2fbec',
-        red: '#ffe3e0',
-      };
-      this.subText = txt(scene, 0, 0, o.sub, 19, {
-        color: o.subColor ?? subDefault[this.style] ?? HEX.textDim,
-        strokeThickness: 0,
-        weight: 700,
-      });
-      this.pulseC.add(this.subText);
-    }
+    this.addIcon(scene, o);
+    this.addLabel(scene, o);
+    this.addSub(scene, o);
     this.layout();
 
     this.setSize(o.w, o.h);
     // У контейнеров область попадания задаётся от левого верхнего угла (сдвиг displayOrigin = размер/2).
     this.setInteractive(new Phaser.Geom.Rectangle(0, 0, o.w, o.h), Phaser.Geom.Rectangle.Contains);
     if (o.pulse) pulse(scene, this.pulseC, o.pulse.cycle, o.pulse.scale);
+    this.bindPointer(scene);
+    scene.add.existing(this);
+  }
 
+  private addIcon(scene: Phaser.Scene, o: BtnOpts): void {
+    if (!o.icon) return;
+    this.iconSize = o.iconSize ?? Math.round(Math.min(o.w, o.h) * 0.5);
+    this.iconImg = icon(scene, 0, 0, PlateButton.iconFor(o.icon, this.style), this.iconSize);
+    this.pulseC.add(this.iconImg);
+  }
+
+  private addLabel(scene: Phaser.Scene, o: BtnOpts): void {
+    if (o.label === undefined) return;
+    const dark = this.style === 'gold';
+    this.labelText = txt(scene, 0, 0, o.label, o.fontSize ?? 28, {
+      font: o.font ?? 'ui',
+      color: o.labelColor ?? (dark ? '#2b1c06' : HEX.text),
+      strokeThickness: dark ? 0 : undefined,
+      stroke: HEX.dark,
+    });
+    this.pulseC.add(this.labelText);
+  }
+
+  private addSub(scene: Phaser.Scene, o: BtnOpts): void {
+    if (o.sub === undefined) return;
+    const subDefault: Record<string, string> = {
+      gold: '#5a3d0e',
+      green: '#e2fbec',
+      red: '#ffe3e0',
+    };
+    this.subText = txt(scene, 0, 0, o.sub, 19, {
+      color: o.subColor ?? subDefault[this.style] ?? HEX.textDim,
+      strokeThickness: 0,
+      weight: 700,
+    });
+    this.pulseC.add(this.subText);
+  }
+
+  /** Нажатие: плита проседает, отпускание без сдвига пальца — это клик. */
+  private bindPointer(scene: Phaser.Scene): void {
     this.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.downPos = { x: p.x, y: p.y };
       scene.tweens.killTweensOf(this.pressC);
@@ -98,28 +112,29 @@ export class PlateButton extends Phaser.GameObjects.Container {
       this.downPos = null;
       this.release();
     });
-    this.on('pointerup', (p: Phaser.Input.Pointer) => {
-      const d = this.downPos
-        ? Phaser.Math.Distance.Between(p.x, p.y, this.downPos.x, this.downPos.y)
-        : 999;
-      this.downPos = null;
-      this.release();
-      // долгое нажатие показало подсказку (см. tipOnHover) — само действие кнопки не выполняем
-      if (this.swallowClick) {
-        this.swallowClick = false;
-        return;
-      }
-      if (d > 22) return;
-      if (this.locked) {
-        UiSound.play('error');
-        this.shake();
-        this.onLocked?.();
-        return;
-      }
-      if (this.soundName) UiSound.play(this.soundName);
-      this.onClick?.();
-    });
-    scene.add.existing(this);
+    this.on('pointerup', (p: Phaser.Input.Pointer) => this.tap(p));
+  }
+
+  private tap(p: Phaser.Input.Pointer): void {
+    const d = this.downPos
+      ? Phaser.Math.Distance.Between(p.x, p.y, this.downPos.x, this.downPos.y)
+      : 999;
+    this.downPos = null;
+    this.release();
+    // долгое нажатие показало подсказку (см. tipOnHover) — само действие кнопки не выполняем
+    if (this.swallowClick) {
+      this.swallowClick = false;
+      return;
+    }
+    if (d > 22) return;
+    if (this.locked) {
+      UiSound.play('error');
+      this.shake();
+      this.onLocked?.();
+      return;
+    }
+    if (this.soundName) UiSound.play(this.soundName);
+    this.onClick?.();
   }
 
   /** Светлые иконки на тёмных кнопках, чёрные — на золотых. */
