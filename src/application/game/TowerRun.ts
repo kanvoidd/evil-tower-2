@@ -1,19 +1,23 @@
 import type { Profile } from '../../domain/account';
-import { type RoomDef, ROOMS } from '../../domain/catalog';
+import type { RoomDef } from '../../domain/catalog';
 import { type GameEvent, type IBattleSession, RoomBattleFactory } from '../../domain/combat';
-import { Gold, makeRng, randomSeed, type Rng, Souls } from '../../domain/shared';
+import {
+  RecordPolicy,
+  type RoomPay,
+  RoomPayout,
+  type RunCarry,
+  TowerClimb,
+} from '../../domain/expedition';
+import { makeRng, randomSeed, type Rng } from '../../domain/shared';
 import type { IPlatform } from '../ports/IPlatform';
 import type { IProfileStorage } from '../ports/IProfileStorage';
-import type { RunCarry } from './interfaces/RunCarry';
 import type { RunEndReason } from './interfaces/RunEndReason';
 
 /**
- * Забег по башне глазами текущей комнаты: с чем герой в неё вошёл и что забег оставляет
- * в профиле. Бой в комнате — `RoomBattle` (домен), а здесь — учёт: износ и расходники после комнаты,
- * награда за пройденную комнату, рекорд, таблица рекордов, автопрокачка на заработанные души.
- *
- * Пройденная комната сразу платит в кошелёк героя — закрытая вкладка ничего не отнимает;
- * добыча текущей комнаты пропадает при гибели или побеге.
+ * Забег по башне глазами текущей комнаты — координатор: правила забега (оплата комнаты, рекорд,
+ * переход в следующую комнату) — в домене (`expedition`), бой в комнате — `RoomBattle`, а здесь —
+ * порядок вызовов и запись: износ и расходники после комнаты, выплата в кошелёк героя, рекорд,
+ * таблица рекордов платформы, автопрокачка на заработанные души, сохранение.
  */
 export class TowerRun {
   /** Итоги комнаты уже записаны (износ, убийства) — второй раз не пишем. */
@@ -29,7 +33,7 @@ export class TowerRun {
 
   /** Новый забег: всегда с 1-1, рекорд героя запоминается, чтобы в конце сказать «новый рекорд». */
   static start(profile: Profile): RunCarry {
-    return { index: 0, rooms: 0, gold: Gold.of(0), souls: Souls.of(0), best: profile.best };
+    return TowerClimb.start(profile.best);
   }
 
   get state(): RunCarry {
@@ -37,26 +41,26 @@ export class TowerRun {
   }
 
   get room(): RoomDef {
-    return ROOMS[Math.min(this.carry.index, ROOMS.length - 1)];
+    return TowerClimb.room(this.carry);
   }
 
   /** Вся башня пройдена. */
   get complete(): boolean {
-    return this.carry.index >= ROOMS.length;
+    return TowerClimb.complete(this.carry);
   }
 
   get maxRooms(): number {
-    return ROOMS.length;
+    return TowerClimb.length;
   }
 
   /** Номер следующей комнаты («2-1»). */
   get nextRoomId(): string {
-    return ROOMS[this.carry.index].id;
+    return TowerClimb.nextRoomId(this.carry);
   }
 
   /** Добыча текущей комнаты ещё не в кошельке героя — пропадёт при гибели или побеге. */
   get lootAtStake(): boolean {
-    return this.battle.totals.gold > 0 || this.battle.totals.souls > 0;
+    return RoomPayout.atStake(this.battle.totals);
   }
 
   /** Бой в комнате собирает фабрика: героя берёт у фабрик героев, врагов — у фабрик этажей. */
@@ -97,32 +101,20 @@ export class TowerRun {
   }
 
   /** Пройденная комната сразу платит всё: сумку, души и бонус за прохождение. */
-  clearRoom(): { gold: Gold; souls: Souls; flawless: boolean } {
+  clearRoom(): RoomPay {
     const battle = this.battle;
-    const room = battle.room;
     this.commitRoom();
-    const gold = Gold.of(battle.totals.gold + room.clearGold);
-    const souls = Souls.of(battle.totals.souls + room.clearSouls);
-    const flawless = battle.totals.damageTaken === 0;
+    const pay = RoomPayout.of(battle.room, battle.totals);
     const p = this.profile;
-    p.addGold(gold);
-    p.addSouls(souls);
+    p.addGold(pay.gold);
+    p.addSouls(pay.souls);
     p.bump('roomsCleared');
-    if (flawless) p.bump('flawless');
-    const c = this.carry;
-    this.carry = {
-      ...c,
-      index: c.index + 1,
-      rooms: c.rooms + 1,
-      gold: Gold.of(c.gold + gold),
-      souls: Souls.of(c.souls + souls),
-      hero: battle.carryOut(),
-    };
-    // рекорд пишем сразу: закрытая посреди забега вкладка не должна его отнимать
-    p.recordRun(this.carry.rooms);
+    if (pay.flawless) p.bump('flawless');
+    this.carry = TowerClimb.advance(this.carry, pay, battle.carryOut());
+    p.recordRun(RecordPolicy.climb(this.carry));
     p.checkNow();
     this.storage.flush();
-    return { gold, souls, flawless };
+    return pay;
   }
 
   /**
@@ -133,9 +125,8 @@ export class TowerRun {
     const p = this.profile;
     this.commitRoom();
     if (reason === 'dead') p.bump('deaths');
-    const c = this.carry;
-    const record = c.rooms > c.best;
-    p.recordRun(c.rooms);
+    const record = RecordPolicy.isRecord(this.carry);
+    p.recordRun(RecordPolicy.climb(this.carry));
     // в таблицу рекордов идёт лучший забег среди героев
     void this.platform.submitScore('rooms', p.bestClimb);
     void this.platform.setStats({ rooms: p.bestClimb, kills: p.stats.kills });

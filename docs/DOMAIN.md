@@ -6,8 +6,8 @@
 и что показывает наружу. Соблюдение карты проверяет `npm run archtest`.
 
 Решения о раскладке записаны в `PROJECT-DECISIONS.md`, план второго круга рефакторинга —
-`docs/REFACTORING-PLAN-2.md`. Раскладка введена этапом B второго круга; области
-`expedition/` пока нет — она появится на этапе E1.
+`docs/REFACTORING-PLAN-2.md`. Раскладка введена этапом B второго круга, область `expedition/`
+— этапом E1.
 
 ## Области
 
@@ -19,7 +19,7 @@
 | Прогресс героя | `progression/` | герой и его класс (`hero/`), дерево талантов (`skill-tree/`), сборка характеристик (`stats/`), цены в душах (`soul-prices/`), автопрокачка (`auto-skill/`), сводка класса (`traits/`) | герой, класс, метаморфоза, талант, ярус, путь |
 | Экономика | `economy/` | починка вещей (`repair/`); кошельки и лавка пока живут в `Profile` и переедут сюда на этапе E4 | золото, души, кошелёк, вещь, прочность, починка |
 | Награды | `rewards/` | награда дня (`daily/`), «Дар башни» (`tower-gift/`), достижения (`achievements/`) | награда, серия, дар, достижение |
-| Забег | `expedition/` | правила забега между комнатами: оплата комнаты, рекорд, перенос героя. Сейчас — в `application/game/TowerRun`, в домен переедут на этапе E1 | забег, сумка, рекорд |
+| Забег | `expedition/` | правила забега между комнатами: подъём по комнатам башни и перенос героя (`tower-climb/`), оплата пройденной комнаты и «без урона» (`room-payout/`), рекорд (`record-policy/`), состояние забега между комнатами `RunCarry`. Порядок вызовов и запись в профиль — `application/game/TowerRun` | забег, сумка, рекорд |
 | Аккаунт | `account/` | профиль игрока `Profile` — корень агрегата: держит кошельки, героев, награды и настройки и сохраняет их одним документом | профиль, сохранение, настройки, обучение |
 
 Типы живут у владельцев: id содержимого (`LineageId`, `ClassId`, `ConsumableId`, `TalentPath` …)
@@ -92,6 +92,7 @@
 | `combat` | числа правил боя (`CombatBalance`, `ConsumableBalance`, `LootBalance`), бой в комнате (`RoomBattle` — фасад над частями, `RoomBattleFactory`) и его контракты (`IBattleSession`, `IBattleState`, `BattleInit`, `TurnResult` …), события (`GameEvent`, `Loot`, `FxStyle`), поле (`Grid`, `Card`), `PlayerStats`, стили атаки (`IAttackStrategy`), автоприменение (`pickAutoUse`, `DEFAULT_AUTO_USE`) |
 | `progression` | `ProgressionBalance`, `Hero`, `HeroClassState`, дерево талантов (`TREES`, `Tree`, `TreeNode`, операции над `LineageSave`), `buildPlayerStats`, цены в душах, автопрокачка (`planAutoSkill`), сводка класса (`classTraits`) |
 | `economy` | цена починки (`REPAIR_RATIO`) |
+| `expedition` | подъём по башне `TowerClimb` (начало забега, комната, переход, вершина), оплата комнаты `RoomPayout` и её итог `RoomPay`, рекорд `RecordPolicy`, состояние забега `RunCarry` |
 | `rewards` | награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
 | `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`) |
 
@@ -138,7 +139,7 @@
 | награда дня, серия | `DAILY_REWARDS`, `DailyReward`, `DailyStatus` | награды |
 | «Дар башни» | `GIFT_REWARD`, `GIFT_COOLDOWN_MS` | награды |
 | достижение | `AchievementDef`, `ACHIEVEMENTS` | награды |
-| забег | `TowerRun`, `RunCarry`, `RunSummary`, `RunEndReason` | забег (пока — в `application/game`) |
+| забег | правила — `TowerClimb`, `RoomPayout`, `RecordPolicy`, состояние между комнатами — `RunCarry`; учёт в профиле — `TowerRun`, итог — `RunSummary`, `RunEndReason` (`application/game`) | забег |
 | рекорд | `HeroSave.best`, `Profile.bestOf()` | аккаунт |
 | профиль, сохранение | `Profile`, `SaveData` | аккаунт |
 | обучение | `SaveData.tutorial`, `Profile.markTutorial()` | аккаунт |
@@ -150,7 +151,6 @@
 
 | Где сейчас | Что | Куда и когда |
 |---|---|---|
-| `application/game/TowerRun` | оплата комнаты, «без урона», рекорд | `expedition/`, этап E1 |
 | `account/profile/Profile` | кошельки, лавка, починка | `economy/`, этап E4 |
 | `account/profile/Profile` | награда дня, «Дар башни», достижения; день по `new Date` | `rewards/` и календарь, этапы G1–G2 |
 | `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |

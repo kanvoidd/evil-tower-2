@@ -1,5 +1,5 @@
-import type { BattleCarryStats } from '../../../domain/combat';
-import type { Gold, Souls } from '../../../domain/shared';
+import type { BattleCarryStats } from '../../combat';
+import type { Gold, Souls } from '../../shared';
 
 /**
  * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет

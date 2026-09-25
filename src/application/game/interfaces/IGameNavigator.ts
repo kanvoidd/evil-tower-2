@@ -1,4 +1,4 @@
-import type { RunCarry } from './RunCarry';
+import type { RunCarry } from '../../../domain/expedition';
 
 /** Куда уходит бой: в следующую комнату забега, в новый забег или в хаб. */
 export interface IGameNavigator {

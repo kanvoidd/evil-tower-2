@@ -2,9 +2,9 @@ import Phaser from 'phaser';
 
 import { AutoUseToggles } from '../../application/game/AutoUseToggles';
 import { GameController } from '../../application/game/GameController';
-import type { RunCarry } from '../../application/game/interfaces/RunCarry';
 import { TowerRun } from '../../application/game/TowerRun';
 import { AudioSettings } from '../../application/settings/AudioSettings';
+import type { RunCarry } from '../../domain/expedition';
 import { Animations } from '../animations/Animations';
 import { GameEventPlayer } from '../animations/GameEventPlayer';
 import { BoardView } from '../board/BoardView';
