@@ -94,7 +94,7 @@
 | `economy` | кошелёк `Wallet` (над `Purse`), правила лавки `ShopRules` и `ItemAction`, цена починки (`IRepairPricing`, `REPAIR_PRICING`, `PriceShareRepair`), `EconomyBalance` |
 | `expedition` | подъём по башне `TowerClimb` (начало забега, комната, переход, вершина), оплата комнаты `RoomPayout` и её итог `RoomPay`, рекорд `RecordPolicy`, состояние забега `RunCarry` |
 | `rewards` | календарь игрока (порт `ICalendar`: какой сегодня день), награда дня (`DAILY_REWARDS`), «Дар башни» (`GIFT_REWARD`, `GIFT_COOLDOWN_MS`), достижения (`ACHIEVEMENTS`) и то, что они читают об игроке (`PlayerCounters`, `AchievementFacts`) |
-| `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`) |
+| `account` | `Profile` и результаты его операций (`DailyStatus`, `ItemPurchase`, `ConsumablePurchase`), формат сохранения (`SaveData`, `HeroSave`, `AutoSave`), документ нового игрока и героя (`freshSave`, `emptyHeroSave`), чтение и перенос старых сохранений (`SaveFormat`, шаги `SAVE_MIGRATIONS`, `LegacySave`) |
 
 ## Глоссарий: слово игры → имя в коде
 
@@ -147,9 +147,7 @@
 
 ## Что пока не в своей области
 
-Раскладка по папкам сделана механически; правила, которые живут не у своего хозяина,
-переезжают на следующих этапах второго круга:
-
-| Где сейчас | Что | Куда и когда |
-|---|---|---|
-| `infrastructure/store/ProfileStore` | перенос старых форматов сохранения | `account/save/`, этап G3 |
+Ничего: раскладка этапа B была механической, а правила, которые жили не у своего хозяина,
+переехали на этапах C–G второго круга (забег — в `expedition`, цены — за портами областей, кошелёк
+и лавка — в `economy`, календарь — в `rewards`, перенос старых сохранений — в `account/save`).
+Новое правило сразу кладётся к хозяину (правило 5 выше).

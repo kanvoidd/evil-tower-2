@@ -1,8 +1,10 @@
 import type { ClassId, ConsumableId, EquipmentSave, ItemDef, LineageId } from '../../catalog';
-import { type AutoUseSave, DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
+import type { AutoUseSave, PlayerStats } from '../../combat';
 import type { AutoSkillPlan, AutoSkillSave, Hero, LineageSave, TreeNode } from '../../progression';
 import type { AchievementDef, DailyReward, GIFT_REWARD, ICalendar } from '../../rewards';
 import type { Gold, Lang, Signal, Souls } from '../../shared';
+import { emptyHeroSave } from '../save/fresh-save/emptyHeroSave';
+import { freshSave } from '../save/fresh-save/freshSave';
 import type { HeroSave } from '../save/interfaces/HeroSave';
 import type { SaveData } from '../save/interfaces/SaveData';
 import { AccountState } from './account-state/AccountState';
@@ -49,41 +51,12 @@ export class Profile {
 
   /** Документ сохранения нового игрока. */
   static freshData(lang: Lang, now: number): SaveData {
-    return {
-      v: 2,
-      savedAt: 0,
-      createdAt: now,
-      lang,
-      volume: 0.7,
-      muted: false,
-      activeClass: null,
-      lineages: {},
-      weapon: {},
-      heroes: {},
-      stats: {
-        kills: 0,
-        goldEarned: 0,
-        soulsEarned: 0,
-        roomsCleared: 0,
-        deaths: 0,
-        chestsOpened: 0,
-        metamorphoses: 0,
-        flawless: 0,
-        itemsBroken: 0,
-      },
-      achievements: [],
-      daily: { lastClaim: '', streak: 0 },
-      gift: { readyAt: 0 },
-      tutorial: { fight: false, hub: false, skill: false, shop: false, perk: false },
-      ads: { lastInterstitial: 0, runsSinceAd: 0 },
-      auto: { use: { ...DEFAULT_AUTO_USE }, skill: {} },
-      reviewAsked: false,
-    };
+    return freshSave(lang, now);
   }
 
   /** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
   static emptyHero(): HeroSave {
-    return HeroWallets.emptyHero();
+    return emptyHeroSave();
   }
 
   // ------------------------------------------------------------------ документ и сигналы

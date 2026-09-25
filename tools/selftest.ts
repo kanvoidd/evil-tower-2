@@ -36,6 +36,12 @@ import { Metamorphose } from '../src/application/skill-tree/Metamorphose';
 import { SkillTreeController } from '../src/application/skill-tree/SkillTreeController';
 import { SkillTreeQuery } from '../src/application/skill-tree/SkillTreeQuery';
 import { Profile } from '../src/domain/account/profile';
+import {
+  freshSave,
+  type LegacySave,
+  SAVE_MIGRATIONS,
+  SaveFormat,
+} from '../src/domain/account/save';
 import type { ClassId, LineageId, TalentPath } from '../src/domain/catalog';
 import { CLASS_DEFINITIONS, CLASSES, classesOfLineage } from '../src/domain/catalog/classes';
 import { CONSUMABLES } from '../src/domain/catalog/consumables';
@@ -1831,6 +1837,110 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   });
   after.over = 'lose';
   ok(after.autoRevive() === null, '«Возвращение» не срабатывает второй раз в том же забеге');
+}
+
+// ---------------------------------------------------------------- сохранение: формат и перенос старых
+{
+  const fresh = freshSave('ru', 5);
+  ok(
+    JSON.stringify(SaveFormat.restore(structuredClone(fresh), 5)) === JSON.stringify(fresh),
+    'сохранение: документ текущего формата переносом не меняется',
+  );
+  ok(
+    SAVE_MIGRATIONS.every(
+      (m) => !m.applies(structuredClone(fresh)) || m.id === 'per-item-auto-use',
+    ),
+    'сохранение: шаги переноса не трогают текущий документ (кроме приведения переключателей)',
+  );
+  ok(
+    !SaveFormat.accepts(null) &&
+      !SaveFormat.accepts('x') &&
+      !SaveFormat.accepts({ v: 1 }) &&
+      SaveFormat.accepts({ v: SaveFormat.VERSION }),
+    'сохранение: читается только объект текущей версии',
+  );
+  const older = { v: 2, savedAt: 10 };
+  const newer = { v: 2, savedAt: 20 };
+  ok(
+    SaveFormat.newest([older, newer]) === newer &&
+      SaveFormat.newest([newer, older]) === newer &&
+      SaveFormat.newest([{ v: 1, savedAt: 99 }, older]) === older &&
+      SaveFormat.newest([null, undefined]) === null,
+    'сохранение: из локального и облачного побеждает более свежее той же версии',
+  );
+
+  // общий кошелёк → кошельки героев
+  const shared: LegacySave = {
+    v: 2,
+    activeClass: 'mage',
+    gold: 100,
+    souls: 50,
+    consumables: { potion_heal: 2 },
+    armor: { id: 'a1', durability: 3 },
+    cleared: ['1-1', '1-2'],
+    lineages: { archer: newLineageSave(TREES.archer) },
+  };
+  const s1 = SaveFormat.restore(shared, 5);
+  ok(
+    s1.heroes.mage?.gold === 100 &&
+      s1.heroes.mage.souls === 50 &&
+      s1.heroes.mage.consumables.potion_heal === 2 &&
+      s1.heroes.mage.consumables.potion_regen === 0 &&
+      s1.heroes.mage.armor?.id === 'a1' &&
+      s1.heroes.mage.best === 2,
+    'сохранение: общий кошелёк и пройденные комнаты уходят линейке, которой играли',
+  );
+  ok(
+    s1.heroes.archer?.gold === 0 && s1.heroes.archer.best === 0 && !s1.heroes.warrior,
+    'сохранение: открытая линейка получает пустой кошелёк, неоткрытая — ничего',
+  );
+  ok(
+    ['gold', 'souls', 'consumables', 'armor', 'cleared'].every((k) => !(k in s1)),
+    'сохранение: старые общие поля убраны',
+  );
+  const perLineage = SaveFormat.restore(
+    { v: 2, activeClass: null, cleared: { warrior: ['1-1'], archer: ['1-1', '1-2', '1-3'] } },
+    5,
+  );
+  ok(
+    perLineage.heroes.warrior?.best === 1 && perLineage.heroes.archer?.best === 3,
+    'сохранение: пройденные комнаты по линейкам — рекорд каждой',
+  );
+  ok(
+    SaveFormat.restore({ v: 2, heroes: {}, gold: 7 }, 5).heroes.warrior === undefined,
+    'сохранение: кошельки героев уже есть — старые поля только убираются',
+  );
+
+  // автоматизация: общий переключатель → по расходнику
+  const off = SaveFormat.restore({ v: 2, auto: { use: { on: false, heal: true } } }, 5);
+  const on = SaveFormat.restore(
+    { v: 2, auto: { use: { heal: true }, skill: { mage: { on: true } } } },
+    5,
+  );
+  const none = SaveFormat.restore({ v: 2 }, 5);
+  ok(
+    !off.auto.use.heal && on.auto.use.heal && !on.auto.use.regen && on.auto.skill.mage?.on === true,
+    'сохранение: выключенный общий переключатель выключает все расходники, свои — сохраняются',
+  );
+  ok(
+    JSON.stringify(none.auto) === JSON.stringify(fresh.auto) && !('on' in off.auto.use),
+    'сохранение: без автоматизации — значения по умолчанию, старый переключатель убран',
+  );
+
+  // недостающее — по умолчанию, вложенные группы — по полю
+  const partial = SaveFormat.restore(
+    { v: 2, lang: 'en', stats: { kills: 5 } as never, tutorial: { fight: true } as never },
+    5,
+  );
+  ok(
+    partial.lang === 'en' &&
+      partial.stats.kills === 5 &&
+      partial.stats.deaths === 0 &&
+      partial.tutorial.fight &&
+      !partial.tutorial.hub &&
+      partial.daily.streak === 0,
+    'сохранение: недостающие поля и поля групп берутся у нового игрока',
+  );
 }
 
 // ---------------------------------------------------------------- календарь награды дня

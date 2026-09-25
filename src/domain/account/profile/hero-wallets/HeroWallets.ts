@@ -7,7 +7,8 @@ import {
   type LineageId,
 } from '../../../catalog';
 import { REPAIR_PRICING, ShopRules, Wallet } from '../../../economy';
-import { Gold, Souls } from '../../../shared';
+import { Gold, type Souls } from '../../../shared';
+import { emptyHeroSave } from '../../save/fresh-save/emptyHeroSave';
 import type { HeroSave } from '../../save/interfaces/HeroSave';
 import type { ConsumablePurchase } from '../interfaces/ConsumablePurchase';
 import type { ItemPurchase } from '../interfaces/ItemPurchase';
@@ -18,24 +19,13 @@ import { ProfilePart } from '../profile-part/ProfilePart';
  * правилам экономики (`ShopRules`, `IRepairPricing`), кошелёк — `Wallet` над документом героя.
  */
 export class HeroWallets extends ProfilePart {
-  /** Новый герой начинает с нулями: ни золота, ни душ, ни расходников, ни доспеха. */
-  static emptyHero(): HeroSave {
-    return {
-      gold: Gold.of(0),
-      souls: Souls.of(0),
-      consumables: { potion_heal: 0, potion_regen: 0, artifact: 0 },
-      armor: null,
-      best: 0,
-    };
-  }
-
   /** Всё своё у активного героя (кошелёк, расходники, доспех, рекорд); у нового героя — с нулями. */
   get heroSave(): HeroSave {
     return this.heroSaveOf(this.parts.heroes.activeLineage);
   }
 
   heroSaveOf(lin: LineageId): HeroSave {
-    return (this.doc.heroes[lin] ??= HeroWallets.emptyHero());
+    return (this.doc.heroes[lin] ??= emptyHeroSave());
   }
 
   /** Рекорд героя линейки — без заведения пустого кошелька, если героя ещё нет. */

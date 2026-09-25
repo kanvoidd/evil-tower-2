@@ -31,7 +31,6 @@ const warnings = {
  * Новый код сюда не попадает. К концу второго круга список пуст (кроме сменного блока H).
  */
 const legacyComplexity = {
-  'src/infrastructure/store/ProfileStore.ts': 'G3',
   'src/presentation/animations/effects/vfx/Vfx.ts': 'H',
   'src/infrastructure/audio/WebAudioPlayer.ts': 'H',
   'src/composition/DevParams.ts': 'I',
