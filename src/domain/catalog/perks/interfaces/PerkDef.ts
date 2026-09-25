@@ -6,7 +6,10 @@ import type { PerkSlot } from './PerkSlot';
 import type { PerkTarget } from './PerkTarget';
 import type { VfxStyle } from './VfxStyle';
 
-/** Способность с известным id: её числа (`params`) — того вида, который нужен этой способности. */
+/**
+ * Способность с известным id: её числа (`params`) — того вида, который нужен этой способности.
+ * Название и описание — в словарях по id перка (`perk.<id>.name`, `perk.<id>.desc`).
+ */
 export interface PerkDefOf<A extends AbilityId> {
   id: string;
   classId: ClassId;
@@ -16,8 +19,6 @@ export interface PerkDefOf<A extends AbilityId> {
   params: Readonly<AbilityParams[A]>;
   /** Ключ текстуры иконки (perk_<id>); если файла нет — рисуется заглушка. */
   icon: string;
-  name: { ru: string; en: string };
-  desc: { ru: string; en: string };
   /** Пассивный перк (🔁): кнопки нет, работает сам. */
   passive?: boolean;
   /** Базовое действие линейки: кнопки нет, применяется нажатием по карте; переходит ко всем эволюциям. */

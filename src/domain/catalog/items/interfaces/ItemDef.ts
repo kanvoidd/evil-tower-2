@@ -9,7 +9,6 @@ export interface ItemDef {
   lineage?: LineageId;
   tier: number;
   icon: string;
-  name: { ru: string; en: string };
   damage: number;
   defense: number;
   health: number;

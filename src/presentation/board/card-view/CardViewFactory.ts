@@ -4,7 +4,7 @@ import { ENEMIES } from '../../../domain/catalog';
 import type { Card, PlayerStats } from '../../../domain/combat';
 import type { CellIndex } from '../../../domain/shared';
 import type { TKey } from '../../../i18n';
-import { t, tr } from '../../../i18n';
+import { enemyName, t } from '../../../i18n';
 import { plateTexture, statPill, txt } from '../../components';
 import { CARD_W, STATUS_TINT } from '../../textures/Textures';
 import { HEX } from '../../theme';
@@ -52,7 +52,7 @@ export class CardViewFactory {
         frameKey = 'card_enemy';
         spriteKey = def.icon;
         spriteSize = def.boss ? 124 : 108;
-        label = tr(def.name);
+        label = enemyName(def);
         if (def.boss) labelColor = HEX.gold;
         break;
       }

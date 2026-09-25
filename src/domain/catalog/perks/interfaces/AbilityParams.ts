@@ -13,16 +13,16 @@ export interface AbilityParams {
   // ---- воин
   power_strike: { dmg: Ratio };
   earthquake: { dmg: Ratio; stun: Turns };
-  /** Ударная волна: все враги получают во столько раз больше принятого урона. */
-  never_give_up: { shockMul: number };
+  /** Смертельный удар оставляет `hpLeft` здоровья; ударная волна бьёт в `shockMul` раз сильнее принятого удара. */
+  never_give_up: { hpLeft: number; shockMul: number };
   /** У края поля удар о стену сильнее во `wallMul` раз. */
   shield_bash: { dmg: Ratio; wallMul: number; stun: Turns };
   /** Ослабление атаки врагов до конца комнаты; повторный клич складывается до `cap`. */
   war_cry: { weaken: Ratio; cap: Ratio };
   duel: { stun: Turns };
   whirlwind: { dmg: Ratio };
-  /** Каждые `hpPerResource` потерянного здоровья дают единицу выносливости. */
-  rage: { hpPerResource: number };
+  /** Каждые `hpPerResource` потерянного здоровья дают `resource` выносливости. */
+  rage: { hpPerResource: number; resource: number };
   /** Каждое убийство подряд прибавляет `perKill` к урону, не больше `cap`. */
   carnage: { perKill: Ratio; cap: Ratio };
   /** Удар задевает соседей цели на `splash` урона; в конце герой теряет `hpCost` текущего здоровья. */
@@ -68,8 +68,8 @@ export interface AbilityParams {
   hunter_thrill: NoParams;
   arrow_rain: { arrows: number; dmg: Ratio };
   starfall: { waves: number; dmg: Ratio };
-  /** Каждый следующий враг на линии получает урон, умноженный ещё раз на `stepMul`. */
-  rail_shot: { stepMul: Ratio };
+  /** Каждый следующий враг на линии получает урон слабее на `stepLoss`. */
+  rail_shot: { stepLoss: Ratio };
   /** Бонус к выстрелу — доля максимального здоровья цели. */
   armor_piercing: { dmg: Ratio; hpShare: Ratio; cap: Ratio };
   hunters_mark: NoParams;

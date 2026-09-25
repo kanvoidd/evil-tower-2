@@ -9,18 +9,18 @@ export class CatacombsFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('rat_swarm', 'Крысиный рой', 'Rat Swarm', 'weak', 'beast'),
-      this.enemy('goblin', 'Гоблин', 'Goblin', 'normal', 'humanoid'),
-      this.enemy('ghost', 'Призрак', 'Ghost', 'normal', 'undead', {
+      this.enemy('rat_swarm', 'weak', 'beast'),
+      this.enemy('goblin', 'normal', 'humanoid'),
+      this.enemy('ghost', 'normal', 'undead', {
         evade: Percent.of(20),
         magic: true,
       }),
-      this.enemy('orc', 'Орк', 'Orc', 'tough', 'humanoid', { enrage: 0.12 }),
-      this.enemy('wraith', 'Тень', 'Wraith', 'elite', 'undead', {
+      this.enemy('orc', 'tough', 'humanoid', { enrage: 0.12 }),
+      this.enemy('wraith', 'elite', 'undead', {
         magic: true,
         evade: Percent.of(10),
       }),
-      this.enemy('boss_ogre', 'Огр-вожак', 'Ogre Chief', 'boss', 'humanoid', { enrage: 0.08 }),
+      this.enemy('boss_ogre', 'boss', 'humanoid', { enrage: 0.08 }),
     ];
   }
 }

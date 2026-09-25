@@ -9,22 +9,22 @@ export class LibraryFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('cursed_tome', 'Проклятый том', 'Cursed Tome', 'weak', 'construct', {
+      this.enemy('cursed_tome', 'weak', 'construct', {
         magic: true,
       }),
-      this.enemy('shadow', 'Тень чтеца', 'Reader’s Shadow', 'normal', 'undead', {
+      this.enemy('shadow', 'normal', 'undead', {
         evade: Percent.of(25),
       }),
-      this.enemy('gargoyle', 'Горгулья', 'Gargoyle', 'tough', 'construct', { armor: 16 }),
-      this.enemy('lich_scribe', 'Лич-переписчик', 'Lich Scribe', 'tough', 'undead', {
+      this.enemy('gargoyle', 'tough', 'construct', { armor: 16 }),
+      this.enemy('lich_scribe', 'tough', 'undead', {
         magic: true,
         regen: 0.08,
       }),
-      this.enemy('archivist', 'Архивариус', 'Archivist', 'elite', 'undead', {
+      this.enemy('archivist', 'elite', 'undead', {
         magic: true,
         armor: 10,
       }),
-      this.enemy('boss_lich', 'Лич-хранитель', 'Keeper Lich', 'boss', 'undead', {
+      this.enemy('boss_lich', 'boss', 'undead', {
         magic: true,
         regen: 0.06,
       }),

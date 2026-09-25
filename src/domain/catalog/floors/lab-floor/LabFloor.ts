@@ -8,19 +8,19 @@ export class LabFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('homunculus', 'Гомункул', 'Homunculus', 'weak', 'construct'),
-      this.enemy('acid_slime', 'Кислотный слизень', 'Acid Slime', 'normal', 'beast', {
+      this.enemy('homunculus', 'weak', 'construct'),
+      this.enemy('acid_slime', 'normal', 'beast', {
         venom: 0.25,
       }),
-      this.enemy('flask_golem', 'Колбяной голем', 'Flask Golem', 'normal', 'construct', {
+      this.enemy('flask_golem', 'normal', 'construct', {
         armor: 6,
       }),
-      this.enemy('mutant', 'Мутант', 'Mutant', 'tough', 'beast', { enrage: 0.18 }),
-      this.enemy('plague_doctor', 'Чумной доктор', 'Plague Doctor', 'elite', 'humanoid', {
+      this.enemy('mutant', 'tough', 'beast', { enrage: 0.18 }),
+      this.enemy('plague_doctor', 'elite', 'humanoid', {
         magic: true,
         venom: 0.3,
       }),
-      this.enemy('boss_alchemist', 'Алхимик башни', 'Tower Alchemist', 'boss', 'humanoid', {
+      this.enemy('boss_alchemist', 'boss', 'humanoid', {
         magic: true,
         regen: 0.05,
       }),

@@ -1107,7 +1107,10 @@ export class RoomBattle implements IBattleSession {
     this.hp -= dmg;
     this.totals.damageTaken += dmg;
     // «Ярость» берсерка: боль превращается в выносливость
-    if (s.passives.has('rage')) this.gain(Math.floor(dmg / this.paramsOf('rage').hpPerResource));
+    if (s.passives.has('rage')) {
+      const rage = this.paramsOf('rage');
+      this.gain(Math.floor(dmg / rage.hpPerResource) * rage.resource);
+    }
     this.emit({
       type: 'hit',
       cell: this.playerCell,
@@ -1134,8 +1137,9 @@ export class RoomBattle implements IBattleSession {
     if (this.cheatLeft <= 0 && !shock) return false;
     if (shock) this.usedOnce.add('shock');
     else this.cheatLeft--;
-    this.hp = 1;
-    this.emit({ type: 'heal', amount: 1, hp: 1, source: 'perk' });
+    const hpLeft = shock ? this.paramsOf('never_give_up').hpLeft : 1;
+    this.hp = hpLeft;
+    this.emit({ type: 'heal', amount: hpLeft, hp: hpLeft, source: 'perk' });
     const price = this.lineageDef.cheatDeathPrice;
     if (price.drainsResource) {
       this.res = 0;
@@ -1562,7 +1566,7 @@ export class RoomBattle implements IBattleSession {
           style: 'shot',
         });
         line.forEach((c, i) =>
-          this.strike(c, this.spellDamage(Math.pow(p.params.stepMul, i)), i === 0),
+          this.strike(c, this.spellDamage(Math.pow(1 - p.params.stepLoss, i)), i === 0),
         );
         break;
       }

@@ -35,6 +35,7 @@ import { CONSUMABLES } from '../src/domain/catalog/consumables';
 import { ENEMY_LIST } from '../src/domain/catalog/enemies';
 import { FLOORS } from '../src/domain/catalog/floors';
 import { LINEAGE_ORDER, LINEAGES } from '../src/domain/catalog/heroes';
+import { ITEMS } from '../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../src/domain/catalog/levels';
 import type { AbilityId } from '../src/domain/catalog/perks';
 import {
@@ -101,11 +102,13 @@ import {
 import { perkCost, talentRankCost } from '../src/domain/progression/soul-prices/soulPrices';
 import { buildPlayerStats, CAPS } from '../src/domain/progression/stats/stats';
 import { classTraits, type TraitId } from '../src/domain/progression/traits/traits';
+import { ACHIEVEMENTS } from '../src/domain/rewards';
 import { DAILY_REWARDS } from '../src/domain/rewards/daily';
 import { GIFT_REWARD } from '../src/domain/rewards/tower-gift';
 import { CellIndex, Gold, type Lang, Percent, Ratio, Souls } from '../src/domain/shared';
 import { makeRng } from '../src/domain/shared/rng/rng';
 import { en } from '../src/i18n/en';
+import { perkValues } from '../src/i18n/perkValues';
 import { ru } from '../src/i18n/ru';
 
 let failed = 0;
@@ -207,7 +210,10 @@ ok(
 );
 const STYLES = new Set<string>(VFX_STYLES);
 for (const p of PERKS) {
-  ok(!!p.desc.ru && !!p.desc.en, `${p.id}: есть описание`);
+  ok(
+    [`perk.${p.id}.name`, `perk.${p.id}.desc`].every((k) => k in ru && k in en),
+    `${p.id}: есть название и описание на обоих языках`,
+  );
   ok(STYLES.has(p.vfx), `${p.id}: задан эффект ${p.vfx}`);
   if (hasButton(p)) ok(p.target !== undefined, `${p.id}: у кнопки задана цель`);
   if (p.cost === FULL_BAR)
@@ -1767,6 +1773,52 @@ ok(
 );
 for (const cls of classesOfLineage('warrior'))
   ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
+
+// тексты контента — в словарях по id сущности, числа описаний — только плейсхолдерами
+{
+  const dict = { ru: ru as Record<string, string>, en: en as Record<string, string> };
+  const holes = (text: string): string[] => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
+  const bareDigits = (text: string): boolean => /\d/.test(text.replace(/\{\w+\}/g, ''));
+  for (const p of PERKS) {
+    const values = perkValues(p);
+    for (const lang of ['ru', 'en'] as const) {
+      const desc = dict[lang][`perk.${p.id}.desc`] ?? '';
+      const missing = holes(desc).filter((h) => !(h in values));
+      ok(
+        !missing.length,
+        `${p.id}/${lang}: числа описания есть у способности (${missing.join(', ')})`,
+      );
+      ok(!bareDigits(desc), `${p.id}/${lang}: в описании нет чисел мимо плейсхолдеров`);
+    }
+  }
+  const named = [
+    ...TALENTS.map((t) => `talent.${t.id}.name`),
+    ...ENEMY_LIST.map((e) => `enemy.${e.id}.name`),
+    ...ITEMS.map((i) => `item.${i.id}.name`),
+    ...ACHIEVEMENTS.flatMap((a) => [`ach.${a.id}.name`, `ach.${a.id}.desc`]),
+  ];
+  for (const k of named) ok(k in ru && k in en, `перевод ${k}`);
+  for (const a of ACHIEVEMENTS) {
+    const allowed = new Set(['target', ...(a.floor !== undefined ? ['floor'] : [])]);
+    for (const lang of ['ru', 'en'] as const) {
+      const desc = dict[lang][`ach.${a.id}.desc`] ?? '';
+      ok(
+        holes(desc).every((h) => allowed.has(h)),
+        `ach ${a.id}/${lang}: плейсхолдеры описания`,
+      );
+      ok(!bareDigits(desc), `ach ${a.id}/${lang}: в описании нет чисел мимо плейсхолдеров`);
+    }
+  }
+  // в словарях нет текстов сущностей, которых уже нет в игре
+  const known = new Set([
+    ...named,
+    ...PERKS.flatMap((p) => [`perk.${p.id}.name`, `perk.${p.id}.desc`]),
+  ]);
+  const orphans = Object.keys(ru)
+    .filter((k) => /^(perk|talent|enemy|item)\./.test(k) || /^ach\.[^.]+\.(name|desc)$/.test(k))
+    .filter((k) => !known.has(k));
+  ok(!orphans.length, `тексты без сущности: ${orphans.slice(0, 5).join(', ')}`);
+}
 
 // ---------------------------------------------------------------- определения классов и герой
 {

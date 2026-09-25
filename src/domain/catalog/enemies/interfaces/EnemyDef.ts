@@ -13,5 +13,4 @@ export interface EnemyDef extends EnemyTraits {
   souls: number;
   boss: boolean;
   icon: string;
-  name: { ru: string; en: string };
 }

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 
 import { ACHIEVEMENTS } from '../../../domain/rewards';
-import { fmt, t, tr } from '../../../i18n';
+import { achievementDesc, achievementName, fmt, t } from '../../../i18n';
 import {
   background,
   closeButton,
@@ -50,7 +50,7 @@ export class AchievementsView {
       );
       const lx = tx + 112;
       row.add(
-        txt(s, lx, -34, tr(a.name), 26, {
+        txt(s, lx, -34, achievementName(a), 26, {
           origin: [0, 0.5],
           maxWidth: ROW_W - 160,
           weight: 900,
@@ -58,7 +58,7 @@ export class AchievementsView {
         }),
       );
       row.add(
-        txt(s, lx, -2, tr(a.desc), 19, {
+        txt(s, lx, -2, achievementDesc(a), 19, {
           origin: [0, 0.5],
           maxWidth: ROW_W - 160,
           weight: 700,

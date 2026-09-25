@@ -101,8 +101,6 @@ export abstract class HeroFactory {
       ability: o.ability,
       params: (o.params ?? {}) as AbilityParams[A],
       icon: `perk_${classId}_${slot}`,
-      name: { ru: o.ru, en: o.en },
-      desc: { ru: o.dru, en: o.den },
       passive: o.passive,
       basic: o.basic,
       cost: o.cost,
@@ -115,8 +113,8 @@ export abstract class HeroFactory {
   }
 
   /** Заготовка таланта для `talentTree`. */
-  protected talent(ru: string, en: string, fx: TalentFx, v: number[], v2?: number[]): TalentSeed {
-    return { ru, en, fx, v, v2 };
+  protected talent(fx: TalentFx, v: number[], v2?: number[]): TalentSeed {
+    return { fx, v, v2 };
   }
 
   /** Дерево талантов класса: три яруса, в каждом по цепочке на путь. */
@@ -134,7 +132,6 @@ export abstract class HeroFactory {
             fx: seed.fx,
             v: seed.v,
             v2: seed.v2,
-            name: { ru: seed.ru, en: seed.en },
           });
         });
       });

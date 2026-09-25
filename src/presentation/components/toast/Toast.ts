@@ -2,7 +2,7 @@ import type Phaser from 'phaser';
 
 import { ACHIEVEMENTS } from '../../../domain/rewards';
 import type { Signal } from '../../../domain/shared';
-import { t, tr } from '../../../i18n';
+import { achievementName, t } from '../../../i18n';
 import { COLOR, GAME_W } from '../../theme';
 import { icon } from '../icon/Icon';
 import { plateTexture, shadowTexture } from '../plate/Plates';
@@ -70,7 +70,7 @@ export const toast = (scene: Phaser.Scene, text: string, iconKey?: string): void
 export const bindAchievementToasts = (scene: Phaser.Scene, unlocked: Signal<[string]>): void => {
   const fn = (id: string): void => {
     const a = ACHIEVEMENTS.find((x) => x.id === id);
-    if (a) toast(scene, t('toast.achievement', { name: tr(a.name) }), 'svg_trophy');
+    if (a) toast(scene, t('toast.achievement', { name: achievementName(a) }), 'svg_trophy');
   };
   unlocked.on(fn);
   scene.events.once('shutdown', () => unlocked.off(fn));

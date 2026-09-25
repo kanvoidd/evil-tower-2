@@ -1,4 +1,5 @@
-export const ru = {
+/** Тексты интерфейса: кнопки, окна, подсказки, эффекты талантов, сводки классов. */
+export const ui = {
   'common.ok': 'ОК',
   'common.cancel': 'Отмена',
   'common.continue': 'Продолжить',
@@ -373,5 +374,3 @@ export const ru = {
   'toast.achievement': 'Достижение: {name}',
   'toast.reward': 'Награда получена!',
 } as const;
-
-export type TKey = keyof typeof ru;

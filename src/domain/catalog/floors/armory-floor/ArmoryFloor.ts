@@ -9,19 +9,19 @@ export class ArmoryFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('armored_husk', 'Пустой доспех', 'Hollow Armour', 'weak', 'construct', {
+      this.enemy('armored_husk', 'weak', 'construct', {
         armor: 3,
       }),
-      this.enemy('blade_dancer', 'Танцор клинков', 'Blade Dancer', 'normal', 'humanoid', {
+      this.enemy('blade_dancer', 'normal', 'humanoid', {
         evade: Percent.of(18),
       }),
-      this.enemy('crossbowman', 'Арбалетчик', 'Crossbowman', 'normal', 'humanoid'),
-      this.enemy('iron_sentinel', 'Железный страж', 'Iron Sentinel', 'tough', 'construct', {
+      this.enemy('crossbowman', 'normal', 'humanoid'),
+      this.enemy('iron_sentinel', 'tough', 'construct', {
         armor: 5,
         thorns: 0.15,
       }),
-      this.enemy('warden', 'Надзиратель', 'Warden', 'elite', 'humanoid', { enrage: 0.15 }),
-      this.enemy('boss_forge_master', 'Мастер оружейной', 'Forge Master', 'boss', 'humanoid', {
+      this.enemy('warden', 'elite', 'humanoid', { enrage: 0.15 }),
+      this.enemy('boss_forge_master', 'boss', 'humanoid', {
         armor: 4,
       }),
     ];

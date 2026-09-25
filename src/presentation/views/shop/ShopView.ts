@@ -6,7 +6,7 @@ import type { ItemOffer } from '../../../application/shop/interfaces/ItemOffer';
 import type { ShopTab } from '../../../application/shop/interfaces/ShopTab';
 import type { ConsumableDef, ItemDef } from '../../../domain/catalog';
 import { ConsumableBalance } from '../../../domain/combat';
-import { fmt, t, type TKey, tr } from '../../../i18n';
+import { fmt, itemName, t, type TKey } from '../../../i18n';
 import {
   background,
   closeButton,
@@ -290,7 +290,7 @@ export class ShopView implements IShopView {
     const equipped = o.action === 'equipped' || o.action === 'repair';
     this.rowFrame(row, equipped);
     this.iconTile(row, it.icon);
-    row.add(txt(s, -114, -60, tr(it.name), 25, { origin: [0, 0.5], maxWidth: 336, weight: 900 }));
+    row.add(txt(s, -114, -60, itemName(it), 25, { origin: [0, 0.5], maxWidth: 336, weight: 900 }));
     let sx = -114;
     const chip = (stat: string, v: number): void => {
       row.add(statChip(s, sx + 15, -24, stat, `+${v}`, 30, 21));

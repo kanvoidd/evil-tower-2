@@ -15,5 +15,4 @@ export interface TalentDef {
   v: number[];
   /** Второе значение ранга для эффектов из пары «шанс / сила» (например, раздвоение молнии). */
   v2?: number[];
-  name: { ru: string; en: string };
 }

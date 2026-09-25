@@ -14,26 +14,13 @@ const ARMOR_TIERS: ItemTier[] = [
   { dmg: 0, def: 55, hp: 240, dur: 520, price: 15500 },
 ];
 
-const ARMOR_NAMES: Array<[string, string]> = [
-  ['Тряпичная куртка', 'Cloth Jerkin'],
-  ['Кожаный доспех', 'Leather Armor'],
-  ['Кольчуга', 'Chainmail'],
-  ['Латный нагрудник', 'Plate Cuirass'],
-  ['Доспех башни', 'Tower Armor'],
-  ['Броня титана', 'Titan Plate'],
-  ['Панцирь горгульи', 'Gargoyle Carapace'],
-  ['Доспех владыки', "Overlord's Plate"],
-];
-
 /** Доспехи: восемь ступеней, одни на все линейки. */
-export const ARMORS: ItemDef[] = ARMOR_NAMES.map(([ru, en], i): ItemDef => {
-  const t = ARMOR_TIERS[i];
+export const ARMORS: ItemDef[] = ARMOR_TIERS.map((t, i): ItemDef => {
   return {
     id: `a_${i + 1}`,
     slot: 'armor',
     tier: i + 1,
     icon: `item_a_${i + 1}`,
-    name: { ru, en },
     damage: 0,
     defense: t.def,
     health: t.hp,

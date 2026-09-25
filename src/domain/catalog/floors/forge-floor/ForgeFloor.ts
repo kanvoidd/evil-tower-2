@@ -9,18 +9,18 @@ export class ForgeFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('imp', 'Бес', 'Imp', 'weak', 'demon', { evade: Percent.of(14) }),
-      this.enemy('hellhound', 'Адская гончая', 'Hellhound', 'normal', 'demon', { venom: 0.25 }),
-      this.enemy('magma_golem', 'Магмовый голем', 'Magma Golem', 'tough', 'construct', {
+      this.enemy('imp', 'weak', 'demon', { evade: Percent.of(14) }),
+      this.enemy('hellhound', 'normal', 'demon', { venom: 0.25 }),
+      this.enemy('magma_golem', 'tough', 'construct', {
         armor: 12,
         thorns: 0.25,
       }),
-      this.enemy('demon_smith', 'Демон-кузнец', 'Demon Smith', 'tough', 'demon', { enrage: 0.15 }),
-      this.enemy('brimstone_brute', 'Серный громила', 'Brimstone Brute', 'elite', 'demon', {
+      this.enemy('demon_smith', 'tough', 'demon', { enrage: 0.15 }),
+      this.enemy('brimstone_brute', 'elite', 'demon', {
         venom: 0.2,
         armor: 8,
       }),
-      this.enemy('boss_forge_demon', 'Владыка кузни', 'Lord of the Forge', 'boss', 'demon', {
+      this.enemy('boss_forge_demon', 'boss', 'demon', {
         thorns: 0.2,
         armor: 10,
       }),

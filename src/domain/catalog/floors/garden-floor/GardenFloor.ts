@@ -9,14 +9,14 @@ export class GardenFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('thornling', 'Колючка', 'Thornling', 'weak', 'beast', { thorns: 0.25 }),
-      this.enemy('spider', 'Паук', 'Spider', 'normal', 'beast', { venom: 0.2 }),
-      this.enemy('wasp_queen', 'Оса-матка', 'Wasp Queen', 'normal', 'beast', {
+      this.enemy('thornling', 'weak', 'beast', { thorns: 0.25 }),
+      this.enemy('spider', 'normal', 'beast', { venom: 0.2 }),
+      this.enemy('wasp_queen', 'normal', 'beast', {
         evade: Percent.of(22),
       }),
-      this.enemy('vine_horror', 'Лозовый ужас', 'Vine Horror', 'tough', 'beast', { regen: 0.1 }),
-      this.enemy('dryad', 'Дриада', 'Dryad', 'elite', 'beast', { magic: true, regen: 0.06 }),
-      this.enemy('boss_witch', 'Ведьма сада', 'Garden Witch', 'boss', 'humanoid', {
+      this.enemy('vine_horror', 'tough', 'beast', { regen: 0.1 }),
+      this.enemy('dryad', 'elite', 'beast', { magic: true, regen: 0.06 }),
+      this.enemy('boss_witch', 'boss', 'humanoid', {
         magic: true,
         venom: 0.15,
       }),

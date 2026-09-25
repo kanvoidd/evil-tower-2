@@ -112,14 +112,7 @@ export abstract class FloorFactory {
     return rooms;
   }
 
-  protected enemy(
-    id: string,
-    ru: string,
-    en: string,
-    role: EnemyRole,
-    tag: EnemyTag,
-    traits: EnemyTraits = {},
-  ): EnemyDef {
+  protected enemy(id: string, role: EnemyRole, tag: EnemyTag, traits: EnemyTraits = {}): EnemyDef {
     const F = FloorFactory;
     const r = F.ROLE[role];
     const tune = this.tune();
@@ -136,7 +129,6 @@ export abstract class FloorFactory {
       souls: round(F.BASE.souls * r.val * this.growth(F.FLOOR_SOULS) * F.RUN_REWARD),
       boss: role === 'boss',
       icon: `enemy_${id}`,
-      name: { ru, en },
       ...traits,
     };
   }

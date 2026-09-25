@@ -1,6 +1,6 @@
-import type { ru } from './ru';
+import type { ui as ru } from '../ru/ui';
 
-export const en: Record<keyof typeof ru, string> = {
+export const ui: Record<keyof typeof ru, string> = {
   'common.ok': 'OK',
   'common.cancel': 'Cancel',
   'common.continue': 'Continue',

@@ -9,17 +9,17 @@ export class SummitFloor extends FloorFactory {
 
   createEnemies(): EnemyDef[] {
     return [
-      this.enemy('tower_guard', 'Страж башни', 'Tower Guard', 'weak', 'humanoid', { armor: 12 }),
-      this.enemy('soul_eater', 'Пожиратель душ', 'Soul Eater', 'normal', 'demon', { venom: 0.3 }),
-      this.enemy('golem', 'Голем', 'Golem', 'tough', 'construct', { armor: 24, thorns: 0.2 }),
-      this.enemy('dark_knight', 'Тёмный рыцарь', 'Dark Knight', 'tough', 'humanoid', {
+      this.enemy('tower_guard', 'weak', 'humanoid', { armor: 12 }),
+      this.enemy('soul_eater', 'normal', 'demon', { venom: 0.3 }),
+      this.enemy('golem', 'tough', 'construct', { armor: 24, thorns: 0.2 }),
+      this.enemy('dark_knight', 'tough', 'humanoid', {
         enrage: 0.2,
       }),
-      this.enemy('void_herald', 'Вестник пустоты', 'Void Herald', 'elite', 'demon', {
+      this.enemy('void_herald', 'elite', 'demon', {
         magic: true,
         evade: Percent.of(15),
       }),
-      this.enemy('boss_demon', 'Владыка башни', 'Tower Lord', 'boss', 'demon', {
+      this.enemy('boss_demon', 'boss', 'demon', {
         magic: true,
         armor: 18,
         enrage: 0.1,
