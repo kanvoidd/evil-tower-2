@@ -1,5 +1,5 @@
 import type { IProfileStorage } from '../../application/ports/IProfileStorage';
-import { Profile, type SaveData,SaveFormat } from '../../domain/account';
+import { Profile, type SaveData, SaveFormat } from '../../domain/account';
 import { LocalCalendar } from '../time/LocalCalendar';
 import type { CloudSaves } from './interfaces/CloudSaves';
 
