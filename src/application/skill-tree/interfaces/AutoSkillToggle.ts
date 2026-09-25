@@ -1,4 +1,4 @@
-import type { AutoSkillPlan } from '../../../domain/progression/auto-skill/autoSkill';
+import type { AutoSkillPlan } from '../../../domain/progression';
 
 /** Итог переключения автопрокачки: включена ли и что она сразу купила. */
 export interface AutoSkillToggle {

@@ -1,12 +1,5 @@
-import { CLASSES } from '../domain/catalog/classes';
-import { ROOMS } from '../domain/catalog/levels';
-import {
-  applyBuy,
-  canInvest,
-  costOf,
-  isPurchasable,
-  TREES,
-} from '../domain/progression/skill-tree/skillTree';
+import { CLASSES, ROOMS } from '../domain/catalog';
+import { applyBuy, canInvest, costOf, isPurchasable, TREES } from '../domain/progression';
 import type { ClassId } from '../domain/types';
 import type { ProfileStore } from '../infrastructure/store/ProfileStore';
 

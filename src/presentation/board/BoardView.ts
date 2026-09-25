@@ -1,8 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { PlayerStats } from '../../domain/combat';
-import type { Card } from '../../domain/combat/card/Card';
-import type { IBattleState } from '../../domain/combat/room-battle';
+import type { Card, IBattleState, PlayerStats } from '../../domain/combat';
 import type { Point } from '../animations/interfaces/Point';
 import { plateTexture } from '../components';
 import { CARD_H, CARD_W } from '../textures/Textures';

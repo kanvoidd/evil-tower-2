@@ -4,7 +4,7 @@ import type { GiftState } from '../../../application/hub/interfaces/GiftState';
 import type { HubHint } from '../../../application/hub/interfaces/HubHint';
 import type { HubRecord } from '../../../application/hub/interfaces/HubRecord';
 import type { IHubView } from '../../../application/hub/interfaces/IHubView';
-import type { DailyStatus } from '../../../domain/account/profile';
+import type { DailyStatus } from '../../../domain/account';
 import { fmtTime, t, type TKey } from '../../../i18n';
 import {
   addEmbers,

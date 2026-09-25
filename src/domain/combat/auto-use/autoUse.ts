@@ -1,4 +1,4 @@
-import { FULL_BAR } from '../../catalog/perks';
+import { FULL_BAR } from '../../catalog';
 import type { AutoUseSave, ConsumableId } from '../../types';
 import { Grid } from '../engine/grid/Grid';
 import type { PlayerStats } from '../player';

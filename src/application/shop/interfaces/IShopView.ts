@@ -1,5 +1,4 @@
-import type { ConsumableDef } from '../../../domain/catalog/consumables';
-import type { ItemDef } from '../../../domain/catalog/items';
+import type { ConsumableDef, ItemDef } from '../../../domain/catalog';
 
 /** Лавка на экране — отклик на покупки. */
 export interface IShopView {

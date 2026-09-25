@@ -1,5 +1,5 @@
-import type { Profile } from '../../domain/account/profile';
-import type { BuyResult } from '../../domain/progression/skill-tree/skillTree';
+import type { Profile } from '../../domain/account';
+import type { BuyResult } from '../../domain/progression';
 import type { ClassId } from '../../domain/types';
 
 /**

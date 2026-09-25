@@ -1,5 +1,4 @@
-import { CLASS_DEFINITIONS, type ClassDefinition } from '../../../catalog/classes';
-import type { PerkDef } from '../../../catalog/perks';
+import { CLASS_DEFINITIONS, type ClassDefinition, type PerkDef } from '../../../catalog';
 import { ATTACK_STRATEGIES, type IAttackStrategy } from '../../../combat';
 import type { ClassId, LineageId, Stats } from '../../../types';
 

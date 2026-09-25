@@ -1,5 +1,4 @@
-import { CLASSES } from '../../catalog/classes/classRegistry';
-import type { PerkSlot } from '../../catalog/perks/interfaces/PerkSlot';
+import { CLASSES, type PerkSlot } from '../../catalog';
 import type { ClassId } from '../../types';
 
 /**

@@ -1,9 +1,15 @@
-import { CLASSES, classesOfLineage, secondOf, terminalsOf } from '../../catalog/classes';
-import { LINEAGE_ORDER } from '../../catalog/heroes';
-import { PERK_BY_ID, perkId, type PerkSlot, perksOfClass, SLOT_ORDER } from '../../catalog/perks';
 import {
+  CLASSES,
+  classesOfLineage,
+  LINEAGE_ORDER,
   maxRank,
   PATH_ORDER,
+  PERK_BY_ID,
+  perkId,
+  type PerkSlot,
+  perksOfClass,
+  secondOf,
+  SLOT_ORDER,
   TALENT_BY_ID,
   talentChain,
   type TalentDef,
@@ -11,7 +17,8 @@ import {
   talentsOfClass,
   talentValue,
   talentValue2,
-} from '../../catalog/talents';
+  terminalsOf,
+} from '../../catalog';
 import { GAMEPLAY } from '../../gameplay';
 import type { ClassId, LineageId, LineageSave, TalentPath } from '../../types';
 import { classCost, perkCost, talentRankCost, talentTotalCost } from '../soul-prices/soulPrices';

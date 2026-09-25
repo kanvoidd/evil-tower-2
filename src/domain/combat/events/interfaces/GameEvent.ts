@@ -1,4 +1,4 @@
-import type { AbilityId } from '../../../catalog/perks';
+import type { AbilityId } from '../../../catalog';
 import type { ConsumableId, StatusKind } from '../../../types';
 import type { Card } from '../../card/Card';
 import type { FxStyle } from './FxStyle';

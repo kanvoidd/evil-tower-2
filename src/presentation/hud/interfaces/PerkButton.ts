@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-import type { PerkDef } from '../../../domain/catalog/perks';
+import type { PerkDef } from '../../../domain/catalog';
 import type { PlateButton } from '../../components';
 
 /** Кнопка способности класса в нижней панели. */

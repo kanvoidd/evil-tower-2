@@ -1,4 +1,4 @@
-import type { AbilityId } from '../../../catalog/perks';
+import type { AbilityId } from '../../../catalog';
 import { Grid } from '../../engine/grid/Grid';
 import type { BasicMode } from '../interfaces/BasicMode';
 import type { IAttackStrategy } from '../interfaces/IAttackStrategy';

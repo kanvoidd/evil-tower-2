@@ -1,4 +1,4 @@
-import type { AchievementDef } from '../../../../domain/rewards/achievements';
+import type { AchievementDef } from '../../../../domain/rewards';
 
 /** Откуда список достижений берёт, что открыто и сколько пройдено. */
 export interface IAchievementSource {

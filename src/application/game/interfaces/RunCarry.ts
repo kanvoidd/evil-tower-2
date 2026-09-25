@@ -1,4 +1,4 @@
-import type { BattleCarryStats } from '../../../domain/combat/room-battle';
+import type { BattleCarryStats } from '../../../domain/combat';
 
 /**
  * Забег как в рогалике: всегда начинается с 1-1 и идёт комната за комнатой, пока герой не погибнет

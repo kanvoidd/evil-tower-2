@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/account/profile';
+import type { Profile } from '../../domain/account';
 import type { AutoUseSave, ConsumableId } from '../../domain/types';
 
 /** Переключатели «АВТО» под расходниками: у каждого расходника свой флаг в профиле. */

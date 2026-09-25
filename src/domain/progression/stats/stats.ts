@@ -1,7 +1,4 @@
-import { CLASSES } from '../../catalog/classes';
-import { LINEAGES } from '../../catalog/heroes';
-import { ITEM_BY_ID } from '../../catalog/items';
-import { hasButton, PERK_BY_ID } from '../../catalog/perks';
+import { CLASSES, hasButton, ITEM_BY_ID, LINEAGES, PERK_BY_ID } from '../../catalog';
 import { ATTACK_STRATEGIES, type PlayerStats } from '../../combat';
 import { GAMEPLAY } from '../../gameplay';
 import type { ClassId, EquipmentSave, LineageSave } from '../../types';

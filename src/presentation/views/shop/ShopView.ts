@@ -4,8 +4,7 @@ import type { ConsumableOffer } from '../../../application/shop/interfaces/Consu
 import type { IShopView } from '../../../application/shop/interfaces/IShopView';
 import type { ItemOffer } from '../../../application/shop/interfaces/ItemOffer';
 import type { ShopTab } from '../../../application/shop/interfaces/ShopTab';
-import type { ConsumableDef } from '../../../domain/catalog/consumables';
-import type { ItemDef } from '../../../domain/catalog/items';
+import type { ConsumableDef, ItemDef } from '../../../domain/catalog';
 import { GAMEPLAY } from '../../../domain/gameplay';
 import { fmt, t, type TKey, tr } from '../../../i18n';
 import {

@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/account/profile';
+import type { Profile } from '../../domain/account';
 import type { Lang } from '../../domain/types';
 import type { ILocale } from '../ports';
 

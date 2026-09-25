@@ -1,5 +1,5 @@
-import type { RoomDef, RoomPlan } from '../../../catalog/levels';
-import type { Rng } from '../../../shared/rng/rng';
+import type { RoomDef, RoomPlan } from '../../../catalog';
+import type { Rng } from '../../../shared';
 import type { ConsumableId, EquipmentSave } from '../../../types';
 import type { PlayerStats } from '../../player';
 import type { BattleCarryStats } from './BattleCarryStats';

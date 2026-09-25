@@ -1,5 +1,5 @@
-import type { Profile } from '../../domain/account/profile';
-import type { GIFT_REWARD } from '../../domain/rewards/tower-gift';
+import type { Profile } from '../../domain/account';
+import type { GIFT_REWARD } from '../../domain/rewards';
 import type { AdService } from '../ads/AdService';
 import type { RewardChoice } from './interfaces/RewardChoice';
 

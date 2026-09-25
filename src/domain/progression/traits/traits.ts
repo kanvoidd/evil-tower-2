@@ -1,6 +1,4 @@
-import { CLASSES } from '../../catalog/classes';
-import { LINEAGES } from '../../catalog/heroes';
-import { perkOf } from '../../catalog/perks';
+import { CLASSES, LINEAGES, perkOf } from '../../catalog';
 import type { PlayerStats } from '../../combat';
 import type { ClassId, LineageId } from '../../types';
 import { newLineageSave, TREES } from '../skill-tree/skillTree';

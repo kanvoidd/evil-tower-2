@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/account/profile';
+import type { Profile } from '../../domain/account';
 import type { IPlatform } from '../ports/IPlatform';
 import { AD_POLICY } from './adPolicy';
 

@@ -1,4 +1,4 @@
-import type { Trait } from '../../../domain/progression/traits/traits';
+import type { Trait } from '../../../domain/progression';
 import type { ClassId, LineageId } from '../../../domain/types';
 
 /** Герой в карусели выбора. */

@@ -2,9 +2,8 @@ import type Phaser from 'phaser';
 
 import type { IHubDialogs } from '../../application/hub/interfaces/IHubDialogs';
 import type { RewardChoice } from '../../application/rewards/interfaces/RewardChoice';
-import type { DailyStatus } from '../../domain/account/profile';
-import { DAILY_REWARDS, type DailyReward } from '../../domain/rewards/daily';
-import { GIFT_REWARD } from '../../domain/rewards/tower-gift';
+import type { DailyStatus } from '../../domain/account';
+import { DAILY_REWARDS, type DailyReward, GIFT_REWARD } from '../../domain/rewards';
 import { fmt, t } from '../../i18n';
 import { Dialog, icon, plateTexture, txt, UiSound } from '../components';
 import { HEX } from '../theme';

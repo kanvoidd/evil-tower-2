@@ -1,4 +1,4 @@
-import type { AbilityId, PerkDef } from '../../../catalog/perks';
+import type { AbilityId, PerkDef } from '../../../catalog';
 import type { ClassId, LineageId, ResourceKind } from '../../../types';
 import type { IAttackStrategy } from '../../attack/interfaces/IAttackStrategy';
 

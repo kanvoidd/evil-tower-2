@@ -1,4 +1,4 @@
-import type { ConsumablePurchase, Profile } from '../../domain/account/profile';
+import type { ConsumablePurchase, Profile } from '../../domain/account';
 import type { ConsumableId } from '../../domain/types';
 
 /** Купить расходник: лавка не продаёт сверх предела запаса и то, что добывается только в бою. */

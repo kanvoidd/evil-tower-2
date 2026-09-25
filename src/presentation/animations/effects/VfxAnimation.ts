@@ -1,5 +1,5 @@
 import type { ISoundPlayer } from '../../../application/ports';
-import type { FxStyle } from '../../../domain/combat/events';
+import type { FxStyle } from '../../../domain/combat';
 import { BoardLayout } from '../../board/BoardLayout';
 import type { PhaserClock } from '../../phaser/PhaserClock';
 import type { Point } from '../interfaces/Point';

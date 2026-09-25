@@ -2,9 +2,8 @@ import type Phaser from 'phaser';
 
 import type { SkillTreeCommand } from '../../../application/skill-tree/interfaces/SkillTreeCommand';
 import type { SkillTreeQuery } from '../../../application/skill-tree/SkillTreeQuery';
-import { FULL_BAR } from '../../../domain/catalog/perks';
-import type { NodeState, TreeNode } from '../../../domain/progression/skill-tree/skillTree';
-import { classTraits } from '../../../domain/progression/traits/traits';
+import { FULL_BAR } from '../../../domain/catalog';
+import { classTraits, type NodeState, type TreeNode } from '../../../domain/progression';
 import {
   describeTrait,
   fmt,

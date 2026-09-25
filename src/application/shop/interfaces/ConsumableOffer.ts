@@ -1,4 +1,4 @@
-import type { ConsumableDef } from '../../../domain/catalog/consumables';
+import type { ConsumableDef } from '../../../domain/catalog';
 
 /** Строка расходника в лавке. */
 export interface ConsumableOffer {

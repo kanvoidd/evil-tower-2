@@ -1,4 +1,4 @@
-import type { Profile } from '../../../domain/account/profile';
+import type { Profile } from '../../../domain/account';
 
 export interface BootSceneDeps {
   profile: Profile;

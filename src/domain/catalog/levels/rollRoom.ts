@@ -1,4 +1,4 @@
-import type { Rng } from '../../shared/rng/rng';
+import type { Rng } from '../../shared';
 import { bossOfFloor, ENEMIES } from '../enemies/enemyRegistry';
 import type { EnemyDef } from '../enemies/interfaces/EnemyDef';
 import type { RoomDef } from './interfaces/RoomDef';

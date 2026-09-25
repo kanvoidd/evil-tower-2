@@ -1,4 +1,4 @@
-import type { EnemyDef } from '../../../catalog/enemies';
+import type { EnemyDef } from '../../../catalog';
 import type { IDeckSupply } from '../../engine/interfaces/IDeckSupply';
 import { Card } from '../Card';
 import type { CardInit } from '../interfaces/CardInit';

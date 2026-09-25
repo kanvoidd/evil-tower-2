@@ -1,4 +1,4 @@
-import type { Profile } from '../../domain/account/profile';
+import type { Profile } from '../../domain/account';
 import type { IPlatform } from '../ports';
 import type { HubEntry } from './interfaces/HubEntry';
 

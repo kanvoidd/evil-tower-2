@@ -1,4 +1,4 @@
-import type { IBattleSession, TurnResult } from '../../domain/combat/room-battle';
+import type { IBattleSession, TurnResult } from '../../domain/combat';
 import type { BattleCommand } from './interfaces/BattleCommand';
 
 /**

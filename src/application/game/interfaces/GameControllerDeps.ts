@@ -1,5 +1,5 @@
-import type { Profile } from '../../../domain/account/profile';
-import type { IBattleSession } from '../../../domain/combat/room-battle';
+import type { Profile } from '../../../domain/account';
+import type { IBattleSession } from '../../../domain/combat';
 import type { AdService } from '../../ads/AdService';
 import type { IClock } from '../../ports/IClock';
 import type { IPlatform } from '../../ports/IPlatform';

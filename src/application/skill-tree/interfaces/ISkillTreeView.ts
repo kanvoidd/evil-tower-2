@@ -1,5 +1,4 @@
-import type { AutoSkillPlan } from '../../../domain/progression/auto-skill/autoSkill';
-import type { TreeNode } from '../../../domain/progression/skill-tree/skillTree';
+import type { AutoSkillPlan, TreeNode } from '../../../domain/progression';
 import type { ClassId } from '../../../domain/types';
 
 /** Дерево навыков на экране — отклик на покупки, метаморфозы и автопрокачку. */

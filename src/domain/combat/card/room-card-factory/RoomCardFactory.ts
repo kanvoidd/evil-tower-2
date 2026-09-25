@@ -1,5 +1,4 @@
-import type { EnemyDef } from '../../../catalog/enemies';
-import { ELITE } from '../../../catalog/levels';
+import { ELITE, type EnemyDef } from '../../../catalog';
 import type { Card } from '../Card';
 import { CardFactory } from '../card-factory/CardFactory';
 import type { DeckPlan } from '../card-factory/interfaces/DeckPlan';

@@ -1,5 +1,5 @@
-import type { ItemPurchase, Profile } from '../../domain/account/profile';
-import type { ItemDef } from '../../domain/catalog/items';
+import type { ItemPurchase, Profile } from '../../domain/account';
+import type { ItemDef } from '../../domain/catalog';
 
 /**
  * Купить вещь или починить надетую. Надетая целая вещь и вещь слабее надетой не продаются;

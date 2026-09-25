@@ -1,9 +1,11 @@
-import type { EnemyDef } from '../../../catalog/enemies';
-import { FLOOR_FACTORIES } from '../../../catalog/floors';
-import type { FloorFactory } from '../../../catalog/floors/floor-factory/FloorFactory';
-import { HERO_FACTORIES } from '../../../catalog/heroes';
-import type { HeroFactory } from '../../../catalog/heroes/hero-factory/HeroFactory';
-import { rollRoom } from '../../../catalog/levels';
+import {
+  type EnemyDef,
+  FLOOR_FACTORIES,
+  type FloorFactory,
+  HERO_FACTORIES,
+  type HeroFactory,
+  rollRoom,
+} from '../../../catalog';
 import { RoomCardFactory } from '../../card/room-card-factory/RoomCardFactory';
 import { Engine } from '../../engine/Engine';
 import type { BattleInit } from '../interfaces/BattleInit';

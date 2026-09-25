@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
-import { ACHIEVEMENTS } from '../../../domain/rewards/achievements';
-import type { Signal } from '../../../domain/shared/signal/Signal';
+import { ACHIEVEMENTS } from '../../../domain/rewards';
+import type { Signal } from '../../../domain/shared';
 import { t, tr } from '../../../i18n';
 import { COLOR, GAME_W } from '../../theme';
 import { icon } from '../icon/Icon';

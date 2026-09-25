@@ -1,4 +1,4 @@
-import type { TreeNode } from '../../../domain/progression/skill-tree/skillTree';
+import type { TreeNode } from '../../../domain/progression';
 
 /** Что игрок сделал в дереве навыков. Выбор узла — дело экрана, команд не требует. */
 export type SkillTreeCommand =

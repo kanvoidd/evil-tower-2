@@ -1,4 +1,4 @@
-import type { AbilityId } from '../../../catalog/perks';
+import type { AbilityId } from '../../../catalog';
 import type { BasicMode } from './BasicMode';
 
 /**

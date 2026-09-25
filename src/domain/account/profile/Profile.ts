@@ -1,30 +1,29 @@
-import { CLASSES } from '../../catalog/classes';
-import { CONSUMABLES } from '../../catalog/consumables';
-import { LINEAGE_ORDER } from '../../catalog/heroes';
-import { ITEM_BY_ID, type ItemDef } from '../../catalog/items';
-import type { PlayerStats } from '../../combat';
-import { DEFAULT_AUTO_USE } from '../../combat/auto-use/autoUse';
-import { REPAIR_RATIO } from '../../economy/repair/repairRatio';
+import { CLASSES, CONSUMABLES, ITEM_BY_ID, type ItemDef, LINEAGE_ORDER } from '../../catalog';
+import { DEFAULT_AUTO_USE, type PlayerStats } from '../../combat';
+import { REPAIR_RATIO } from '../../economy';
 import { GAMEPLAY } from '../../gameplay';
 import {
+  applyBuy,
   type AutoSkillPlan,
   branchOf,
-  DEFAULT_AUTO_SKILL,
-  inferBranch,
-  planAutoSkill,
-} from '../../progression/auto-skill/autoSkill';
-import { Hero } from '../../progression/hero/Hero';
-import {
-  applyBuy,
   costOf,
+  DEFAULT_AUTO_SKILL,
+  Hero,
+  inferBranch,
   newLineageSave,
+  planAutoSkill,
   type TreeNode,
   TREES,
-} from '../../progression/skill-tree/skillTree';
-import { type AchievementDef, ACHIEVEMENTS } from '../../rewards/achievements';
-import { DAILY_REWARDS, type DailyReward } from '../../rewards/daily';
-import { GIFT_COOLDOWN_MS, GIFT_REWARD } from '../../rewards/tower-gift';
-import { Signal } from '../../shared/signal/Signal';
+} from '../../progression';
+import {
+  type AchievementDef,
+  ACHIEVEMENTS,
+  DAILY_REWARDS,
+  type DailyReward,
+  GIFT_COOLDOWN_MS,
+  GIFT_REWARD,
+} from '../../rewards';
+import { Signal } from '../../shared';
 import type {
   AutoSkillSave,
   AutoUseSave,
