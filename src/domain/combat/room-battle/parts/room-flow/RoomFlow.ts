@@ -137,6 +137,16 @@ export class RoomFlow extends RoomPart {
     }
   }
 
+  /**
+   * Доливка поля в конце хода. Капкан может поймать пришедшую карту и убить её — тогда клетку
+   * доливаем сразу: в начале следующего хода освободившиеся клетки забываются, и она осталась бы
+   * пустой навсегда. Каждый сработавший капкан снимается, поэтому цикл конечен.
+   */
+  private refillBoard(): void {
+    this.state.engine.refill();
+    while (this.parts.traps.springSnares() && !this.state.over) this.state.engine.refill();
+  }
+
   /** «Заряд»: готовая, но не применённая в этом ходу способность копит силу. */
   private chargeUp(): void {
     for (const p of this.state.stats.abilities) {
@@ -162,8 +172,7 @@ export class RoomFlow extends RoomPart {
     if (this.state.over) return;
     this.parts.status.tickStatuses();
     this.parts.traps.tickArmed();
-    this.state.engine.refill();
-    this.parts.traps.springSnares();
+    this.refillBoard();
     if (this.state.over) return;
     this.heroTimers();
     this.state.totals.turns++;

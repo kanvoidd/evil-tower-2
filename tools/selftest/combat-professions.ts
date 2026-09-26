@@ -596,6 +596,25 @@ const withAbility = (stats: PlayerStats, a: AbilityDef): PlayerStats => ({
   }
   const spent = c2.perkReady(ABILITY_BY_ID.armed_trap);
   ok(!spent.ok && spent.reason === 'once', 'взведённых ловушек за комнату — две');
+
+  // капкан на добыче: герой забрал её и ушёл, пришедший при доливке враг погиб в капкане —
+  // клетка не остаётся пустой
+  const empty = arena(hero('huntsman', ranks));
+  for (const c of Grid.CELLS) if (c !== 4) empty.cards[c] = gold(1);
+  cast(empty, 'snare', 1);
+  empty.tap(C(1));
+  ok(empty.playerCell === 1 && empty.traps.length === 1, 'герой встал на клетку с капканом');
+  empty.pool.length = 0;
+  empty.pool.push(enemy(1));
+  const r = empty.tap(C(0));
+  ok(
+    r.events.some((e) => e.type === 'kill' && e.cell === 1) && empty.traps.length === 0,
+    'капкан убил пришедшего врага',
+  );
+  ok(
+    empty.cards.every((c, i) => i === empty.playerCell || c !== null),
+    'клетка, где капкан убил врага, снова занята',
+  );
 }
 
 void Grid;
