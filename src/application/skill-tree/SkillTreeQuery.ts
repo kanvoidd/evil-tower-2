@@ -5,6 +5,7 @@ import {
   PERK_BY_ID,
   type PerkDef,
   type ResourceKind,
+  siblingsOf,
   type TalentPlace,
 } from '../../domain/catalog';
 import {
@@ -97,7 +98,7 @@ export class SkillTreeQuery {
     return canBuy(this.tree, this.save, n, this.profile.souls);
   }
 
-  /** Узел — финальный класс героя, и от него можно отказаться. */
+  /** Узел — класс героя, выбранный из нескольких, и от него можно отказаться. */
   canCancel(n: TreeNode): boolean {
     return n.kind === 'class' && canCancelMetamorphosis(this.tree, this.save, n.classId!);
   }
@@ -110,11 +111,20 @@ export class SkillTreeQuery {
     return PERK_BY_ID[perkIdOfNode(n)];
   }
 
-  /** Обучение: самый дешёвый узел, который можно купить прямо сейчас (null — обучение пройдено или купить нечего). */
+  /** Класс узла выбирается из нескольких (подкласс мага, финал воина) — остальные закроются. */
+  isChoice(n: TreeNode): boolean {
+    return n.kind === 'class' && siblingsOf(n.classId!).length > 0;
+  }
+
+  /**
+   * Обучение: самый дешёвый талант или способность, которые можно купить прямо сейчас (null —
+   * обучение пройдено или купить нечего). Выбор класса — решение игрока, на него обучение не ведёт.
+   */
   tutorialTarget(): TreeNode | null {
     if (this.tutorialDone) return null;
     let best: TreeNode | null = null;
     for (const n of this.tree.nodes) {
+      if (n.kind === 'class') continue;
       const st = this.state(n);
       if (st !== 'available' && st !== 'partial') continue;
       if (this.check(n).ok && (!best || this.cost(n) < this.cost(best))) best = n;

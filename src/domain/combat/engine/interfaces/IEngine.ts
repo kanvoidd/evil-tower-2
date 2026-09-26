@@ -1,7 +1,6 @@
 import type { CellIndex } from '../../../shared';
 import type { Card } from '../../card/Card';
 import type { GameEvent } from '../../events';
-import type { EngineSnapshot } from './EngineSnapshot';
 
 /**
  * Низкоуровневые команды боя. Движок знает только поле 3×3, колоду и журнал событий:
@@ -48,8 +47,4 @@ export interface IEngine {
   insert(mark: number, ev: GameEvent): void;
   /** Забрать накопленные события и очистить журнал. */
   flush(): GameEvent[];
-
-  // ---- снимок
-  capture(): EngineSnapshot;
-  restore(s: EngineSnapshot): void;
 }

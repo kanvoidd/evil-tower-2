@@ -1,3 +1,5 @@
+export { branchTier } from './branchTier';
+export type { BaseTree } from './interfaces/BaseTree';
 export type { TalentBonusFx } from './interfaces/TalentBonusFx';
 export type { TalentChanceFx } from './interfaces/TalentChanceFx';
 export type { TalentDef } from './interfaces/TalentDef';
@@ -7,15 +9,18 @@ export type { TalentId } from './interfaces/TalentId';
 export type { TalentPath } from './interfaces/TalentPath';
 export type { TalentPlace } from './interfaces/TalentPlace';
 export type { TalentSynergyFx } from './interfaces/TalentSynergyFx';
+export type { TalentTab } from './interfaces/TalentTab';
 export type { TalentTier } from './interfaces/TalentTier';
 export type { TalentTierNumber } from './interfaces/TalentTierNumber';
 export type { TalentTree } from './interfaces/TalentTree';
 export { LAST_TIER } from './lastTier';
 export { PATH_ORDER } from './pathOrder';
 export { talent } from './talent';
-export { bonus, chanceAndPower, isSynergy, synergy } from './talentEffects';
-export { maxRank, powerAt, valueAt } from './talentRanks';
+export { bonus, chanceAndPower, isSynergy, modify, synergy } from './talentEffects';
+export { maxRank, patchAt, powerAt, valueAt } from './talentRanks';
 export {
+  basePlacesOf,
+  branchPlaceId,
   placesOfClass,
   placesOfTier,
   TALENT_PLACE_BY_ID,

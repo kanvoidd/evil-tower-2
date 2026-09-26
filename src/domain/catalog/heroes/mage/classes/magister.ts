@@ -1,14 +1,13 @@
-import type { ClassDef } from '../../../classes/interfaces/ClassDef';
-import { deckDraw, rewind, swap } from '../abilities/magister';
-import { magisterTalents } from '../talents/magister';
+import type { BranchedClassDef } from '../../../classes/interfaces/ClassDef';
+import { magicShield } from '../abilities/magister';
 
-/** «Магистр» — вторая ступень (после «Маг»). */
-export const magister: ClassDef = {
+/** «Магистр» — переходный класс: в него ведёт любой подкласс мага. */
+export const magister: BranchedClassDef = {
   id: 'magister',
   lineage: 'mage',
-  stage: 1,
-  parent: 'mage',
+  stage: 2,
+  parents: ['elementalist', 'arcanist', 'warlock'],
   bonuses: { damage: 3, health: 5 },
-  perks: { start: swap, p2: deckDraw, p3: rewind },
-  talents: magisterTalents,
+  branches: [{ id: 'arcana', steps: [{ perk: magicShield }] }],
+  branchChoice: 'all',
 };

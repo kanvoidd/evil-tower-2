@@ -20,7 +20,7 @@ import { HeroClassState } from './hero-class-state/HeroClassState';
 /**
  * Герой — линейка, которую ведёт игрок: прогресс дерева талантов и класс, за который он играет.
  * Метаморфоза меняет класс, но не героя: тот же экземпляр, те же таланты и способности —
- * маг → магистр → некромант или пиромант.
+ * маг → элементалист → магистр, воин → рыцарь → паладин или берсерк.
  *
  * Класс — состояние героя (`HeroClassState`), и оно не хранится отдельно от прогресса: это самый
  * развитый открытый класс линейки, поэтому герой и его дерево не могут разойтись. Души за
@@ -85,19 +85,19 @@ export class Hero {
     this.onChange();
   }
 
-  /** Отменить можно только метаморфозу в финальный класс. */
+  /** Отменить можно метаморфозу в класс, выбранный из нескольких, пока герой не ушёл дальше. */
   get canCancelMetamorphosis(): boolean {
     return canCancelMetamorphosis(this.tree, this.progress, this.classId);
   }
 
-  /** Ветка финального класса сбрасывается, часть душ возвращается; герой снова — класс-родитель. */
+  /** Ветка класса сбрасывается, часть душ возвращается; герой снова — класс-родитель. */
   cancelMetamorphosis(): { refund: Souls; to: ClassId } {
     const from = this.classState;
-    if (!this.canCancelMetamorphosis || !from.parent)
+    if (!this.canCancelMetamorphosis || !from.parents.length)
       throw new Error(`метаморфозу ${from.id} не отменить`);
     const { refund } = applyCancelMetamorphosis(this.tree, this.progress, from.id);
     this.onChange();
-    return { refund, to: from.parent };
+    return { refund, to: this.classId };
   }
 
   /** Характеристики для боя: класс, таланты всей линейки и снаряжение. */

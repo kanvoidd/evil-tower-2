@@ -1,28 +1,14 @@
 import type { AbilityBehaviorId } from '../../catalog';
-import { ArmorPiercing } from './archer/armor-piercing/ArmorPiercing';
-import { ArrowRain } from './archer/arrow-rain/ArrowRain';
-import { DoubleShot } from './archer/double-shot/DoubleShot';
-import { FalconCourier } from './archer/falcon-courier/FalconCourier';
-import { FalconHunt } from './archer/falcon-hunt/FalconHunt';
-import { OneShot } from './archer/one-shot/OneShot';
-import { RailShot } from './archer/rail-shot/RailShot';
-import { Ricochet } from './archer/ricochet/Ricochet';
-import { Starfall } from './archer/starfall/Starfall';
+import { ArmedTrap } from './archer/armed-trap/ArmedTrap';
+import { Hook } from './archer/hook/Hook';
+import { Stampede } from './archer/stampede/Stampede';
+import { Trap } from './archer/trap/Trap';
 import type { IAbility } from './interfaces/IAbility';
 import { ChainLightning } from './mage/chain-lightning/ChainLightning';
-import { CorpseBlast } from './mage/corpse-blast/CorpseBlast';
-import { DeadHarvest } from './mage/dead-harvest/DeadHarvest';
-import { DeckDraw } from './mage/deck-draw/DeckDraw';
 import { Detonate } from './mage/detonate/Detonate';
-import { Fireball } from './mage/fireball/Fireball';
-import { Ghosts } from './mage/ghosts/Ghosts';
-import { Ignite } from './mage/ignite/Ignite';
-import { Inferno } from './mage/inferno/Inferno';
-import { Lightning } from './mage/lightning/Lightning';
-import { MagicShot } from './mage/magic-shot/MagicShot';
-import { Rewind } from './mage/rewind/Rewind';
+import { Ray } from './mage/ray/Ray';
+import { Shuffle } from './mage/shuffle/Shuffle';
 import { Swap } from './mage/swap/Swap';
-import { Voodoo } from './mage/voodoo/Voodoo';
 import { Bribe } from './mercenary/bribe/Bribe';
 import { DeathMark } from './mercenary/death-mark/DeathMark';
 import { Reaper } from './mercenary/reaper/Reaper';
@@ -31,6 +17,8 @@ import { ShadowReap } from './mercenary/shadow-reap/ShadowReap';
 import { ShurikenFan } from './mercenary/shuriken-fan/ShurikenFan';
 import { SmokeScreen } from './mercenary/smoke-screen/SmokeScreen';
 import { WindShadow } from './mercenary/wind-shadow/WindShadow';
+import { Strike } from './shared/strike/Strike';
+import { Ward } from './shared/ward/Ward';
 import { Duel } from './warrior/duel/Duel';
 import { Earthquake } from './warrior/earthquake/Earthquake';
 import { HeavensWrath } from './warrior/heavens-wrath/HeavensWrath';
@@ -59,29 +47,17 @@ export const ABILITY_BEHAVIORS: { readonly [B in AbilityBehaviorId]?: IAbility<B
   justice_beam: new JusticeBeam(),
   verdict: new Verdict(),
   heavens_wrath: new HeavensWrath(),
-  lightning: new Lightning(),
-  magic_shot: new MagicShot(),
+  strike: new Strike(),
+  ward: new Ward(),
   chain_lightning: new ChainLightning(),
-  swap: new Swap(),
-  deck_draw: new DeckDraw(),
-  rewind: new Rewind(),
-  corpse_blast: new CorpseBlast(),
-  ghosts: new Ghosts(),
-  voodoo: new Voodoo(),
-  dead_harvest: new DeadHarvest(),
-  ignite: new Ignite(),
-  fireball: new Fireball(),
+  ray: new Ray(),
   detonate: new Detonate(),
-  inferno: new Inferno(),
-  ricochet: new Ricochet(),
-  falcon_hunt: new FalconHunt(),
-  falcon_courier: new FalconCourier(),
-  double_shot: new DoubleShot(),
-  arrow_rain: new ArrowRain(),
-  starfall: new Starfall(),
-  rail_shot: new RailShot(),
-  armor_piercing: new ArmorPiercing(),
-  one_shot: new OneShot(),
+  swap: new Swap(),
+  shuffle: new Shuffle(),
+  hook: new Hook(),
+  stampede: new Stampede(),
+  trap: new Trap(),
+  armed_trap: new ArmedTrap(),
   bribe: new Bribe(),
   sentence: new Sentence(),
   death_mark: new DeathMark(),

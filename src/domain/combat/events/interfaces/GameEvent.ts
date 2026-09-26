@@ -11,7 +11,7 @@ import type { Loot } from './Loot';
  */
 export type GameEvent =
   | { type: 'spawn'; cell: CellIndex; card: Card }
-  /** style: 'shot' — выстрел, 'backstab' — телепорт за спину, 'bolt' — молния мага. */
+  /** style: 'shot' — выстрел, 'backstab' — телепорт за спину, 'bolt' — разряд. */
   | {
       type: 'attack';
       from: CellIndex;
@@ -39,6 +39,8 @@ export type GameEvent =
   | { type: 'slide'; uid: number; from: CellIndex; to: CellIndex }
   | { type: 'swap'; a: CellIndex; b: CellIndex }
   | { type: 'gold'; cell: CellIndex; amount: number }
+  /** Номинал карты на поле изменился (кабаны смяли кучку золота). */
+  | { type: 'value'; cell: CellIndex; uid: number; value: number }
   | { type: 'souls'; cell: CellIndex; amount: number }
   | { type: 'spend'; amount: number }
   | { type: 'heal'; amount: number; hp: number; source: 'potion' | 'perk' | 'lifesteal' | 'revive' }
@@ -55,11 +57,21 @@ export type GameEvent =
   | { type: 'swarm'; cells: CellIndex[] }
   /** Способность применена (для всплывающей подписи и звука). */
   | { type: 'perk'; ability: AbilityId }
-  /** Способность «заряжена» или снята с зарядки (null). */
-  | { type: 'armed'; ability: AbilityId | null }
-  /** Способность ничего не нарисовала сама — её вспышка по умолчанию; стиль выбирает показ. */
+  /**
+   * Способность «заряжена» или снята с зарядки (null). У «Взведённой ловушки» — выбранная для неё
+   * способность `skill` и задержка `delay` в ходах.
+   */
+  | { type: 'armed'; ability: AbilityId | null; skill?: AbilityId; delay?: number }
+  /**
+   * Вспышка способности на клетках: стиль по id способности выбирает показ. Её вставляет бой, если
+   * механика ничего не нарисовала сама, или сама механика, если знает, какие клетки задела.
+   */
   | { type: 'cast'; ability: AbilityId; cells: CellIndex[] }
-  | { type: 'rewind' }
+  /**
+   * Ловушка поставлена (`on`) или сработала и снята. `ability` — чем она сработает («Капкан» или
+   * способность «Взведённой ловушки»), `turns` — через сколько ходов (0 — когда на клетку попадёт враг).
+   */
+  | { type: 'trap'; cell: CellIndex; ability: AbilityId; turns: number; on: boolean }
   | { type: 'artifact'; cells: CellIndex[] }
   | { type: 'boost'; turns: number }
   | { type: 'win' }

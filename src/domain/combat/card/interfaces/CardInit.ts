@@ -4,13 +4,16 @@ import type { CardKind } from '../../../catalog';
 export interface CardInit {
   uid: number;
   kind: CardKind;
-  /** Id врага в каталоге; у добычи — её вид (`gold`, `chest_empty`, …). По умолчанию равен `kind`. */
+  /**
+   * Id врага в каталоге (у слуги — врага, чья он мёртвая версия); у добычи — её вид (`gold`,
+   * `chest_empty`, …). По умолчанию равен `kind`.
+   */
   defId?: string;
   hp?: number;
   atk?: number;
   /** Номинал: сколько золота в карте золота. */
   value?: number;
   elite?: boolean;
-  /** Призрак: сколько ходов ему осталось. */
+  /** Слуга: сколько ходов ему осталось. */
   ttl?: number;
 }

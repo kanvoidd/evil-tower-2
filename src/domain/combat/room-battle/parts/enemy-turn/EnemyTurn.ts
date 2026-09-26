@@ -1,5 +1,6 @@
 import { type CellIndex, Gold, Percent } from '../../../../shared';
 import { CombatBalance } from '../../../balance';
+import type { Card } from '../../../card/Card';
 import { Grid } from '../../../engine/grid/Grid';
 import { RoomPart } from '../room-part/RoomPart';
 
@@ -39,7 +40,6 @@ export class EnemyTurn extends RoomPart {
   private enemyStrike(cell: CellIndex): void {
     const enemy = this.state.cards[cell];
     if (!enemy || enemy.kind !== 'enemy' || this.state.over) return;
-    const s = this.state.stats;
     if (enemy.stun > 0) {
       enemy.stun--;
       this.state.emit({ type: 'miss', cell, kind: 'stun' });
@@ -49,7 +49,7 @@ export class EnemyTurn extends RoomPart {
       this.state.emit({ type: 'miss', cell, kind: 'smoke' });
       return;
     }
-    const atk = Math.max(1, Math.round(enemy.atk * (1 - this.state.warCry)));
+    const atk = Math.max(1, Math.round(enemy.strikePower() * (1 - this.state.warCry)));
     this.state.emit({
       type: 'attack',
       from: cell,
@@ -58,6 +58,13 @@ export class EnemyTurn extends RoomPart {
       by: 'enemy',
     });
     enemy.swings++;
+    this.resolveStrike(cell, enemy, atk);
+    this.iceRetort(cell);
+  }
+
+  /** Удар врага по герою: уворот, парирование, блок или урон с ядом. */
+  private resolveStrike(cell: CellIndex, enemy: Card, atk: number): void {
+    const s = this.state.stats;
     if (this.state.rng.chance(Percent.toRatio(s.dodge))) {
       this.state.emit({ type: 'miss', cell: this.state.playerCell, kind: 'dodge' });
       if (s.passives.has('substitution')) this.substitute(cell);
@@ -84,6 +91,14 @@ export class EnemyTurn extends RoomPart {
       this.state.playerPoisonDmg = Math.max(this.state.playerPoisonDmg, dot);
       this.state.playerPoison = Math.max(this.state.playerPoison, 2);
     }
+  }
+
+  /** «Ледяной доспех»: каждый, кто замахнулся на героя, получает ответный удар. */
+  private iceRetort(cell: CellIndex): void {
+    if (this.state.over || this.state.wardTurns <= 0 || this.state.wardThorns <= 0) return;
+    if (this.state.cards[cell]?.kind !== 'enemy') return;
+    this.state.emit({ type: 'fx', cells: [cell], style: 'chain' });
+    this.parts.hits.damageEnemy(cell, this.parts.damage.spellDamage(this.state.wardThorns), false);
   }
 
   /** «Подмена»: уворот превращается в удар из-за спины — всегда критический. */
@@ -231,7 +246,7 @@ export class EnemyTurn extends RoomPart {
           by: 'enemy',
         });
         // Обычная защита работает, но уклонений и парирований тут нет: деваться некуда.
-        const dmg = Math.max(1, this.parts.damage.strikeDamage(card.atk));
+        const dmg = Math.max(1, this.parts.damage.strikeDamage(Math.round(card.strikePower())));
         this.state.hp = Math.max(0, this.state.hp - dmg);
         this.state.totals.damageTaken += dmg;
         this.state.emit({

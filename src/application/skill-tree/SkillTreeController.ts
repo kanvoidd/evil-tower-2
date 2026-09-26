@@ -56,7 +56,7 @@ export class SkillTreeController {
     }
     if (node.kind === 'class') {
       const to = node.classId!;
-      if (!(await this.d.dialogs.confirmMetamorphosis(CLASSES[to].parent!, to))) return;
+      if (!(await this.d.dialogs.confirmMetamorphosis(this.d.query.activeClass, to))) return;
       if (!this.d.metamorphose.execute(to).ok) return;
     } else if (!this.d.buySkill.execute(node).ok) {
       return;
@@ -68,7 +68,7 @@ export class SkillTreeController {
 
   private async cancelMetamorphosis(): Promise<void> {
     const from = this.d.query.activeClass;
-    const to = CLASSES[from].parent!;
+    const to = CLASSES[from].parents[0];
     const pct = Math.round(ProgressionBalance.cancelMetamorphosisRefund * 100);
     if (!(await this.d.dialogs.confirmCancel(from, to, pct))) return;
     this.d.view.metamorphosisCancelled(this.d.cancelMetamorphosis.execute().to);

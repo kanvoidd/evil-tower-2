@@ -5,6 +5,7 @@ import {
   canInvest,
   costOf,
   isPurchasable,
+  opensBranchChoice,
   type Tree,
   type TreeNode,
 } from '../skill-tree';
@@ -22,15 +23,18 @@ export const DEFAULT_AUTO_SKILL: AutoSkillSave = { on: false, path: 'attack' };
  */
 export const inferBranch = (tree: Tree, save: LineageSave): Pick<AutoSkillSave, 'path'> | null => {
   const n = tree.byId.get(save.last);
-  if (n?.kind === 'talent' && n.path) return { path: n.path };
+  if (n?.kind === 'talent' && n.path && !n.branch) return { path: n.path };
   return null;
 };
 
-/** Что запомнить после ручной покупки: у таланта — его путь, у перка и класса — ничего. */
+/** Что запомнить после ручной покупки: у таланта пути — его путь, у остального — ничего. */
 export const branchOf = (n: TreeNode): Partial<Pick<AutoSkillSave, 'path'>> =>
-  n.kind === 'talent' && n.path ? { path: n.path } : {};
+  n.kind === 'talent' && n.path && !n.branch ? { path: n.path } : {};
 
-/** Почему автопрокачка остановилась: 'souls' — не хватает душ, 'meta' — впереди метаморфоза, 'done' — всё изучено. */
+/**
+ * Почему автопрокачка остановилась: 'souls' — не хватает душ, 'meta' — впереди выбор игрока
+ * (метаморфоза, подкласс, ветка), 'done' — всё изучено.
+ */
 export type AutoStop = 'souls' | 'meta' | 'done';
 
 export interface AutoSkillPlan {
@@ -39,13 +43,21 @@ export interface AutoSkillPlan {
   stop: AutoStop;
 }
 
-/** Узлы выбранного пути: его таланты и перки-«ворота» между ярусами (без них вниз не пройти). */
+/**
+ * Узлы выбранного пути: его таланты и перки-«ворота» между ярусами (без них вниз не пройти), а у
+ * классов с ветками — перки и таланты веток подкласса.
+ */
 const onBranch = (n: TreeNode, path: TalentPath): boolean =>
-  n.kind === 'talent' ? n.path === path : n.kind === 'perk';
+  n.kind === 'talent' && !n.branch ? n.path === path : n.kind === 'perk' || n.kind === 'talent';
+
+/** Можно ли автопрокачке купить узел: он на пути, открыт и не решает за игрока выбор ветки. */
+const canAuto = (tree: Tree, s: LineageSave, n: TreeNode, path: TalentPath): boolean =>
+  isPurchasable(n) && onBranch(n, path) && canInvest(tree, s, n) && !opensBranchChoice(tree, s, n);
 
 /**
  * Что купит автопрокачка: сверху вниз по выбранному пути, ранг за рангом, пока хватает душ.
- * Метаморфозу (смену класса) не покупает никогда — это решение игрока. Работает на копии сохранения.
+ * Метаморфозу (смену класса, выбор подкласса) и выбор ветки не покупает никогда — это решение игрока.
+ * Работает на копии сохранения.
  */
 export const planAutoSkill = (
   tree: Tree,
@@ -58,11 +70,11 @@ export const planAutoSkill = (
   let left: number = souls;
   let spent = 0;
   for (let guard = 0; guard < MAX_PURCHASES; guard++) {
-    const cands = tree.nodes.filter(
-      (n) => isPurchasable(n) && onBranch(n, cfg.path) && canInvest(tree, sim, n),
-    );
+    const cands = tree.nodes.filter((n) => canAuto(tree, sim, n, cfg.path));
     if (!cands.length) {
-      const meta = tree.nodes.some((n) => n.kind === 'class' && canInvest(tree, sim, n));
+      const meta = tree.nodes.some(
+        (n) => canInvest(tree, sim, n) && (n.kind === 'class' || opensBranchChoice(tree, sim, n)),
+      );
       return { buys, spent: Souls.of(spent), stop: meta ? 'meta' : 'done' };
     }
     // самый верхний узел; на одном уровне — самый дешёвый

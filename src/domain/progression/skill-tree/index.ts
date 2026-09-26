@@ -3,7 +3,7 @@ export type { LearnedTalent } from './interfaces/LearnedTalent';
 export type { LineageSave } from './interfaces/LineageSave';
 export type { NodeKind } from './interfaces/NodeKind';
 export type { NodeState } from './interfaces/NodeState';
-export type { Tree } from './interfaces/Tree';
+export type { BranchedTree, TieredTree, Tree } from './interfaces/Tree';
 export type { TreeNode } from './interfaces/TreeNode';
 export * from './skillTree';
 export { SkillTreeBuilder } from './tree-builder/SkillTreeBuilder';

@@ -18,6 +18,7 @@ const times = (x: number): string => String(Math.round(x * 100) / 100);
  * ресурсе, перезарядка, цена золотом и восстановление ресурса линейки класса, который её выдаёт.
  */
 export const abilityValues = (p: AbilityDef): Record<string, string | number> => {
+  // числа способности — её уровня (у героя) или правки таланта; у каталожной — первого уровня
   const out: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(p.params as Record<string, number | number[]>)) {
     const ratio = PARAM_UNITS[key as ParamKey] === 'ratio';

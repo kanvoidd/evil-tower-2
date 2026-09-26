@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 
 import type { ISkillTreeView } from '../../../application/skill-tree/interfaces/ISkillTreeView';
-import type { ClassId } from '../../../domain/catalog';
+import type { ClassId, TalentTab } from '../../../domain/catalog';
 import type { AutoSkillPlan, NodeState, Tree, TreeNode } from '../../../domain/progression';
 import { t } from '../../../i18n';
 import {
   background,
   PanController,
+  PlateButton,
   staggerIn,
   tapHint,
   toast,
@@ -32,6 +33,9 @@ export class SkillTreeView implements ISkillTreeView {
   /** Масштаб дерева на экране и отступ сверху (под шапку). */
   private static readonly K = 0.62;
   private static readonly OFFSET_Y = 260;
+  /** Переключатель вкладок «Основа / Профессия» под шапкой. */
+  private static readonly TABS_Y = 178;
+  private static readonly TAB_DX = 140;
 
   private readonly tree: Tree;
   private readonly layout: SkillTreeLayout;
@@ -46,27 +50,22 @@ export class SkillTreeView implements ISkillTreeView {
   private hint: Phaser.GameObjects.GameObject[] = [];
   /** Игрок уходит из дерева — узлы больше не выбираются. */
   private leaving = false;
+  /** Вкладка на экране: у дерева с ветками их две. */
+  private tab: TalentTab = 'profession';
+  private readonly tabButtons = new Map<TalentTab, PlateButton>();
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly d: SkillTreeViewDeps,
   ) {
-    const K = SkillTreeView.K;
     this.tree = d.query.tree;
     this.layout = new SkillTreeLayout(this.tree);
     background(scene);
 
     this.buildWorld();
-    const b = this.layout.bounds;
-    const bounds = {
-      minX: b.minX * K - 220,
-      maxX: b.maxX * K + 220,
-      minY: 0,
-      maxY: b.maxY * K + SkillTreeView.OFFSET_Y + 300,
-    };
     this.pan = new PanController(
       scene,
-      bounds,
+      this.panBounds('profession'),
       new Phaser.Geom.Rectangle(0, 140, GAME_W, GAME_H - 140 - SkillInfoPanel.H),
       'xy',
     );
@@ -82,9 +81,11 @@ export class SkillTreeView implements ISkillTreeView {
 
     this.header = new SkillTreeHeader(scene, d.query, d.wallet, d.commands, () => this.close());
     this.panel = new SkillInfoPanel(scene, d.query, d.commands);
+    this.buildTabs();
     this.refresh();
 
     const last = d.query.lastNode;
+    this.showTab(last.tab);
     const lv = this.nodes.get(last.id)!;
     this.pan.setCenter(lv.x, lv.y + 90);
     this.select(this.pickInitialSelection(last));
@@ -130,6 +131,7 @@ export class SkillTreeView implements ISkillTreeView {
 
   metamorphosisCancelled(to: ClassId): void {
     UiSound.play('break');
+    this.showTab('profession');
     this.refresh();
     this.header.refresh();
     this.select(this.tree.classNode[to]);
@@ -140,7 +142,7 @@ export class SkillTreeView implements ISkillTreeView {
     this.header.refresh();
     const last = plan.buys[plan.buys.length - 1];
     const v = this.nodes.get(last.id);
-    if (v) {
+    if (v && last.tab === this.tab) {
       this.burst(v.x, v.y, NodeView.colorOf(last));
       this.pan.setCenter(v.x, v.y + 90);
     }
@@ -169,6 +171,67 @@ export class SkillTreeView implements ISkillTreeView {
         ),
         'svg_auto',
       );
+  }
+
+  // ------------------------------------------------------------------------------ вкладки
+
+  /** Границы панорамирования вкладки — по её узлам в масштабе вида. */
+  private panBounds(tab: TalentTab): { minX: number; maxX: number; minY: number; maxY: number } {
+    const K = SkillTreeView.K;
+    const b = this.layout.boundsOf(tab);
+    return {
+      minX: b.minX * K - 220,
+      maxX: b.maxX * K + 220,
+      minY: 0,
+      maxY: b.maxY * K + SkillTreeView.OFFSET_Y + 300,
+    };
+  }
+
+  /** Переключатель «Основа / Профессия» — только у дерева с вкладкой «Основа». */
+  private buildTabs(): void {
+    if (!this.layout.hasBaseTab) return;
+    const tabs: Array<[TalentTab, string, number]> = [
+      ['base', t('skill.tab_base'), -1],
+      ['profession', t('skill.tab_prof'), 1],
+    ];
+    for (const [tab, label, side] of tabs) {
+      const btn = new PlateButton(
+        this.scene,
+        GAME_W / 2 + side * SkillTreeView.TAB_DX,
+        SkillTreeView.TABS_Y,
+        {
+          w: 250,
+          h: 58,
+          label,
+          fontSize: 24,
+          radius: 20,
+          style: 'raised',
+          onClick: () => this.switchTab(tab),
+        },
+      );
+      btn.setScrollFactor(0).setDepth(710);
+      this.tabButtons.set(tab, btn);
+    }
+  }
+
+  private switchTab(tab: TalentTab): void {
+    if (tab === this.tab || this.leaving) return;
+    UiSound.play('click');
+    this.showTab(tab);
+    const b = this.layout.boundsOf(tab);
+    this.pan.setCenter(0, b.minY * SkillTreeView.K + SkillTreeView.OFFSET_Y + 300);
+    const first = this.pickInitialSelection(null);
+    this.select(first);
+  }
+
+  /** Видны узлы и связи только текущей вкладки. */
+  private showTab(tab: TalentTab): void {
+    this.tab = tab;
+    for (const v of this.nodes.values()) v.setVisible(v.node.tab === tab);
+    for (const e of this.edges) e.setVisible(this.tree.byId.get(e.b)!.tab === tab);
+    for (const [k, btn] of this.tabButtons) btn.setStyle(k === tab ? 'gold' : 'raised');
+    this.pan?.setBounds(this.panBounds(tab));
+    if (this.selected && this.selected.tab !== tab) this.select(null);
   }
 
   // ------------------------------------------------------------------------------ мир
@@ -248,15 +311,18 @@ export class SkillTreeView implements ISkillTreeView {
     this.panel.show(n, this.states.get(n.id) ?? this.d.query.state(n));
   }
 
-  /** Ближайший к последней покупке узел, который можно купить (или сама последняя покупка). */
-  private pickInitialSelection(last: TreeNode): TreeNode {
+  /**
+   * Ближайший к последней покупке узел текущей вкладки, который можно купить (или сама последняя
+   * покупка); без последней покупки — самый верхний доступный.
+   */
+  private pickInitialSelection(last: TreeNode | null): TreeNode | null {
     let best: TreeNode | null = null;
     let bestD = Infinity;
-    const lv = this.nodes.get(last.id)!;
+    const lv = last ? this.nodes.get(last.id)! : null;
     for (const [id, v] of this.nodes) {
       const st = this.states.get(id);
-      if (st !== 'available' && st !== 'partial') continue;
-      const d = Math.hypot(v.x - lv.x, v.y - lv.y);
+      if (v.node.tab !== this.tab || (st !== 'available' && st !== 'partial')) continue;
+      const d = lv ? Math.hypot(v.x - lv.x, v.y - lv.y) : v.y;
       if (d < bestD) {
         bestD = d;
         best = v.node;
@@ -304,6 +370,7 @@ export class SkillTreeView implements ISkillTreeView {
   private setupTutorial(): void {
     const target = this.d.query.tutorialTarget();
     if (!target) return;
+    this.showTab(target.tab);
     const v = this.nodes.get(target.id)!;
     this.select(target);
     this.pan.setCenter(v.x, v.y + 90);

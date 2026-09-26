@@ -99,6 +99,43 @@ import { ok } from './harness';
     'сохранение: без автоматизации — значения по умолчанию, старый переключатель убран',
   );
 
+  // профессиональное развитие: деревья мага и охотника сброшены, души и прочие линейки — целы
+  const old: LegacySave = {
+    v: 2,
+    activeClass: 'pyromancer' as LegacySave['activeClass'],
+    lineages: {
+      mage: {
+        ranks: { 'cls/mage': 1, 'mage/a1-1': 3, 'cls/pyromancer': 1 },
+        last: 'cls/pyromancer',
+      },
+      archer: { ranks: { 'cls/archer': 1 }, last: 'cls/archer' },
+      warrior: { ranks: { 'cls/warrior': 1, 'warrior/a1-1': 2 }, last: 'warrior/a1-1' },
+    },
+    heroes: { mage: { souls: 500 } as never },
+  };
+  const reworked = SaveFormat.restore(old, 5);
+  ok(
+    JSON.stringify(reworked.lineages.mage) === JSON.stringify(newLineageSave(TREES.mage)) &&
+      JSON.stringify(reworked.lineages.archer) === JSON.stringify(newLineageSave(TREES.archer)),
+    'сохранение: деревья мага и охотника начинаются с базового класса',
+  );
+  ok(
+    reworked.lineages.warrior?.ranks['warrior/a1-1'] === 2,
+    'сохранение: дерево воина переносом не тронуто',
+  );
+  ok(reworked.activeClass === 'mage', 'сохранение: удалённый класс — базовый класс своей линейки');
+  ok(reworked.heroes.mage?.souls === 500, 'сохранение: души героя при сбросе дерева остаются');
+  ok(reworked.treeVersion === 2, 'сохранение: отмечена версия деревьев');
+  const archerActive = SaveFormat.restore(
+    { v: 2, activeClass: 'archer' as LegacySave['activeClass'] },
+    5,
+  );
+  ok(archerActive.activeClass === 'hunter', 'сохранение: прежний лучник — теперь охотник');
+  ok(
+    SaveFormat.restore({ v: 2, activeClass: 'mage', gold: 3 }, 5).activeClass === 'mage',
+    'сохранение: старый общий кошелёк с магом переносится и после перестройки деревьев',
+  );
+
   // недостающее — по умолчанию, вложенные группы — по полю
   const partial = SaveFormat.restore(
     { v: 2, lang: 'en', stats: { kills: 5 } as never, tutorial: { fight: true } as never },

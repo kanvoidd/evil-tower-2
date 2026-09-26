@@ -37,10 +37,13 @@ export class DamageCalc extends RoomPart {
     return Math.max(1, Math.round(dmg * mul));
   }
 
-  /** Броня врага и «Приговор». */
+  /** Броня врага (пробивание героя, хрупкая броня, удар вплотную «Залпом болтом») и «Приговор». */
   afterArmor(dmg: number, enemy: Card): number {
     const def = this.state.enemies[enemy.defId];
-    const armor = Math.max(0, Math.round((def?.armor ?? 0) * (1 - this.state.stats.pierce)));
+    const brittle = enemy.brittle > 0 ? enemy.brittleShare : 0;
+    const armor = this.state.ignoreArmor
+      ? 0
+      : Math.max(0, Math.round((def?.armor ?? 0) * (1 - this.state.stats.pierce) * (1 - brittle)));
     let out = Math.max(1, dmg - armor);
     if (enemy.vuln > 0) out = Math.round(out * (1 + enemy.vuln));
     return Math.max(1, out);
@@ -56,9 +59,22 @@ export class DamageCalc extends RoomPart {
     return Math.min(cap, value * this.state.stats.perkPower);
   }
 
-  /** Урон способности: доля от базового урона героя, усиленная талантом «перк класса сильнее». */
+  /**
+   * Урон способности: доля от базового урона героя, усиленная талантом «перк класса сильнее» и
+   * «Перегрузкой» — чем полнее была шкала в момент применения, тем сильнее.
+   */
   spellDamage(ratio: number): number {
-    return Math.max(1, Math.round(this.currentDamage() * ratio * this.state.stats.perkPower));
+    const over = 1 + this.state.stats.overcharge * this.castShare();
+    return Math.max(
+      1,
+      Math.round(this.currentDamage() * ratio * this.state.stats.perkPower * over),
+    );
+  }
+
+  /** Доля шкалы ресурса в момент применения способности (вне способности — сейчас). */
+  castShare(): number {
+    const res = this.state.inAbility ? this.state.castRes : this.state.res;
+    return this.state.stats.resMax > 0 ? res / this.state.stats.resMax : 0;
   }
 
   rollCrit(enemy: Card | null, ranged: boolean): boolean {
@@ -75,7 +91,7 @@ export class DamageCalc extends RoomPart {
   defenseNow(): number {
     let def = this.state.stats.defense;
     for (const m of this.state.stats.defenseMods) def = m.apply(def, this.hero);
-    return def;
+    return this.state.wardTurns > 0 ? def + this.state.wardDefense : def;
   }
 
   /** Урон по герою от удара силой atk (для подсказок и автоприменения). */

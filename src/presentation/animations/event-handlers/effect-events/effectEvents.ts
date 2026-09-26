@@ -4,10 +4,22 @@ import { BoardLayout } from '../../../board/BoardLayout';
 import { ABILITY_FX, HEX } from '../../../theme';
 import type { EventHandlers } from '../interfaces/EventHandler';
 
-/** Эффекты и панели: способность, заряд, вспышки способностей, артефакт, ресурс, щит, исход. */
+/**
+ * Эффекты и панели: способность, заряд, вспышки способностей, ловушки, артефакт, ресурс, щит, исход.
+ */
 export const effectEvents: Pick<
   EventHandlers,
-  'perk' | 'armed' | 'fx' | 'cast' | 'artifact' | 'resource' | 'boost' | 'shield' | 'win' | 'lose'
+  | 'perk'
+  | 'armed'
+  | 'fx'
+  | 'cast'
+  | 'trap'
+  | 'artifact'
+  | 'resource'
+  | 'boost'
+  | 'shield'
+  | 'win'
+  | 'lose'
 > = {
   perk(ev, { hud, sound }) {
     sound.play('burst');
@@ -28,6 +40,12 @@ export const effectEvents: Pick<
   /** Вспышка способности по умолчанию: стиль — её визуальный почерк (`ABILITY_FX`). */
   async cast(ev, { board, anims }) {
     await anims.vfx.play(ev.cells, ABILITY_FX[ev.ability], board.playerPoint());
+  },
+
+  /** Ловушка встала, отсчитала ход или сработала — метка на клетке поля. */
+  trap(ev, { board, sound }) {
+    board.setTrap(ev.cell, ev.ability, ev.turns, ev.on);
+    if (ev.on && ev.turns === 0) sound.play('move');
   },
 
   async artifact(_ev, { anims, sound, clock }) {

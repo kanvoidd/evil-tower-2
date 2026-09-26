@@ -1,4 +1,5 @@
 /** Самопроверка: Правила боя: надбавки урона и защиты, крит, ресурс, автоприменение расходников. */
+import type { ClassId } from '../../src/domain/catalog';
 import { CLASSES } from '../../src/domain/catalog/classes';
 import { type EnemyDef } from '../../src/domain/catalog/enemies';
 import { ROOMS } from '../../src/domain/catalog/levels';
@@ -17,8 +18,6 @@ import {
   CritPolicy,
   type CritRoll,
   EveryNthCrit,
-  HuntersMarkCrit,
-  RoomOpeningCrit,
 } from '../../src/domain/combat/crit';
 import {
   ArmorToDamage,
@@ -33,7 +32,6 @@ import {
   HighHpDefense,
   type IHeroDamageModifier,
   type IncomingHit,
-  KillBonus,
   KillStackDefense,
   KillTurnDefense,
   LowHpBonus,
@@ -42,6 +40,7 @@ import {
   RageBonus,
   ResourceDefense,
   ScarDefense,
+  StillAimBonus,
   WoundedEnemyReduction,
 } from '../../src/domain/combat/damage';
 import { type RoomBattle, RoomBattleFactory } from '../../src/domain/combat/room-battle';
@@ -63,6 +62,7 @@ import { cons, ok } from './harness';
     killStreak: 0,
     gold: Gold.of(0),
     killDefenseActive: false,
+    stillTurns: 0,
     defense: () => 0,
     ...o,
   });
@@ -74,8 +74,15 @@ import { cons, ok } from './harness';
   const r = Ratio.of;
   ok(mul(new RageBonus(r(0.3)), hero({ hp: 50 })) === 13, 'RageBonus: при половине здоровья +30%');
   ok(mul(new RageBonus(r(0.3)), hero({ hp: 51 })) === 10, 'RageBonus: выше половины молчит');
-  ok(mul(new KillBonus(r(0.1)), hero({ killsRoom: 2 })) === 12, 'KillBonus: +10% за убийство');
-  ok(mul(new KillBonus(r(0.1)), hero({ killsRoom: 9 })) === 13, 'KillBonus: не больше +30%');
+  ok(
+    mul(new StillAimBonus(r(0.2), 2), hero({ stillTurns: 1 })) === 12,
+    'StillAimBonus: ход на месте — +20%',
+  );
+  ok(
+    mul(new StillAimBonus(r(0.2), 2), hero({ stillTurns: 5 })) === 14,
+    'StillAimBonus: не больше двух стаков',
+  );
+  ok(mul(new StillAimBonus(r(0.2), 2), hero()) === 10, 'StillAimBonus: после шага молчит');
   ok(
     mul(new GoldBonus(r(0.05)), hero({ gold: Gold.of(250) })) === 11,
     'GoldBonus: +5% за 100 золота',
@@ -213,18 +220,7 @@ import { cons, ok } from './harness';
     rng: fakeRng([]),
     ...o,
   });
-  const opening = new RoomOpeningCrit();
-  ok(
-    opening.decide(roll()) === true && opening.decide(roll()) === undefined,
-    'RoomOpeningCrit: крит только у первого удара комнаты',
-  );
-  const mark = new HuntersMarkCrit();
-  ok(
-    mark.decide(roll({ ranged: true, enemy: foe(0) })) === true &&
-      mark.decide(roll({ ranged: true, enemy: foe(1) })) === undefined &&
-      mark.decide(roll({ ranged: false, enemy: foe(0) })) === undefined,
-    'HuntersMarkCrit: только выстрел по нетронутому врагу',
-  );
+  void foe;
   const third = new EveryNthCrit(EveryNthCrit.THIRD);
   const seq = [1, 2, 3, 4, 5, 6].map(() => third.decide(roll()) === true);
   ok(seq.join() === 'false,false,true,false,false,true', 'EveryNthCrit: каждый третий удар');
@@ -245,26 +241,32 @@ import { cons, ok } from './harness';
     'ChanceCrit: решает броском с шансом героя',
   );
   chances.length = 0;
-  const policy = new CritPolicy([new RoomOpeningCrit(), new ChanceCrit(Percent.of(50))]);
-  const rng = fakeRng([true]);
+  const policy = new CritPolicy([new EveryNthCrit(2), new ChanceCrit(Percent.of(50))]);
+  const rng = fakeRng([false]);
   ok(
-    policy.decide(roll({ rng })) === true && chances.length === 0 && policy.decide(roll({ rng })),
-    'CritPolicy: первое правило решило — до шанса дело не дошло',
+    policy.decide(roll({ rng })) === false && chances.length === 1,
+    'CritPolicy: первое правило промолчало — решил шанс, один бросок',
   );
-  ok(chances.length === 1, 'CritPolicy: второй удар решил шанс — один бросок');
+  ok(
+    policy.decide(roll({ rng })) === true && chances.length === 1,
+    'CritPolicy: второе правило решило — до шанса дело не дошло',
+  );
 }
 
 // ---------------------------------------------------------------- мана: 1 за ход, цена ощущается
 {
-  const lin = CLASSES.mage.lineage;
+  const lin = CLASSES.elementalist.lineage;
+  const ls = newLineageSave(TREES[lin]);
+  ls.ranks['cls/elementalist'] = 1;
+  ls.ranks['perk/elementalist/lightning-1'] = 1;
   const stats = buildPlayerStats({
-    classId: 'mage',
-    lineage: newLineageSave(TREES[lin]),
+    classId: 'elementalist',
+    lineage: ls,
     weapon: null,
     armor: null,
   });
   ok(stats.regen === 1, `мана восстанавливается по 1 за ход (${stats.regen})`);
-  const bolt = PERK_BY_ID.mage_start.ability;
+  const bolt = PERK_BY_ID['elementalist_lightning-1'].ability;
   const battle = RoomBattleFactory.standard().create({
     room: ROOMS[1],
     stats: { ...stats, maxHp: 100000 },
@@ -299,7 +301,8 @@ import { cons, ok } from './harness';
     `скидка не опускает цену молнии ниже 2 (${cheap.perkCostOf(bolt)})`,
   );
   ok(
-    cheap.perkCostOf(PERK_BY_ID.mage_p2.ability) === (PERK_BY_ID.mage_p2.ability.cost ?? 0) - 1,
+    cheap.perkCostOf(PERK_BY_ID['elementalist_lightning-3'].ability) ===
+      (PERK_BY_ID['elementalist_lightning-3'].ability.cost ?? 0) - 1,
     'дорогие заклинания скидка удешевляет',
   );
 }
@@ -359,14 +362,11 @@ import { cons, ok } from './harness';
 
 // ---------------------------------------------------------------- автоприменение расходников
 {
-  const mk = (
-    lin: 'mage' | 'warrior' | 'archer' | 'mercenary',
-    perks: string[] = [],
-  ): RoomBattle => {
-    const tree = TREES[lin];
+  const mk = (classId: ClassId, nodes: string[] = []): RoomBattle => {
+    const tree = TREES[CLASSES[classId].lineage];
     const ls = newLineageSave(tree);
-    for (const id of perks) ls.ranks[id] = 1;
-    const stats = buildPlayerStats({ classId: lin, lineage: ls, weapon: null, armor: null });
+    for (const id of nodes) ls.ranks[id] = 1;
+    const stats = buildPlayerStats({ classId, lineage: ls, weapon: null, armor: null });
     const battle = RoomBattleFactory.standard().create({
       room: ROOMS[0],
       stats,
@@ -394,7 +394,7 @@ import { cons, ok } from './harness';
   heal.consumables.potion_heal = 0;
   ok(!needsHeal(heal), 'зелье исцеления: нет зелий — нечего применять');
 
-  const regen = mk('mage');
+  const regen = mk('elementalist', ['cls/elementalist', 'perk/elementalist/lightning-1']);
   regen.cards[5] = enemy(1);
   regen.res = 0;
   ok(needsRegen(regen), 'зелье восстановления: мане не хватает на заклинание — применяем');
@@ -411,7 +411,7 @@ import { cons, ok } from './harness';
   merc.res = 0;
   ok(needsRegen(merc), 'зелье восстановления: шкала пуста — применяем');
 
-  const art = mk('mage', ['perk/mage/p2']);
+  const art = mk('mage');
   const dmg = art.artifactDamage();
   art.cards[0] = enemy(1, dmg);
   art.cards[1] = enemy(1, dmg);
@@ -420,7 +420,7 @@ import { cons, ok } from './harness';
   ok(worthArtifact(art), 'артефакт: три цели — применяем');
   ok(!worthArtifact(mk('warrior')), 'артефакт: только линейка мага');
 
-  const pick = mk('mage', ['perk/mage/p2']);
+  const pick = mk('elementalist', ['cls/elementalist', 'perk/elementalist/lightning-1']);
   pick.cards[5] = enemy(500);
   pick.hp = 2;
   pick.res = 0;

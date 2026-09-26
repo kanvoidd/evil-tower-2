@@ -7,6 +7,7 @@ export type { IBattleSession } from './interfaces/IBattleSession';
 export type { IBattleState } from './interfaces/IBattleState';
 export type { IPlayerActions } from './interfaces/IPlayerActions';
 export type { PerkReadiness } from './interfaces/PerkReadiness';
+export type { TrapView } from './interfaces/TrapView';
 export type { TurnResult } from './interfaces/TurnResult';
 export { RoomBattleFactory } from './room-battle-factory/RoomBattleFactory';
 export { RoomBattle } from './RoomBattle';

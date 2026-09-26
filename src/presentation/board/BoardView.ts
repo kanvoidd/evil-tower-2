@@ -1,9 +1,11 @@
 import type Phaser from 'phaser';
 
-import { type Card, Grid, type IBattleState, type PlayerStats } from '../../domain/combat';
+import type { AbilityId } from '../../domain/catalog';
+import type { Card, IBattleState, PlayerStats } from '../../domain/combat';
 import type { CellIndex } from '../../domain/shared';
 import type { Point } from '../animations/interfaces/Point';
-import { plateTexture } from '../components';
+import { plateTexture, txt } from '../components';
+import { abilityIcon } from '../textures';
 import { CARD_H, CARD_W, HEX } from '../theme';
 import { BoardLayout } from './BoardLayout';
 import type { CardView, CardViewFactory } from './card-view';
@@ -16,9 +18,11 @@ import type { CardView, CardViewFactory } from './card-view';
 export class BoardView {
   readonly player: CardView;
   private readonly views = new Map<number, CardView>();
+  /** Метки ловушек по клеткам. */
+  private readonly traps = new Map<CellIndex, Phaser.GameObjects.Container>();
 
   constructor(
-    scene: Phaser.Scene,
+    private readonly scene: Phaser.Scene,
     private readonly factory: CardViewFactory,
     stats: PlayerStats,
     hp: number,
@@ -63,24 +67,28 @@ export class BoardView {
     return { x: this.player.c.x, y: this.player.c.y };
   }
 
-  /** Полная перерисовка поля — нужна после «Отката времени». */
-  rebuild(cards: ReadonlyArray<Card | null>, playerCell: CellIndex): void {
-    for (const v of this.views.values()) v.c.destroy();
-    this.views.clear();
-    for (const i of Grid.CELLS) {
-      const card = cards[i];
-      if (card) this.place(card, i);
-    }
-    const p = BoardLayout.cellPos(playerCell);
-    this.player.c.setPosition(p.x, p.y);
-    this.player.cell = playerCell;
+  /**
+   * Метка ловушки на клетке: значок способности, которой она сработает, и сколько ходов осталось
+   * («Взведённая ловушка»). `on: false` — ловушка сработала и снята.
+   */
+  setTrap(cell: CellIndex, abilityId: AbilityId, turns: number, on: boolean): void {
+    this.traps.get(cell)?.destroy();
+    this.traps.delete(cell);
+    if (!on) return;
+    const s = this.scene;
+    const p = BoardLayout.cellPos(cell);
+    const mark = s.add.container(p.x + CARD_W / 2 - 26, p.y - CARD_H / 2 + 26).setDepth(4);
+    mark.add(s.add.image(0, 0, plateTexture(s, 46, 46, 1, 'dark', 23)));
+    mark.add(s.add.image(0, 0, abilityIcon(abilityId)).setDisplaySize(34, 34));
+    if (turns > 0) mark.add(txt(s, 16, 14, String(turns), 18, { weight: 900, color: HEX.gold }));
+    this.traps.set(cell, mark);
   }
 
   showStatuses(v: CardView, card: Card): void {
     this.factory.showStatuses(v, card);
   }
 
-  /** Значки состояний над врагами и призраками — по текущему полю боя. */
+  /** Значки состояний над врагами и слугами — по текущему полю боя. */
   refreshStatuses(cards: ReadonlyArray<Card | null>): void {
     for (const v of this.views.values()) {
       if (v.kind !== 'enemy' && v.kind !== 'ghost') continue;

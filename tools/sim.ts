@@ -2,11 +2,12 @@
  * Симулятор баланса: бот раз за разом идёт в забег с 1-1, между забегами тратит души и золото
  * как средний игрок. Печатает забеги-рекорды, время и докуда герой доходит в среднем.
  * Запуск: npm run sim -- [warrior|mage|archer|mercenary] [повторов для оценки] [коэффициент награды]
- * RUNS=<n> — сколько забегов максимум.
+ * RUNS=<n> — сколько забегов максимум. У линеек с подклассами: SUBCLASS=<класс> — какой подкласс
+ * выбирает бот (по умолчанию первый), BRANCH=<ветка> — какую ветку, если класс разрешает одну.
  */
 import type { ClassId, EquipmentSave, LineageId, TalentPath } from '../src/domain/catalog';
 import { type AbilityDef, FULL_BAR } from '../src/domain/catalog/abilities';
-import { CLASSES } from '../src/domain/catalog/classes';
+import { baseClassOf, CLASSES } from '../src/domain/catalog/classes';
 import { type ItemDef, ITEMS } from '../src/domain/catalog/items';
 import { ROOMS } from '../src/domain/catalog/levels';
 import { needsRegen } from '../src/domain/combat/auto-use/autoUse';
@@ -42,18 +43,35 @@ let armor: EquipmentSave | null = null;
 /** Лучшие ступени, которые бот уже носил: ниже них он не опускается, а копит. */
 const bestTier = { weapon: 0, armor: 0 };
 const consumables = { potion_heal: 2, potion_regen: 1, artifact: 0 };
-let classId: ClassId = lineage;
+let classId: ClassId = baseClassOf(lineage);
+/** Какой подкласс и какую ветку выбирает бот (если не задано — первые по порядку). */
+const SUBCLASS = process.env.SUBCLASS as ClassId | undefined;
+const BRANCH = process.env.BRANCH;
 
 /** Бот тратит души так же, как средний игрок: сперва способности, потом таланты выбранного пути. */
 const PATH: TalentPath = 'attack';
 const KIND_PRIORITY: Record<string, number> = { perk: 0, class: 1, talent: 2, evo: 9 };
+
+/** Класс выбирает одну ветку из нескольких (стихия элементалиста). */
+const exclusive = (n: (typeof tree.nodes)[number]): boolean => {
+  const cls = CLASSES[n.owner];
+  return 'branchChoice' in cls && cls.branchChoice === 'one';
+};
+
+/** Выбор игрока: только заданный подкласс и ветка (если заданы). */
+const wanted = (n: (typeof tree.nodes)[number]): boolean => {
+  if (SUBCLASS && n.kind === 'class' && CLASSES[n.classId!].stage === 1)
+    return n.classId === SUBCLASS;
+  if (BRANCH && n.branch && n.step === 0 && exclusive(n)) return n.branch === BRANCH;
+  return true;
+};
 
 const spendSouls = (): number => {
   let bought = 0;
   for (let guard = 0; guard < 600; guard++) {
     let best: { node: (typeof tree.nodes)[number]; score: number } | null = null;
     for (const n of tree.nodes) {
-      if (!isPurchasable(n) || !canInvest(tree, ls, n)) continue;
+      if (!isPurchasable(n) || !canInvest(tree, ls, n) || !wanted(n)) continue;
       const c = costOf(ls, n);
       if (c > souls) continue;
       // путь урона в приоритете, остальные пути докупаются, когда есть лишние души
@@ -122,19 +140,15 @@ const shop = (): void => {
 };
 
 /** Способности, которые бот применять не умеет (чистая утилита — ими играет человек). */
-const SKIP = new Set(['swap', 'deck_draw', 'bribe', 'falcon_courier', 'rewind']);
+const SKIP = new Set(['swap', 'shuffle', 'bribe', 'hook', 'armed_trap']);
 /** Способности без цели, выгодные только при куче врагов. */
 const CROWD = new Set([
   'earthquake',
   'whirlwind',
   'verdict',
   'detonate',
-  'arrow_rain',
   'shuriken_fan',
   'heavens_wrath',
-  'starfall',
-  'inferno',
-  'dead_harvest',
   'wind_shadow',
   'shadow_reap',
 ]);
@@ -149,7 +163,7 @@ const CHANGED = new Set([
   'boost',
   'swap',
   'slide',
-  'rewind',
+  'trap',
   'gold',
   'souls',
 ]);

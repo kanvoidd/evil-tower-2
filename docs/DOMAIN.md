@@ -107,13 +107,17 @@
 | комната (рецепт состава) | `RoomDef`; собранный состав — `RoomPlan` (`rollRoom()`) | каталог |
 | свойство комнаты | `RoomModifier`, `MODIFIERS` | каталог |
 | враг, его роль и природа | `EnemyDef`, `EnemyRole`, `EnemyTag` | каталог |
-| линейка (воин, маг, лучник, наёмник) | `LineageId`, `LineageDef`, содержимое линейки `HeroContent` (`HEROES`) | каталог |
-| класс, ступень класса, прибавки класса | `ClassId`, `ClassDef` (`stage`, `bonuses`), полное определение — `ClassDefinition` | каталог |
+| линейка (воин, маг, охотник — id `archer`, наёмник) | `LineageId`, `LineageDef`, содержимое линейки `HeroContent` (`HEROES`) | каталог |
+| класс, ступень класса, прибавки класса | `ClassId`, `ClassDef` (`stage`, `parents`, `bonuses`): с ярусами — `TieredClassDef`, с ветками — `BranchedClassDef`; полное определение — `ClassDefinition` | каталог |
+| подкласс (выбор одного из нескольких), переходный класс | `BranchedClassDef` ступени 1 и 2; соседи по выбору — `siblingsOf()` | каталог |
+| ветка подкласса («Огонь», «Урон»), её шаги | `BranchDef`, `BranchStep`; одна ветка на выбор — `branchChoice: 'one'` | каталог |
 | способность: кнопка, пассивка, базовое действие | `AbilityDef` (`defineAbility`), `AbilityId`, `AbilityKind` | каталог |
 | механика способности (что умеет бой) | `AbilityDef.behavior` (`AbilityBehaviorId`); реализация кнопки — `IAbility` (`ABILITY_BEHAVIORS`) | каталог; реализация — бой |
 | числа способности (урон, ходы, доли) | `AbilityDef.params` (вид — `AbilityBehaviorParams`), цена золотом — `GoldCost` | каталог |
-| перк — способность на месте в дереве класса | `ClassDef.perks`, `PerkDef`, `PerkSlot` | каталог |
-| талант — что он даёт | `TalentDef` (`talent`), эффект `TalentEffect` (`bonus`, `synergy`, `chanceAndPower`), вид эффекта `TalentFx` | каталог |
+| уровень перка | `AbilityDef.levels`, `abilityAtLevel()`; ранг узла перка в дереве | каталог |
+| перк — способность на месте в дереве класса | `TieredClassDef.perks` или шаг ветки, `PerkDef`, `PerkSlot` (`TieredPerkSlot` / `BranchPerkSlot`) | каталог |
+| талант — что он даёт | `TalentDef` (`talent`), эффект `TalentEffect` (`bonus`, `synergy`, `chanceAndPower`, правка перка `modify`), вид эффекта `TalentFx` | каталог |
+| «Основа» — общие таланты мага и охотника | `HeroContent.baseTree` (`BaseTree`), места — `TalentPlace.tab === 'base'` | каталог |
 | место таланта: ярус, путь (урон / здоровье / защита), шаг цепочки | `TalentPlace` (`TALENT_PLACES`), `TalentTree`, `tier`, `TalentPath` | каталог |
 | вещь (оружие, броня), её ступень | `ItemDef`, `ItemTier`, `WEAPONS`, `ARMORS` | каталог |
 | расходник (зелья, артефакт) | `ConsumableId`, `ConsumableDef` | каталог |
@@ -126,15 +130,17 @@
 | статус на враге (оглушение, горение, яд …) | `StatusKind`, `CardStatus` | бой |
 | событие боя | `GameEvent` | бой |
 | добыча комнаты | `Loot`, `BattleTotals` | бой |
-| стиль атаки линейки | `IAttackStrategy`: `HandAttack`, `SpellAttack`, `ShotAttack`, `BackstabAttack` | бой |
+| стиль атаки (рука у всех, выстрел, удар в спину) | `IAttackStrategy`: `HandAttack`, `ShotAttack`, `BackstabAttack`; выстрел — от базового перка (`AbilityDef.attack`) | бой |
+| ловушка на клетке («Капкан», «Взведённая ловушка») | `TrapState`, `RoomTraps`; для сцены — `TrapView` | бой |
+| слуга героя (мёртвая версия врага) | карта `ghost`, `CardFactory.createServant()` | бой |
 | характеристики героя в бою | `PlayerStats` (шансы — `Percent`, доли — `Ratio`) | бой |
 | автоприменение расходников | `pickAutoUse`, `AutoUseSave` | бой |
 | герой | `Hero` | прогресс |
 | класс, за который играет герой | `HeroClassState` | прогресс |
 | метаморфоза и её отмена | `Hero.metamorphose()`, `Hero.cancelMetamorphosis()` | прогресс |
-| дерево талантов, узел дерева | `Tree`, `TreeNode` (уровень `row`), `TREES`, `SkillTreeBuilder`; купленное — `LineageSave`; экранная раскладка — `SkillTreeLayout` в presentation | прогресс |
+| дерево талантов, узел дерева | `Tree` (`TieredTree` / `BranchedTree`), `TreeNode` (уровень `row`, вкладка `tab`), `TREES`, `SkillTreeBuilder`; купленное — `LineageSave`; экранная раскладка — `SkillTreeLayout` в presentation | прогресс |
 | сборка характеристик, потолки | `buildPlayerStats`, `Loadout`, `CAPS` | прогресс |
-| цена прокачки в душах | `talentRankCost`, `perkCost`, `classCost` | прогресс |
+| цена прокачки в душах | `ISoulPricing` (`SOUL_PRICING`): `talentRank`, `perk` (по уровню), `metamorphosis` | прогресс |
 | автопрокачка | `planAutoSkill`, `AutoSkillSave` | прогресс |
 | сводка класса | `classTraits`, `Trait` | прогресс |
 | золото, души, кошелёк героя | `Gold`, `Souls`; кошелёк — `Wallet` над `HeroSave` (`gold`, `souls`), `Profile.heroSaveOf()` | экономика |

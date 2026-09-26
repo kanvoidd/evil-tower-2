@@ -42,6 +42,10 @@ export class BattleHeroView implements HeroView {
     return this.state.defTurn > 0;
   }
 
+  get stillTurns(): number {
+    return this.state.stillTurns;
+  }
+
   defense(): number {
     return this.parts.damage.defenseNow();
   }

@@ -34,7 +34,7 @@ const applyClass = (store: ProfileStore, q: URLSearchParams): void => {
   // класс героя выводится из дерева: продвинутый класс открываем всей цепочкой метаморфоз
   const lineage = CLASSES[cls].lineage;
   const ls = store.profile.unlockLineage(lineage);
-  for (let c: ClassId | null = cls; c && CLASSES[c].parent; c = CLASSES[c].parent)
+  for (let c: ClassId | undefined = cls; c; c = CLASSES[c].parents[0])
     ls.ranks[TREES[lineage].classNode[c].id] = 1;
   store.profile.setActiveClass(cls);
 };

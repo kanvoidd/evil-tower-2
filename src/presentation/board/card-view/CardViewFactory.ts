@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import { ENEMIES } from '../../../domain/catalog';
-import type { Card, PlayerStats } from '../../../domain/combat';
+import type { Card, PlayerStats, StatusKind } from '../../../domain/combat';
 import type { CellIndex } from '../../../domain/shared';
 import type { TKey } from '../../../i18n';
 import { enemyName, t } from '../../../i18n';
@@ -20,25 +20,25 @@ export class CardViewFactory {
   private static readonly PILL_Y = 86;
 
   /** Значки статусов на карточке врага: короткая подпись. */
-  private static readonly STATUS_TAG: Record<string, string> = {
+  private static readonly STATUS_TAG: Record<StatusKind, string> = {
     stun: '✶',
     burn: '♨',
     poison: '☠',
     mark: '◆',
-    link: '⚯',
     vuln: '!',
     weak: '↓',
-    // метка «взрыв трупа», заражение призрачными слугами и оставшиеся ходы призрака
-    corpse: '✹',
-    haunt: '☁',
-    ghost: '⏳',
+    brittle: '⊘',
+    bleed: '✚',
+    // заражение скверной и оставшиеся ходы мёртвого слуги
+    infect: '✹',
+    servant: '⏳',
   };
 
   constructor(private readonly scene: Phaser.Scene) {}
 
   createCard(card: Card, cell: CellIndex, at: { x: number; y: number }): CardView {
     const s = this.scene;
-    const { ART_Y, LABEL_Y, PILL_Y } = CardViewFactory;
+    const { ART_Y } = CardViewFactory;
     const c = s.add.container(at.x, at.y).setDepth(1);
     let frameKey = 'card_item';
     let spriteKey = '';
@@ -63,10 +63,11 @@ export class CardViewFactory {
         labelColor = HEX.gold;
         break;
       case 'ghost':
+        // мёртвый слуга — мёртвая версия врага: его рисунок на рамке союзника
         frameKey = 'card_ghost';
-        spriteKey = 'enemy_ghost';
+        spriteKey = ENEMIES[card.defId]?.icon ?? 'enemy_ghost';
         spriteSize = 108;
-        label = t('game.ghost');
+        label = t('game.servant');
         labelColor = '#a9e8ff';
         break;
       case 'gold':
@@ -115,34 +116,36 @@ export class CardViewFactory {
       flash,
       defId: card.defId,
     };
-    if (card.kind === 'enemy') {
-      view.statusRow = s.add.container(0, -92);
-      c.add(view.statusRow);
-      c.add(
-        txt(s, 0, LABEL_Y, label, 21, {
-          color: labelColor,
-          maxWidth: CARD_W - 32,
-          strokeThickness: 3,
-        }),
-      );
-      view.atk = statPill(s, -47, PILL_Y, { w: 84, stat: 'damage', text: String(card.atk) });
-      view.hp = statPill(s, 47, PILL_Y, { w: 84, stat: 'health', text: String(card.hp) });
-      c.add([view.atk.c, view.hp.c]);
-      this.showStatuses(view, card);
-    } else if (card.kind === 'gold') {
-      const amount = txt(s, 0, 74, label, 34, { color: labelColor, weight: 900 });
-      c.add(amount);
-    } else if (card.kind === 'ghost') {
-      // призрак — союзник: вместо атаки и здоровья показываем, сколько ходов ему осталось
-      sprite.setAlpha(0.8);
-      view.statusRow = s.add.container(0, -92);
-      c.add(view.statusRow);
-      c.add(txt(s, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
-      this.showStatuses(view, card);
-    } else {
-      c.add(txt(s, 0, 74, label, 22, { color: labelColor, maxWidth: CARD_W - 32 }));
-    }
+    this.addDetails(view, card, label, labelColor);
     return view;
+  }
+
+  /** Подписи карточки: у врага и слуги — удар, здоровье и состояния, у золота — номинал. */
+  private addDetails(view: CardView, card: Card, label: string, color: string): void {
+    const s = this.scene;
+    if (card.kind === 'enemy' || card.kind === 'ghost') {
+      // слуга — союзник: полупрозрачный, его удар, здоровье и сколько ходов ему осталось
+      if (card.kind === 'ghost') view.sprite.setAlpha(0.75).setTint(0xa9e8ff);
+      this.addFighter(view, card, label, color);
+    } else if (card.kind === 'gold') {
+      view.label = txt(s, 0, 74, label, 34, { color, weight: 900 });
+      view.c.add(view.label);
+    } else {
+      view.c.add(txt(s, 0, 74, label, 22, { color, maxWidth: CARD_W - 32 }));
+    }
+  }
+
+  /** Боец на поле: состояния сверху, имя, удар и здоровье снизу. */
+  private addFighter(view: CardView, card: Card, label: string, color: string): void {
+    const s = this.scene;
+    const { LABEL_Y, PILL_Y } = CardViewFactory;
+    view.statusRow = s.add.container(0, -92);
+    view.c.add(view.statusRow);
+    view.c.add(txt(s, 0, LABEL_Y, label, 21, { color, maxWidth: CARD_W - 32, strokeThickness: 3 }));
+    view.atk = statPill(s, -47, PILL_Y, { w: 84, stat: 'damage', text: String(card.atk) });
+    view.hp = statPill(s, 47, PILL_Y, { w: 84, stat: 'health', text: String(card.hp) });
+    view.c.add([view.atk.c, view.hp.c]);
+    this.showStatuses(view, card);
   }
 
   createHero(
@@ -192,7 +195,7 @@ export class CardViewFactory {
     return view;
   }
 
-  /** Значки состояний над карточкой врага: оглушение, горение, яд, клеймо, связь, приговор. */
+  /** Значки состояний над карточкой врага и слуги. */
   showStatuses(view: CardView, card: Card): void {
     const row = view.statusRow;
     if (!row) return;

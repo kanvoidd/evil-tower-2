@@ -1,7 +1,10 @@
 import type { BasicMode } from '../interfaces/BasicMode';
 import type { IAttackStrategy } from '../interfaces/IAttackStrategy';
 
-/** Только рукой: соседнего врага — ударом, до дальнего не достать (воин; его сила — способности за выносливость). */
+/**
+ * Только рукой: соседнего врага — ударом, до дальнего не достать. Так бьют все герои; дальний
+ * выстрел дают базовые перки охотника, удар в спину — стиль наёмника.
+ */
 export class HandAttack implements IAttackStrategy {
   readonly melee = true;
   readonly mode: BasicMode = 'none';

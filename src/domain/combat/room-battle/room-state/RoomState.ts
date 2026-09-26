@@ -3,6 +3,7 @@ import {
   type AbilityBehaviorId,
   type AbilityBehaviorParams,
   type AbilityDef,
+  type AbilityDefOf,
   type ConsumableId,
   type EnemyDef,
   type EquipmentSave,
@@ -20,8 +21,8 @@ import type { GameEvent } from '../../events';
 import type { PlayerStats } from '../../player';
 import type { BattleDeps } from '../interfaces/BattleDeps';
 import type { BattleInit } from '../interfaces/BattleInit';
-import type { BattleSnapshot } from '../interfaces/BattleSnapshot';
 import type { BattleTotals } from '../interfaces/BattleTotals';
+import type { TrapState } from '../interfaces/TrapState';
 
 /**
  * Состояние боя в одной комнате — общее для всех частей боя: герой, добыча, длящиеся эффекты,
@@ -79,7 +80,20 @@ export class RoomState {
   inAbility = false;
   /** Цена применяемой способности (для возврата ресурса за убийство). */
   abilityCost = 0;
+  /** Ресурс героя в момент применения способности — до оплаты («Перегрузка», сила «Молнии»). */
+  castRes = 0;
   freePerkLeft = 0;
+  /** Накопленный заряд способностей по id («Заряд» магического выстрела). */
+  charges: Record<string, number> = {};
+  /** Способности, применённые в этом ходу, — у них заряд не копится. */
+  usedThisTurn = new Set<string>();
+  /** Ловушки на поле. */
+  traps: TrapState[] = [];
+  /** «Взведённая ловушка»: способность, выбранная для неё, и задержка в ходах. */
+  trapSkill: AbilityDef | null = null;
+  trapDelay = 0;
+  /** Сколько «Взведённых ловушек» уже поставлено в комнате. */
+  armedTrapsUsed = 0;
 
   // ---- временные состояния героя
   noCounter = 0; // дымовая завеса
@@ -96,7 +110,14 @@ export class RoomState {
   playerPoison = 0;
   playerPoisonDmg = 0;
   warCry = 0; // накопленное ослабление атаки врагов
-  snapshot: BattleSnapshot | null = null;
+  /** Ходов подряд герой простоял на месте («Затаившийся стрелок»). */
+  stillTurns = 0;
+  /** Клетка героя в начале хода — ушёл ли он с неё. */
+  turnStartCell: CellIndex;
+  /** «Ледяной доспех»: сколько ходов ещё держится, прибавка к защите, ответный удар. */
+  wardTurns = 0;
+  wardDefense = 0;
+  wardThorns = 0;
 
   // ---- ход
   /** Враги, с которыми герой вступил в бой за этот ход (uid). */
@@ -108,6 +129,8 @@ export class RoomState {
   exposed = false;
   /** Идёт действие героя: урон по врагу в это время — вступление в бой. */
   acting = false;
+  /** Удар сейчас не замечает брони врага («Залп болтом» вплотную). */
+  ignoreArmor = false;
   lastKills = 0;
   /** Доспех уже снашивался на этом ходу. */
   armorWorn = false;
@@ -137,6 +160,7 @@ export class RoomState {
     this.reviveLeft = this.stats.reviveHp > 0 && !this.selfRevived ? 1 : 0;
     this.roomGuardLeft = this.stats.roomGuard > 0 ? 1 : 0;
     this.freePerkLeft = this.stats.freePerk ? 1 : 0;
+    this.turnStartCell = this.engine.playerCell;
     const deck = this.factory.createDeck();
     this.engine.deck.push(...deck.cards);
     this.quota = deck.quota;
@@ -176,9 +200,14 @@ export class RoomState {
     return out;
   }
 
+  /** Способность героя с механикой `b` (с числами его уровня и правками талантов), если она есть. */
+  ability<B extends AbilityBehaviorId>(b: B): AbilityDefOf<B> | undefined {
+    return withBehavior(this.stats.allAbilities, b);
+  }
+
   /**
    * Числа механики — для пассивок и состояний, которые действуют дольше хода («Безумие»,
-   * клеймо, призраки): из способности самого героя, которую исполняет эта механика. Если такой
+   * клеймо, слуги): из способности самого героя, которую исполняет эта механика. Если такой
    * у героя нет (проверки собирают бой без неё), — из первой такой способности каталога.
    */
   paramsOf<B extends AbilityBehaviorId>(b: B): Readonly<AbilityBehaviorParams[B]> {

@@ -17,5 +17,7 @@ export interface CardView {
   atk?: Pill;
   shield?: Pill;
   statusRow?: Phaser.GameObjects.Container;
+  /** Подпись номинала у карты золота. */
+  label?: Phaser.GameObjects.Text;
   defId: string;
 }

@@ -5,9 +5,9 @@ import type { EnemyTurn } from '../enemy-turn/EnemyTurn';
 import type { HeroUpkeep } from '../hero-upkeep/HeroUpkeep';
 import type { PerkActions } from '../perk-actions/PerkActions';
 import type { PlayerActions } from '../player-actions/PlayerActions';
-import type { Rewind } from '../rewind/Rewind';
 import type { RoomFlow } from '../room-flow/RoomFlow';
 import type { RoomLoot } from '../room-loot/RoomLoot';
+import type { RoomTraps } from '../room-traps/RoomTraps';
 import type { StatusEffects } from '../status-effects/StatusEffects';
 
 /** Части боя в комнате по именам. */
@@ -22,5 +22,5 @@ export interface RoomParts {
   readonly enemyTurn: EnemyTurn;
   readonly perks: PerkActions;
   readonly flow: RoomFlow;
-  readonly rewind: Rewind;
+  readonly traps: RoomTraps;
 }

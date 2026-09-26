@@ -46,96 +46,81 @@ export const abilities: Record<keyof typeof ru, string> = {
   'ability.heavens_wrath.name': 'Wrath of Heaven',
   'ability.heavens_wrath.desc':
     'The sky splits: every enemy takes double damage — quadruple for undead and demons — and is stunned.',
-  // mage
-  'ability.lightning.name': 'Lightning Bolt',
-  'ability.lightning.desc':
-    'The mage never strikes with his hands — only with lightning. Tap the ability button and pick an adjacent enemy (up, down, left or right) for {dmg}% spell damage at {cost} mana. Mana returns only {regen} per turn — watch it: a mage cornered on every side with an empty bar is doomed.',
-  'ability.magic_shot.name': 'Arcane Shot',
-  'ability.magic_shot.desc':
-    '{dmg}% damage to a target in line with you — but only THROUGH a card: the shot cannot hit an adjacent enemy. {cooldown}-turn cooldown.',
-  'ability.chain_lightning.name': 'Chain Lightning',
-  'ability.chain_lightning.desc':
-    'Strikes the target and arcs to neighbours: {falloff1}% → {falloff2}% → {falloff3}%. {cooldown}-turn cooldown.',
-  // magister
-  'ability.swap.name': 'Rearrange',
-  'ability.swap.desc':
-    'Swap any two cards (two taps): pull a potion closer or shove a golem away. {cooldown}-turn cooldown.',
-  'ability.deck_draw.name': 'Draw of Fate',
-  'ability.deck_draw.desc':
-    'Send the chosen card (bosses excepted) to the bottom of the deck and draw a new one in its place. {cooldown}-turn cooldown.',
-  'ability.rewind.name': 'Rewind',
-  'ability.rewind.desc':
-    'Once per room, rewinds the last turn entirely — board, health, resource. The dice fall differently on the retry.',
-  // necromancer
-  'ability.corpse_blast.name': 'Corpse Blast',
-  'ability.corpse_blast.desc':
-    'Mark an enemy: when it dies, its corpse bursts — neighbours take half its maximum health. Marked neighbours chain the blast. {cooldown}-turn cooldown.',
-  'ability.ghosts.name': 'Spectral Servants',
-  'ability.ghosts.desc':
-    'Infect an enemy: when it dies, a ghost rises in its place. For three turns the ghost strikes adjacent enemies (up, down, left, right) for {dmg}% of your damage. At most two ghosts at once. {cooldown}-turn cooldown.',
-  'ability.voodoo.name': 'Voodoo Doll',
-  'ability.voodoo.desc':
-    'Binds an enemy: half of the damage it takes is dealt to every other enemy on the board. {cooldown}-turn cooldown.',
-  'ability.dead_harvest.name': 'Harvest of the Dead',
-  'ability.dead_harvest.desc':
-    'Every enemy loses half its current health (bosses a quarter). Those that die give double souls.',
-  // pyromancer
+  // mage: elementalist
   'ability.ignite.name': 'Ignite',
   'ability.ignite.desc':
-    'Sets any enemy ablaze for {turns} turns. One that dies burning passes the flame to its neighbours. {cooldown}-turn cooldown.',
-  'ability.fireball.name': 'Fireball',
-  'ability.fireball.desc':
-    'A long throw: the target takes {dmg}% damage, neighbours {splash}%, and everyone catches fire. Costs no mana — a {cooldown}-turn cooldown keeps it in check.',
+    'Sets any enemy alight: {ticks} burn ticks of {burn}% damage each. Ticks stack on the target. Cooldown {cooldown} turn.',
+  'ability.ignite.lv2': 'Burn ticks per cast: {ticks}',
   'ability.detonate.name': 'Detonation',
   'ability.detonate.desc':
-    'Every burning enemy explodes for {blastMul}% on itself and {splashMul}% on its neighbours — the blasts chain across the board. {cooldown}-turn cooldown.',
-  'ability.inferno.name': 'Inferno',
-  'ability.inferno.desc':
-    'A firestorm rolls out in waves: every enemy burns for {turns} turns at {burn}% of your damage per turn.',
-  // archer
+    'Every burning enemy explodes: {blastMul}% of its stored burn to itself, {splashMul}% to neighbours. Cooldown {cooldown} turns.',
+  'ability.frost_spike.name': 'Frost Spike',
+  'ability.frost_spike.desc':
+    'A spike into any enemy: {dmg}% damage, and it hits {weaken}% weaker for {debuffTurns} turns. Cooldown {cooldown} turn.',
+  'ability.frost_spike.lv2': 'Also cuts the enemy’s armour by {armorBreak}%',
+  'ability.ice_armor.name': 'Ice Armour',
+  'ability.ice_armor.desc':
+    'For {turns} turns: a shield of {shield}% health, +{defense} defence, and anyone who strikes you takes {thorns}% damage. Cooldown {cooldown} turns.',
+  'ability.lightning.name': 'Lightning',
+  'ability.lightning.desc': 'A bolt into an adjacent enemy: {dmg}% damage for {cost} mana.',
+  'ability.lightning.lv2':
+    'With mana at {manaAbove}% of the bar or more — another +{manaBonus}% damage',
+  'ability.chain_lightning.name': 'Chain Lightning',
+  'ability.chain_lightning.desc':
+    'Hits the target and jumps to a neighbouring enemy: {falloff1}% → {falloff2}%. Cooldown {cooldown} turns.',
+  'ability.chain_lightning.lv2': 'Third target of the chain: {falloff3}%',
+  'ability.chain_lightning.lv3': 'Fourth target of the chain: {falloff4}%',
+  // mage: arcanist
+  'ability.magic_shot.name': 'Arcane Shot',
+  'ability.magic_shot.desc':
+    'Hits the nearest enemy on the chosen line: {dmg}% damage. Cooldown {cooldown} turn.',
+  'ability.magic_shot.lv2': 'Pierces the line: each next enemy takes {stepLoss}% less',
+  'ability.swap.name': 'Pinpoint Swap',
+  'ability.swap.desc':
+    'Swap any two cards (two taps): pull a potion closer or move an enemy away. Cooldown {cooldown} turns.',
+  'ability.shuffle.name': 'Field Shuffle',
+  'ability.shuffle.desc':
+    'Every card on the field except the hero takes a new place. Cooldown {cooldown} turns.',
+  // mage: warlock
+  'ability.blight_shot.name': 'Blight Shot',
+  'ability.blight_shot.desc':
+    '{dmg}% damage and infection: when the enemy dies it bursts, hitting neighbours for {infect}% of its health. Cooldown {cooldown} turn.',
+  'ability.dead_servant.name': 'Dead Servant',
+  'ability.dead_servant.desc':
+    'An infected enemy rises as your servant when it dies: {hp}% of its health and {dmg}% of its attack. Servant turns: {turns} — it strikes adjacent enemies.',
+  // mage: magister
+  'ability.magic_shield.name': 'Magic Shield',
+  'ability.magic_shield.desc':
+    'A shield of {shield}% of maximum health. Cooldown {cooldown} turns.',
+  // hunter: bowman
   'ability.pierce_shot.name': 'Piercing Shot',
   'ability.pierce_shot.desc':
-    'A shot through a card: tap an enemy two cells away in a straight line and it takes damage from outside melee reach.',
-  'ability.diagonal.name': 'Angled Aim',
-  'ability.diagonal.desc':
-    'You can also shoot the diagonal neighbours that are normally out of reach.',
-  'ability.ricochet.name': 'Ricochet',
-  'ability.ricochet.desc':
-    'The arrow bounces from the target to the nearest enemy ({falloff2}%) and then once more ({falloff3}%).',
-  // hawkeye
-  'ability.falcon_hunt.name': 'Hunting Falcon',
-  'ability.falcon_hunt.desc':
-    'The falcon dives at any enemy on the board for {dmg}% damage and a stun.',
-  'ability.falcon_courier.name': 'Falcon Courier',
-  'ability.falcon_courier.desc':
-    'The falcon fetches any card you need — gold, chest or potion — while you stay put.',
-  'ability.eagle_eye.name': "Eagle's Sight",
-  'ability.eagle_eye.desc':
-    'The top three cards of the deck are visible. You may also shoot adjacent enemies — without an answer.',
-  // arrowgod
-  'ability.double_shot.name': 'Double Shot',
-  'ability.double_shot.desc':
-    'Two arrows in a row. If the first one kills, the second flies at the nearest enemy.',
-  'ability.hunter_thrill.name': "Hunter's Thrill",
-  'ability.hunter_thrill.desc': 'A critical shot refunds the concentration it cost.',
-  'ability.arrow_rain.name': 'Arrow Rain',
-  'ability.arrow_rain.desc':
-    'Five arrows fall from the sky onto random enemies for {dmg}% damage each.',
-  'ability.starfall.name': 'Starfall',
-  'ability.starfall.desc':
-    'The sky goes black with arrows: every enemy takes three hits of {dmg}%, each rolling its own crit.',
-  // sniper
-  'ability.rail_shot.name': 'Rail Shot',
-  'ability.rail_shot.desc':
-    'The arrow punches through the whole line: every enemy in the target’s row or column is hit, each {stepLoss}% weaker than the last.',
-  'ability.armor_piercing.name': 'Armour Piercer',
-  'ability.armor_piercing.desc':
-    'A shot with a bonus equal to {hpShare}% of the target’s maximum health. Golems and bosses suffer most.',
-  'ability.hunters_mark.name': "Hunter's Mark",
-  'ability.hunters_mark.desc': 'Your first shot at an undamaged enemy always crits.',
-  'ability.one_shot.name': 'One Shot, One Kill',
-  'ability.one_shot.desc':
-    'Time slows: the shot instantly kills any non-boss and travels on down the line, up to three kills. A boss loses {bossHpShare}% of its maximum health.',
+    'A shot over a card: tap an enemy two cells away in a straight line — {cost} focus.',
+  'ability.still_aim.name': 'Lurking Marksman',
+  'ability.still_aim.desc':
+    'Each turn standing still: damage +{perStack}%, up to {maxStacks} stacks. A step resets them.',
+  // hunter: crossbowman
+  'ability.bolt_volley.name': 'Bolt Volley',
+  'ability.bolt_volley.desc':
+    'A shot over a card for {cost} focus, and a point-blank hit pierces the enemy’s armour.',
+  'ability.hook_bolt.name': 'Hook Bolt',
+  'ability.hook_bolt.desc':
+    'Pulls a distant enemy from your row or column onto the adjacent cell. Cooldown {cooldown} turns.',
+  // hunter: beastmaster
+  'ability.stampede.name': 'Boar Stampede',
+  'ability.stampede.desc':
+    'Boars run along your row or column: enemies are stunned, gold piles are trampled to a single coin. Cooldown {cooldown} turns.',
+  'ability.stampede.lv2': 'Boars run along any line of the field',
+  'ability.falcon.name': 'Falcon',
+  'ability.falcon.desc':
+    'The falcon strikes any enemy: {dmg}% damage and bleeding for {bleed}% per turn, turns: {bleedTurns}. Cooldown {cooldown} turn.',
+  // hunter: huntsman
+  'ability.snare.name': 'Snare',
+  'ability.snare.desc':
+    'A trap on a cell: an enemy that lands on it takes {dmg}% damage and is stunned. Cooldown {cooldown} turns.',
+  'ability.armed_trap.name': 'Primed Trap',
+  'ability.armed_trap.desc':
+    'Tap another ability’s button: each tap is a turn of delay, up to {maxDelay}. Then pick a cell — the ability fires there by itself. Traps per room: {charges}.',
   // mercenary
   'ability.backstab.name': 'Backstab',
   'ability.backstab.desc':

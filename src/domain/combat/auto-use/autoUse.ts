@@ -13,7 +13,7 @@ const ARTIFACT_KILLS = 3;
 export const DEFAULT_AUTO_USE: AutoUseSave = { heal: false, regen: false, artifact: false };
 
 /**
- * Цена основного действия класса в ресурсе: базовое действие линейки (молния, выстрел, удар в спину),
+ * Цена основного действия класса в ресурсе: базовое дальнее действие (выстрел, удар в спину),
  * а если его нет — самая дешёвая способность класса (воину выносливость нужна именно на них).
  */
 export const coreCost = (s: PlayerStats): number => {
@@ -30,7 +30,7 @@ export const worstStrike = (battle: IBattleState): number => {
   for (const c of Grid.neighbors(battle.playerCell)) {
     const card = battle.cards[c];
     if (card?.kind === 'enemy' && card.stun <= 0)
-      worst = Math.max(worst, battle.strikeDamage(card.atk));
+      worst = Math.max(worst, battle.strikeDamage(Math.round(card.strikePower())));
   }
   return worst;
 };

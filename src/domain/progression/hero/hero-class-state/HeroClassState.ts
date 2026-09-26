@@ -40,16 +40,17 @@ export class HeroClassState {
     return this.definition.lineage.id;
   }
 
-  /** 0 — базовый, 1 — вторая ступень, 2 — финальный. */
+  /** 0 — базовый, дальше — ступени класса (`ClassDef.stage`). */
   get stage(): 0 | 1 | 2 {
     return this.definition.stage;
   }
 
-  get parent(): ClassId | null {
-    return this.definition.parent;
+  /** Из каких классов ведёт метаморфоза в этот. */
+  get parents(): readonly ClassId[] {
+    return this.definition.parents;
   }
 
-  /** Как герой атакует — стратегия стиля его линейки. */
+  /** Как герой линейки бьёт без перков — стратегия стиля линейки. */
   get attack(): IAttackStrategy {
     return ATTACK_STRATEGIES[this.definition.lineage.attack];
   }

@@ -2,7 +2,6 @@ import { type CellIndex } from '../../shared';
 import type { Card } from '../card/Card';
 import type { GameEvent } from '../events';
 import { Grid } from './grid/Grid';
-import type { EngineSnapshot } from './interfaces/EngineSnapshot';
 import type { IDeckSupply } from './interfaces/IDeckSupply';
 import type { IEngine } from './interfaces/IEngine';
 
@@ -94,19 +93,5 @@ export class Engine implements IEngine {
     const out = this.log;
     this.log = [];
     return out;
-  }
-
-  capture(): EngineSnapshot {
-    return {
-      board: this.board.map((c) => c?.clone() ?? null),
-      deck: this.deck.map((c) => c.clone()),
-      playerCell: this.playerCell,
-    };
-  }
-
-  restore(s: EngineSnapshot): void {
-    this.board.splice(0, this.board.length, ...s.board);
-    this.deck.splice(0, this.deck.length, ...s.deck);
-    this.playerCell = s.playerCell;
   }
 }

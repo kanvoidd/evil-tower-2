@@ -1,5 +1,12 @@
 import type { Profile } from '../../domain/account';
-import { CLASSES, type ClassId, LINEAGE_ORDER, type LineageId, ROOMS } from '../../domain/catalog';
+import {
+  baseClassOf,
+  CLASSES,
+  type ClassId,
+  LINEAGE_ORDER,
+  type LineageId,
+  ROOMS,
+} from '../../domain/catalog';
 import { classStartStats, classTraits, ProgressionBalance } from '../../domain/progression';
 import type { ClassSelectMode } from './interfaces/ClassSelectMode';
 import type { HeroChoice } from './interfaces/HeroChoice';
@@ -59,7 +66,8 @@ export class ClassSelection {
     const p = this.profile;
     const opened = this.mode === 'first' || p.isLineageUnlocked(lineage);
     // одна запись на линейку: улучшенный класс заменяет прежний (наёмник → ассасин), назад пути нет
-    const classId: ClassId = this.mode === 'switch' && opened ? p.hero(lineage).classId : lineage;
+    const classId: ClassId =
+      this.mode === 'switch' && opened ? p.hero(lineage).classId : baseClassOf(lineage);
     const s = classStartStats(classId);
     const current = this.mode === 'switch' && classId === p.activeClass;
     return {

@@ -22,13 +22,11 @@ export class PlayerActions extends RoomPart {
     if (!card) return d === 1 ? { kind: 'move' } : { kind: 'none', reason: 'invalid' };
     if (d === 1) {
       if (card.kind !== 'enemy') return { kind: 'move' };
-      // Маг вообще не бьёт рукой: только способностью по кнопке.
       return this.state.stats.attack.melee ? { kind: 'melee' } : { kind: 'none', reason: 'melee' };
     }
     if (card.kind !== 'enemy') return { kind: 'none', reason: 'range' };
     const s = this.state.stats;
-    if (!s.attack.reaches(this.state.playerCell, cell, s.passives))
-      return { kind: 'none', reason: 'range' };
+    if (!s.attack.reaches(this.state.playerCell, cell)) return { kind: 'none', reason: 'range' };
     if (this.state.res < s.rangedCost) return { kind: 'none', reason: 'resource' };
     return { kind: 'ranged' };
   }
@@ -67,7 +65,15 @@ export class PlayerActions extends RoomPart {
       by: 'player',
     });
     this.parts.upkeep.wearWeapon();
-    let killed = this.parts.hits.strike(cell, dmg, crit);
+    // «Залп болтом»: в упор болт не замечает брони
+    this.state.ignoreArmor = !!this.state.ability('bolt_volley');
+    let killed: boolean;
+    try {
+      killed = this.parts.hits.strike(cell, dmg, crit);
+    } finally {
+      this.state.ignoreArmor = false;
+    }
+    this.pierceLine(cell, dmg);
     // «Двойной удар» / «Град стрел»
     if (!killed && s.doubleStrike > 0 && this.state.rng.chance(Percent.toRatio(s.doubleStrike))) {
       killed = this.parts.hits.strike(
@@ -81,11 +87,12 @@ export class PlayerActions extends RoomPart {
         cell,
         Math.round(dmg * this.state.paramsOf('madness').splash),
       );
+    if (!killed) killed = this.echoStrike(cell, dmg);
     // ответный удар больше не привязан к конкретной цели — его даёт общий ход врагов
     if (killed) this.stepInto(cell);
   }
 
-  /** Базовое действие линейки: выстрел через карту, удар молнии, удар в спину. */
+  /** Базовое дальнее действие: выстрел через карту, удар в спину. */
   basicRanged(cell: CellIndex): void {
     const s = this.state.stats;
     const free = this.state.reaping > 0 && this.state.backstabs;
@@ -109,10 +116,52 @@ export class PlayerActions extends RoomPart {
       this.parts.deaths.killEnemy(cell);
       return;
     }
-    const killed = this.parts.hits.strike(cell, dmg, crit);
+    let killed = this.parts.hits.strike(cell, dmg, crit);
+    this.pierceLine(cell, dmg);
+    this.diagonalSplash(cell, dmg);
     this.splitStrike(cell, dmg);
-    if (crit && s.passives.has('hunter_thrill')) this.parts.upkeep.gain(s.rangedCost);
+    if (!killed) killed = this.echoStrike(cell, dmg);
     this.afterBasic(cell, target, killed);
+  }
+
+  /**
+   * «Залп болтом» с «Пробивающим выстрелом»: болт задевает и других врагов на линии выстрела,
+   * каждого следующего слабее.
+   */
+  private pierceLine(cell: CellIndex, dmg: number): void {
+    const bolt = this.state.ability('bolt_volley');
+    const pierce = bolt?.params.pierce ?? 1;
+    if (!bolt || pierce <= 1) return;
+    const loss = bolt.params.stepLoss ?? 0;
+    const others = Grid.ray(this.state.playerCell, cell).filter(
+      (c) => c !== cell && this.state.cards[c]?.kind === 'enemy',
+    );
+    others.slice(0, pierce - 1).forEach((c, i) => {
+      const share = Math.pow(1 - loss, i + 1);
+      this.parts.hits.strike(c, Math.max(1, Math.round(dmg * share)), false);
+    });
+  }
+
+  /** «Раскол наконечника»: враги по диагонали от цели дальнего выстрела получают долю урона. */
+  private diagonalSplash(cell: CellIndex, dmg: number): void {
+    const share = this.state.ability('pierce_shot')?.params.diagSplash ?? 0;
+    if (share <= 0) return;
+    const hit = Grid.diagonals(cell).filter((c) => this.state.cards[c]?.kind === 'enemy');
+    if (!hit.length) return;
+    this.state.emit({ type: 'fx', cells: hit, style: 'shot', from: cell });
+    for (const c of hit) this.parts.hits.strike(c, Math.max(1, Math.round(dmg * share)), false);
+  }
+
+  /**
+   * «Поддержка с воздуха»: после базовой атаки с шансом бьёт ещё раз по той же цели.
+   * Возвращает true, если цель погибла.
+   */
+  private echoStrike(cell: CellIndex, dmg: number): boolean {
+    const { echoChance, echoDmg } = this.state.stats;
+    if (echoChance <= 0 || echoDmg <= 0 || this.state.cards[cell]?.kind !== 'enemy') return false;
+    if (!this.state.rng.chance(echoChance)) return false;
+    this.state.emit({ type: 'fx', cells: [cell], style: 'arrows' });
+    return this.parts.hits.strike(cell, Math.max(1, Math.round(dmg * echoDmg)), false);
   }
 
   /** «Жнец»: удар в спину убивает любого не-босса. */
@@ -144,7 +193,7 @@ export class PlayerActions extends RoomPart {
     }
   }
 
-  /** «Раздвоение молнии» / «Двойной наконечник»: основной удар с шансом цепляет ещё одного врага. */
+  /** «Двойной наконечник»: основной удар с шансом цепляет ещё одного врага. */
   private splitStrike(cell: CellIndex, dmg: number): void {
     const { splitChance, splitDmg } = this.state.stats;
     if (splitChance <= 0 || splitDmg <= 0) return;
@@ -229,19 +278,12 @@ export class PlayerActions extends RoomPart {
     }
   }
 
-  /**
-   * Может ли герой прямо сейчас ударить врага: рукой, выстрелом, ударом в спину,
-   * а маг — молнией, если на неё хватает маны и она не на перезарядке.
-   */
+  /** Может ли герой прямо сейчас ударить врага: рукой, выстрелом, ударом в спину. */
   private canStrike(): boolean {
     for (const c of Grid.CELLS) {
       if (this.state.cards[c]?.kind !== 'enemy') continue;
       const k = this.actionFor(c).kind;
       if (k === 'melee' || k === 'ranged') return true;
-    }
-    for (const p of this.state.stats.abilities) {
-      if (p.behavior !== 'lightning' || !this.parts.perks.perkReady(p).ok) continue;
-      for (const c of Grid.CELLS) if (this.parts.perks.perkTargetOk(p, c)) return true;
     }
     return false;
   }

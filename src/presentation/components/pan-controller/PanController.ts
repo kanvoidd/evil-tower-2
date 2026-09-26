@@ -79,6 +79,12 @@ export class PanController {
     return this.moved > 12;
   }
 
+  /** Новые границы холста (например, другая вкладка дерева): камера сразу встаёт в них. */
+  setBounds(bounds: PanBounds): void {
+    this.bounds = bounds;
+    this.setCenter(this.centerX, this.centerY);
+  }
+
   private clampX(x: number): number {
     const lo = this.bounds.minX + GAME_W / 2;
     const hi = this.bounds.maxX - GAME_W / 2;

@@ -1,9 +1,10 @@
-import { CLASSES, LINEAGE_ORDER, type LineageId } from '../../../../catalog';
+import { LINEAGE_ORDER, type LineageId } from '../../../../catalog';
 import { Gold, Souls } from '../../../../shared';
 import { emptyHeroSave } from '../../fresh-save/emptyHeroSave';
 import type { HeroSave } from '../../interfaces/HeroSave';
 import type { LegacySave } from '../interfaces/LegacySave';
 import type { SaveMigration } from '../interfaces/SaveMigration';
+import { lineageOfSaved } from '../legacy/legacyClasses';
 
 /**
  * Общий кошелёк → кошельки героев. Раньше кошелёк, расходники и доспех были общими на профиль,
@@ -25,7 +26,7 @@ export class SharedWalletToHeroes implements SaveMigration {
   }
 
   private static heroesOf(doc: LegacySave): Partial<Record<LineageId, HeroSave>> {
-    const active = CLASSES[doc.activeClass ?? LINEAGE_ORDER[0]].lineage;
+    const active = lineageOfSaved(doc.activeClass ?? LINEAGE_ORDER[0]);
     const cleared = Array.isArray(doc.cleared) ? { [active]: doc.cleared } : (doc.cleared ?? {});
     const heroes: Partial<Record<LineageId, HeroSave>> = {};
     for (const lin of LINEAGE_ORDER) {

@@ -7,6 +7,11 @@ import type { HeroSave } from './HeroSave';
 
 export interface SaveData {
   v: number;
+  /**
+   * Версия деревьев прокачки: 2 — маг и охотник с профессиональным развитием (подклассы, ветки,
+   * «Основа»). Старые деревья этих линеек несовместимы — их сбрасывает шаг переноса.
+   */
+  treeVersion: number;
   savedAt: number;
   createdAt: number;
   lang: Lang;

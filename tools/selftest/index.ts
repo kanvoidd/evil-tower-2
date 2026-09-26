@@ -8,6 +8,7 @@ await import('./catalog');
 await import('./progression');
 await import('./combat-rules');
 await import('./combat-abilities');
+await import('./combat-professions');
 await import('./expedition');
 await import('./account');
 await import('./economy');

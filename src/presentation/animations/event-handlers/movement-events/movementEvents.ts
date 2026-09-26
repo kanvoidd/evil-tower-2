@@ -1,12 +1,7 @@
-import { t } from '../../../../i18n';
-import { HEX } from '../../../theme';
 import type { EventHandlers } from '../interfaces/EventHandler';
 
-/** Движение карт: появление, шаг героя, сдвиг, перестановка, исчезновение, «Откат времени». */
-export const movementEvents: Pick<
-  EventHandlers,
-  'spawn' | 'move' | 'slide' | 'swap' | 'remove' | 'rewind'
-> = {
+/** Движение карт: появление, шаг героя, сдвиг, перестановка, исчезновение. */
+export const movementEvents: Pick<EventHandlers, 'spawn' | 'move' | 'slide' | 'swap' | 'remove'> = {
   async spawn(ev, { board, anims, sound, clock }, deal) {
     // на клетке не должно остаться чужого вида — иначе карты наезжают друг на друга
     const old = board.viewAt(ev.cell);
@@ -55,12 +50,5 @@ export const movementEvents: Pick<
     if (!v) return;
     board.release(v);
     void anims.death.vanish(v, 0.4, 160);
-  },
-
-  async rewind(_ev, { battle, board, hud, sound, clock }) {
-    sound.play('burst');
-    board.rebuild(battle.cards, battle.playerCell);
-    hud.note(t('game.rewind'), HEX.soul, 28);
-    await clock.delay(200);
   },
 };

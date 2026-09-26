@@ -1,12 +1,18 @@
 import type { HeroContent } from '../interfaces/HeroContent';
-import { archer } from './classes/archer';
-import { arrowgod } from './classes/arrowgod';
-import { hawkeye } from './classes/hawkeye';
-import { sniper } from './classes/sniper';
+import { beastmaster } from './classes/beastmaster';
+import { bowman } from './classes/bowman';
+import { crossbowman } from './classes/crossbowman';
+import { hunter } from './classes/hunter';
+import { huntsman } from './classes/huntsman';
 import { archerLineage } from './lineage';
+import { archerBaseTree } from './talents/base';
 
-/** Содержимое линейки «Лучник»: классы — в порядке развития, базовый, второй, два финальных. */
+/**
+ * Содержимое линейки «Охотник» (id линейки — `archer`): классы в порядке развития — базовый,
+ * три подкласса на выбор, переходный; общие характеристики — дерево «Основа».
+ */
 export const ARCHER: HeroContent = {
   lineage: archerLineage,
-  classes: [archer, hawkeye, arrowgod, sniper],
+  classes: [hunter, bowman, crossbowman, beastmaster, huntsman],
+  baseTree: archerBaseTree,
 };

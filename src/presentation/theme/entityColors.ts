@@ -33,12 +33,12 @@ export const STATUS_TINT: Record<string, number> = {
   burn: 0xff7a2a,
   poison: 0x9fd12a,
   mark: 0xb287ff,
-  link: 0x7e57d8,
   vuln: 0xff4d6d,
   weak: 0x7fc4ff,
-  corpse: 0x8fd14f,
-  haunt: 0xa9e8ff,
-  ghost: 0xa9e8ff,
+  brittle: 0xb8d8ff,
+  bleed: 0xe0314a,
+  infect: 0x8fd14f,
+  servant: 0xa9e8ff,
 };
 
 /** Цвет пути дерева числом для Phaser. */

@@ -34,47 +34,85 @@ export interface AbilityBehaviorParams {
   verdict: { limit: Ratio };
   heavens_wrath: { dmg: Ratio; holyDmg: Ratio; stun: Turns };
 
+  // ---- маг и лучник: общие механики
+  /**
+   * Удар по цели с эффектами. `dmg` — урон (0 — без урона, только эффекты). Остальное — по желанию:
+   * - `manaAbove`/`manaBonus` — прибавка к урону, если ресурса в момент применения не меньше доли шкалы;
+   * - `weaken` — враг бьёт слабее на эту долю, `armorBreak` — его броня меньше на эту долю,
+   *   оба держатся `debuffTurns` ходов;
+   * - `burn` за тик, `ticks` — тиков горения; повторное применение добавляет тики к горящим.
+   *   `burstAt` — сколько тиков нужно для взрыва: цель получает `burstMul` накопленного горения,
+   *   соседи — `burstSplash`;
+   * - `freeze` — шанс заморозить цель на `freezeTurns` ходов;
+   * - `bleed` за ход, `bleedTurns` ходов;
+   * - `infect` — заражение: умирая, цель взрывается на эту долю своего максимального здоровья,
+   *   а соседей заражает с шансом `spread`.
+   */
+  strike: {
+    dmg: Ratio;
+    manaAbove?: Ratio;
+    manaBonus?: Ratio;
+    weaken?: Ratio;
+    armorBreak?: Ratio;
+    debuffTurns?: Turns;
+    burn?: Ratio;
+    ticks?: Turns;
+    burstAt?: number;
+    burstMul?: Ratio;
+    burstSplash?: Ratio;
+    freeze?: Ratio;
+    freezeTurns?: Turns;
+    bleed?: Ratio;
+    bleedTurns?: Turns;
+    infect?: Ratio;
+    spread?: Ratio;
+  };
+  /**
+   * Защита на себя: щит на долю максимального здоровья. `defense` — прибавка к защите, `thorns` —
+   * ответный удар каждому атакующему врагу (доля урона героя), оба держатся `turns` ходов.
+   */
+  ward: { shield: Ratio; defense?: number; thorns?: Ratio; turns?: Turns };
+
   // ---- маг
-  lightning: { dmg: Ratio };
-  magic_shot: { dmg: Ratio };
   /** Урон по цели и следующим врагам цепи; сколько множителей — столько целей. */
   chain_lightning: { falloff: readonly Ratio[] };
-  swap: NoParams;
-  deck_draw: NoParams;
-  rewind: NoParams;
-  /** Труп взрывается на `blast` своего максимального здоровья. */
-  corpse_blast: { blast: Ratio };
-  /** Призрак живёт `turns` ходов и бьёт на `dmg`; призраков на поле не больше `maxGhosts`. */
-  ghosts: { turns: Turns; dmg: Ratio; maxGhosts: number };
-  /** Доля урона по связанному врагу, которая расходится по остальным. */
-  voodoo: { share: Ratio };
-  /** Враги теряют долю текущего здоровья (боссы — `bossHpShare`); души с убитых — плюс `soulBonus`. */
-  dead_harvest: { hpShare: Ratio; bossHpShare: Ratio; cap: Ratio; soulBonus: Ratio };
-  /** Горение: `burn` урона героя за ход, `turns` ходов. */
-  ignite: { burn: Ratio; turns: Turns };
-  fireball: { dmg: Ratio; splash: Ratio; burn: Ratio; turns: Turns };
-  /** Взрыв горящего врага: себе `blastMul`, соседям `splashMul` его урона горения. */
+  /**
+   * Выстрел по линии от героя: бьёт `pierce` первых врагов, каждый следующий слабее на `stepLoss`.
+   * Заряд: каждый ход, пока выстрел готов и не применён, он сильнее на `chargePer`, не больше
+   * `chargeMax` зарядов.
+   */
+  ray: { dmg: Ratio; pierce: number; stepLoss: Ratio; chargePer?: Ratio; chargeMax?: number };
+  /** Взрыв горящих врагов: себе `blastMul`, соседям `splashMul` накопленного горения. */
   detonate: { blastMul: Ratio; splashMul: Ratio };
-  inferno: { burn: Ratio; turns: Turns };
+  swap: NoParams;
+  shuffle: NoParams;
+  /** Слуга на месте заражённого: доля здоровья и удара врага, живёт `turns` ходов. */
+  dead_servant: { hp: Ratio; dmg: Ratio; turns: Turns };
 
   // ---- лучник
-  pierce_shot: NoParams;
-  diagonal: NoParams;
-  ricochet: { falloff: readonly Ratio[] };
-  falcon_hunt: { dmg: Ratio; stun: Turns };
-  falcon_courier: NoParams;
-  eagle_eye: NoParams;
-  double_shot: { dmg: Ratio };
-  hunter_thrill: NoParams;
-  arrow_rain: { arrows: number; dmg: Ratio };
-  starfall: { waves: number; dmg: Ratio };
-  /** Каждый следующий враг на линии получает урон слабее на `stepLoss`. */
-  rail_shot: { stepLoss: Ratio };
-  /** Бонус к выстрелу — доля максимального здоровья цели. */
-  armor_piercing: { dmg: Ratio; hpShare: Ratio; cap: Ratio };
-  hunters_mark: NoParams;
-  /** Убивает до `kills` не-боссов на линии; босс теряет `bossHpShare` максимального здоровья. */
-  one_shot: { kills: number; bossHpShare: Ratio; cap: Ratio };
+  /** Выстрел через карту; `diagSplash` — враги по диагонали от цели получают эту долю урона. */
+  pierce_shot: { diagSplash?: Ratio };
+  /**
+   * Выстрел через карту, а удар вплотную пробивает броню. `pierce` — сколько врагов на линии
+   * выстрела получает урон, каждый следующий слабее на `stepLoss`.
+   */
+  bolt_volley: { pierce?: number; stepLoss?: Ratio };
+  /** Каждый ход на месте прибавляет `perStack` к урону, не больше `maxStacks` раз. */
+  still_aim: { perStack: Ratio; maxStacks: number };
+  /**
+   * Притягивает врага на соседнюю клетку. `pullDmg`/`pullStun` — удар и оглушение притянутого,
+   * `chainPull` (1) — вся линия цели сдвигается на шаг к герою.
+   */
+  hook: { pullDmg?: Ratio; pullStun?: Turns; chainPull?: number };
+  /**
+   * Кабаны пробегают линию: оглушают врагов на `stun` ходов, кучки золота сминаются до монеты.
+   * `anyLine` (1) — любая линия, иначе только строка или столбец героя; `cross` (1) — крестом.
+   */
+  stampede: { stun: Turns; anyLine?: number; cross?: number };
+  /** Ловушка на клетку: враг, попавший на неё, получает `dmg` урона героя и оглушение. */
+  trap: { dmg: Ratio; stun: Turns };
+  /** Отложенная способность на клетку: задержка до `maxDelay` ходов, `charges` штук за комнату. */
+  armed_trap: { maxDelay: Turns; charges: number };
 
   // ---- наёмник
   backstab: NoParams;

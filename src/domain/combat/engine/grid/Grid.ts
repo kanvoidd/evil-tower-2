@@ -83,6 +83,20 @@ export class Grid {
     return Grid.row(a) === Grid.row(b) || Grid.col(a) === Grid.col(b);
   }
 
+  /**
+   * Луч от `from` в сторону `toward` (та же строка или столбец): клетки по порядку до края поля,
+   * без самой `from`. Не на одной линии — пусто.
+   */
+  static ray(from: CellIndex, toward: CellIndex): CellIndex[] {
+    if (from === toward || !Grid.sameLine(from, toward)) return [];
+    const dr = Math.sign(Grid.row(toward) - Grid.row(from));
+    const dc = Math.sign(Grid.col(toward) - Grid.col(from));
+    const out: CellIndex[] = [];
+    for (let r = Grid.row(from) + dr, c = Grid.col(from) + dc; Grid.inside(r, c); r += dr, c += dc)
+      out.push(Grid.at(r, c));
+    return out;
+  }
+
   /** Клетка «за» `to`, если смотреть от `from`; `NO_CELL` — за ней край поля. */
   static behind(from: CellIndex, to: CellIndex): CellIndex {
     const r = Grid.row(to) + Math.sign(Grid.row(to) - Grid.row(from));

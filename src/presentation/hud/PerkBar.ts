@@ -27,7 +27,7 @@ export class PerkBar {
 
   constructor(scene: Phaser.Scene, list: readonly AbilityDef[], actions: IHudActions) {
     if (!list.length) return;
-    // до пяти кнопок — один ряд, дальше две полки (у пироманта и берсерка их десять)
+    // до пяти кнопок — один ряд, дальше две полки (у поздних классов их до десяти)
     const rows = list.length > PerkBar.PER_ROW ? 2 : 1;
     const perRow = rows === 1 ? list.length : Math.ceil(list.length / 2);
     const h = PerkBar.BTN_H;
@@ -83,26 +83,63 @@ export class PerkBar {
     return this.buttons.length;
   }
 
-  /** Заряд, цена, перезарядка и доступность каждой кнопки — по текущему бою. */
+  /**
+   * Заряд, цена, перезарядка и доступность каждой кнопки — по текущему бою. Пока заряжена
+   * «Взведённая ловушка», кнопки — выбор способности для неё: подходящие горят, выбранная в рамке
+   * и показывает задержку в ходах.
+   */
   update(battle: IBattleState): void {
+    const trap = battle.armed?.behavior === 'armed_trap' ? battle.armed : null;
     for (const pb of this.buttons) {
-      const ready = battle.perkReady(pb.perk);
-      const armed = battle.armed?.id === pb.perk.id;
-      const cd = battle.cooldownOf(pb.perk);
-      const free = cd === 0 && battle.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
-      pb.btn.setStyle(armed ? 'gold' : 'raised');
-      pb.btn.setLocked(!ready.ok);
-      pb.frame.setVisible(armed);
-      pb.costText.setText(PerkBar.costLabel(battle, pb.perk));
-      const costColor = cd > 0 ? HEX.soul : !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
-      pb.costText.setColor(costColor);
-      pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
-      pb.name.setColor(armed ? HEX.dark : ready.ok ? HEX.text : HEX.textMute);
-      pb.btn.pulseC.setAlpha(ready.ok || armed ? 1 : 0.55);
+      if (trap && pb.perk.id !== trap.id) {
+        this.showTrapChoice(battle, trap, pb);
+        continue;
+      }
+      this.showButton(battle, pb);
     }
   }
 
-  /** Маг ткнул во врага рукой — первая кнопка подсказывает, где его удар. */
+  /** Обычная кнопка: заряд, цена, перезарядка, доступность, накопленный «Заряд». */
+  private showButton(battle: IBattleState, pb: PerkButton): void {
+    const ready = battle.perkReady(pb.perk);
+    const armed = battle.armed?.id === pb.perk.id;
+    const cd = battle.cooldownOf(pb.perk);
+    const free = cd === 0 && battle.perkCostOf(pb.perk) === 0 && pb.perk.goldCost === undefined;
+    pb.btn.setStyle(armed ? 'gold' : 'raised');
+    pb.btn.setLocked(!ready.ok);
+    pb.frame.setVisible(armed);
+    pb.costText.setText(PerkBar.costLabel(battle, pb.perk));
+    const costColor = cd > 0 ? HEX.soul : !ready.ok ? HEX.textMute : free ? HEX.good : HEX.gold;
+    pb.costText.setColor(costColor);
+    pb.costPlate.setStrokeStyle(2, parseInt(costColor.slice(1), 16));
+    pb.name.setColor(armed ? HEX.dark : ready.ok ? HEX.text : HEX.textMute);
+    pb.name.setText(PerkBar.nameLabel(battle, pb.perk));
+    pb.btn.pulseC.setAlpha(ready.ok || armed ? 1 : 0.55);
+  }
+
+  /** Кнопка во время выбора для «Взведённой ловушки»: подходит ли, выбрана ли и через сколько ходов. */
+  private showTrapChoice(battle: IBattleState, trap: AbilityDef, pb: PerkButton): void {
+    const fits = battle.canArmWith(trap, pb.perk);
+    const picked = battle.trapSkill?.id === pb.perk.id;
+    pb.btn.setStyle(picked ? 'gold' : 'raised');
+    pb.btn.setLocked(!fits);
+    pb.frame.setVisible(picked);
+    pb.costText.setText(picked ? `⏱${battle.trapDelay}` : PerkBar.costLabel(battle, pb.perk));
+    const color = picked ? HEX.gold : fits ? HEX.good : HEX.textMute;
+    pb.costText.setColor(color);
+    pb.costPlate.setStrokeStyle(2, parseInt(color.slice(1), 16));
+    pb.name.setColor(picked ? HEX.dark : fits ? HEX.text : HEX.textMute);
+    pb.name.setText(abilityName(pb.perk));
+    pb.btn.pulseC.setAlpha(fits || picked ? 1 : 0.55);
+  }
+
+  /** Название под значком; накопленный «Заряд» — числом после названия. */
+  private static nameLabel(battle: IBattleState, perk: AbilityDef): string {
+    const charge = battle.chargeOf(perk);
+    return charge > 0 ? `${abilityName(perk)} +${charge}` : abilityName(perk);
+  }
+
+  /** Рукой не достать — первая кнопка подсказывает, где удар героя. */
   nudgeFirst(animations: Animations): void {
     const first = this.buttons[0];
     if (first) animations.bump.play(first.btn.pulseC, 1.12, 130, { repeat: 1 });

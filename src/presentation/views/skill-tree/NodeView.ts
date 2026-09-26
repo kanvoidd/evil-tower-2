@@ -24,6 +24,8 @@ export class NodeView {
   private readonly maxFrame?: Phaser.GameObjects.Image;
   private readonly badge?: Phaser.GameObjects.Container;
   private readonly badgeText?: Phaser.GameObjects.Text;
+  /** Последняя отрисовка рангов — чтобы вернуть значки после смены вкладки. */
+  private ranks = { dim: false, rank: 0, max: 1 };
 
   /** `texture` — плитка узла: талант пути, значок способности, герб класса или врата. */
   constructor(
@@ -53,14 +55,15 @@ export class NodeView {
       .setDepth(2)
       .setAlpha(0);
     this.main = scene.add.image(x, y, texture).setDisplaySize(size, size).setDepth(5);
-    if (n.kind === 'talent') {
-      this.ico = icon(scene, x, y - 4, NodeView.talentIcon(n), size * 0.44).setDepth(6);
+    if (n.kind === 'talent' || (n.ranks ?? 1) > 1) {
+      if (n.kind === 'talent')
+        this.ico = icon(scene, x, y - 4, NodeView.talentIcon(n), size * 0.44).setDepth(6);
       this.maxFrame = scene.add
         .image(x, y, 'tal_max')
         .setDisplaySize(size, size)
         .setDepth(7)
         .setVisible(false);
-      // счётчик рангов в углу плитки — «2/3»
+      // счётчик рангов (уровней перка) в углу плитки — «2/3»
       const badge = scene.add.container(x + size * 0.3, y + size * 0.32).setDepth(8);
       badge.add(scene.add.image(0, 0, plateTexture(scene, 54, 30, 1, 'dark', 15)));
       const bt = txt(scene, 0, -1, '', 17, { weight: 900, strokeThickness: 0 });
@@ -85,7 +88,10 @@ export class NodeView {
       : NodeView.PATH_ICON[n.path!];
   }
 
-  /** Состояние узла: закрытые приглушены, купленные светятся; у таланта — рамка максимума и ранги. */
+  /**
+   * Состояние узла: закрытые приглушены, купленные светятся; у таланта и перка с уровнями —
+   * счётчик рангов.
+   */
   paint(st: NodeState, rank: number, max: number): void {
     const n = this.node;
     const dim = st === 'locked' || st === 'blocked';
@@ -96,15 +102,24 @@ export class NodeView {
     this.ico?.setAlpha(dim ? 0.3 : 1);
     this.glow.setAlpha(st === 'owned' ? 0.7 : st === 'partial' ? 0.45 : 0);
     this.main.setAlpha(n.kind === 'class' && dim ? 0.7 : 1);
-    if (n.kind === 'talent') this.paintRanks(dim, rank, max);
+    this.ranks = { dim, rank, max };
+    if (this.badge) this.paintBadge();
   }
 
-  /** Ранги таланта: рамка максимума, значок «ранг/максимум» и его цвет. */
-  private paintRanks(dim: boolean, rank: number, max: number): void {
+  /** Ранги таланта или уровни перка: рамка максимума, значок «ранг/максимум» и его цвет. */
+  private paintBadge(): void {
+    const { dim, rank, max } = this.ranks;
+    if (!this.main.visible) return;
     this.maxFrame?.setVisible(rank >= max);
     this.badge?.setVisible(!dim || rank > 0);
     this.badgeText?.setText(`${rank}/${max}`);
     this.badgeText?.setColor(rank >= max ? HEX.gold : rank > 0 ? HEX.text : HEX.textMute);
+  }
+
+  /** Узел на текущей вкладке дерева виден, на другой — спрятан. */
+  setVisible(on: boolean): void {
+    for (const o of [this.main, this.glow, this.ico, this.maxFrame, this.badge]) o?.setVisible(on);
+    if (on) this.paintBadge();
   }
 
   /** «Дыхание» свечения у узлов, которые можно купить. */

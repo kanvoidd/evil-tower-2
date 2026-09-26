@@ -12,14 +12,15 @@ export interface ClassDefinition {
   readonly id: ClassId;
   /** Линейка: ресурс, стиль боя, пассивки. */
   readonly lineage: LineageDef;
-  /** 0 — базовый, 1 — вторая ступень, 2 — финальный (раздвоение). */
+  /** 0 — базовый; дальше — ступени (`ClassDef.stage`). */
   readonly stage: 0 | 1 | 2;
-  readonly parent: ClassId | null;
+  /** Из каких классов ведёт метаморфоза в этот. */
+  readonly parents: readonly ClassId[];
   /** База линейки плюс бонусы класса — характеристики до талантов и снаряжения. */
   readonly baseStats: Readonly<Stats>;
-  /** Способности класса по слотам: стартовая, вторая, третья, легендарная. */
+  /** Перки класса: по слотам ярусов или по шагам веток. */
   readonly abilities: readonly PerkDef[];
-  /** Таланты дерева класса на своих местах. */
+  /** Таланты класса на своих местах (без дерева «Основа» линейки). */
   readonly talents: readonly TalentPlace[];
   /** Классы, в которые ведёт метаморфоза (у финальных — никуда). */
   readonly next: readonly ClassId[];

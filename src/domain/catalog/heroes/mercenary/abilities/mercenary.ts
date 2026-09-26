@@ -10,6 +10,7 @@ export const backstab = defineAbility({
   kind: 'basic',
   cost: 4,
   target: 'enemy',
+  attack: 'backstab',
 });
 
 /** «Подкуп». */
