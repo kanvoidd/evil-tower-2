@@ -1,5 +1,11 @@
 import type { Profile } from '../../domain/account';
-import { CONSUMABLE_SLOTS, CONSUMABLES, type ItemDef, type LineageId } from '../../domain/catalog';
+import {
+  CONSUMABLE_SLOTS,
+  consumableInGame,
+  CONSUMABLES,
+  type ItemDef,
+  type LineageId,
+} from '../../domain/catalog';
 import { ShopRules } from '../../domain/economy';
 import type { ConsumableOffer } from './interfaces/ConsumableOffer';
 import type { ItemOffer } from './interfaces/ItemOffer';
@@ -23,7 +29,7 @@ export class ShopCatalog {
   }
 
   consumables(): ConsumableOffer[] {
-    return CONSUMABLE_SLOTS.map((id) => {
+    return CONSUMABLE_SLOTS.filter(consumableInGame).map((id) => {
       const def = CONSUMABLES[id];
       const owned = this.profile.heroSave.consumables[id];
       return { def, owned, full: ShopRules.stockFull(def, owned) };

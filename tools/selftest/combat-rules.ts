@@ -2,6 +2,8 @@
 import type { ClassId } from '../../src/domain/catalog';
 import { CLASSES } from '../../src/domain/catalog/classes';
 import { type EnemyDef } from '../../src/domain/catalog/enemies';
+import { FLOOR_FACTORIES } from '../../src/domain/catalog/floors';
+import { LINEAGES } from '../../src/domain/catalog/heroes';
 import { ROOMS } from '../../src/domain/catalog/levels';
 import { PERK_BY_ID } from '../../src/domain/catalog/perks';
 import { CombatBalance } from '../../src/domain/combat';
@@ -362,12 +364,16 @@ import { cons, ok } from './harness';
 
 // ---------------------------------------------------------------- автоприменение расходников
 {
-  const mk = (classId: ClassId, nodes: string[] = []): RoomBattle => {
+  const mk = (
+    classId: ClassId,
+    nodes: string[] = [],
+    factory = RoomBattleFactory.standard(),
+  ): RoomBattle => {
     const tree = TREES[CLASSES[classId].lineage];
     const ls = newLineageSave(tree);
     for (const id of nodes) ls.ranks[id] = 1;
     const stats = buildPlayerStats({ classId, lineage: ls, weapon: null, armor: null });
-    const battle = RoomBattleFactory.standard().create({
+    const battle = factory.create({
       room: ROOMS[0],
       stats,
       weapon: null,
@@ -411,7 +417,12 @@ import { cons, ok } from './harness';
   merc.res = 0;
   ok(needsRegen(merc), 'зелье восстановления: шкала пуста — применяем');
 
-  const art = mk('mage');
+  // артефакты мага пока выключены: правило проверяется на линейке, где они включены
+  const artifactsOn = new RoomBattleFactory(
+    { ...LINEAGES, mage: { ...LINEAGES.mage, artifacts: true } },
+    FLOOR_FACTORIES,
+  );
+  const art = mk('mage', [], artifactsOn);
   const dmg = art.artifactDamage();
   art.cards[0] = enemy(1, dmg);
   art.cards[1] = enemy(1, dmg);
@@ -419,6 +430,12 @@ import { cons, ok } from './harness';
   art.cards[2] = enemy(1, dmg);
   ok(worthArtifact(art), 'артефакт: три цели — применяем');
   ok(!worthArtifact(mk('warrior')), 'артефакт: только линейка мага');
+  const off = mk('mage');
+  for (const c of [0, 1, 2]) off.cards[c] = enemy(1, dmg);
+  ok(
+    worthArtifact(off) === LINEAGES.mage.artifacts,
+    'артефакт: у выключенной линейки не применяется',
+  );
 
   const pick = mk('elementalist', ['cls/elementalist', 'perk/elementalist/lightning-1']);
   pick.cards[5] = enemy(500);

@@ -13,10 +13,10 @@ export const beastmaster: BranchedClassDef = {
     {
       id: 'beasts',
       steps: [
-        { perk: stampede },
-        { talent: crossingRun },
         { perk: falcon },
         { talent: airSupport },
+        { perk: stampede },
+        { talent: crossingRun },
       ],
     },
   ],

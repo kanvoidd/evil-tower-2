@@ -1,5 +1,5 @@
 import type { Profile } from '../../domain/account';
-import type { GIFT_REWARD } from '../../domain/rewards';
+import type { GiftReward } from '../../domain/rewards';
 import type { AdService } from '../ads/AdService';
 import type { RewardChoice } from './interfaces/RewardChoice';
 
@@ -13,7 +13,7 @@ export class ClaimTowerGift {
     private readonly ads: AdService,
   ) {}
 
-  async execute(choice: RewardChoice): Promise<typeof GIFT_REWARD> {
+  async execute(choice: RewardChoice): Promise<GiftReward> {
     const multiplier = choice === 'double' && (await this.ads.rewarded()) ? 2 : 1;
     return this.profile.claimGift(multiplier);
   }

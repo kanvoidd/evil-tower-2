@@ -109,7 +109,7 @@ export const abilities: Record<keyof typeof ru, string> = {
   // hunter: beastmaster
   'ability.stampede.name': 'Boar Stampede',
   'ability.stampede.desc':
-    'Boars run along your row or column: enemies are stunned, gold piles are trampled to a single coin. Cooldown {cooldown} turns.',
+    'Boars run along your row or column: enemies take {dmg}% damage and are stunned, gold piles are trampled to a single coin. Cooldown {cooldown} turns.',
   'ability.stampede.lv2': 'Boars run along any line of the field',
   'ability.falcon.name': 'Falcon',
   'ability.falcon.desc':

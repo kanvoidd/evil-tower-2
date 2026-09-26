@@ -57,10 +57,6 @@ export class SkillTreeQuery {
     return this.profile.tutorial.skill;
   }
 
-  get autoSkillOn(): boolean {
-    return this.profile.autoSkillCfg().on;
-  }
-
   /** Сколько очков вложено в таланты. */
   get spentPoints(): number {
     return talentPointsSpent(this.tree, this.save);

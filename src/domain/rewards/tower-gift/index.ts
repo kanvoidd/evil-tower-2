@@ -1,2 +1,3 @@
 export { GIFT_COOLDOWN_MS } from './giftCooldown';
-export { GIFT_REWARD } from './giftReward';
+export type { GiftReward } from './interfaces/GiftReward';
+export { GIFT_BASE, GIFT_ROOM_SHARE, towerGiftFor } from './towerGiftFor';

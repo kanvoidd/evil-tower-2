@@ -12,8 +12,6 @@ export interface RunSummary {
   souls: number;
   /** Добыча недопройденной комнаты пропала (гибель или побег). */
   lootLost: boolean;
-  /** Сколько улучшений купила автопрокачка на заработанные души. */
-  autoBuys: number;
   /** Можно удвоить награду за просмотр видео. */
   canDouble: boolean;
 }

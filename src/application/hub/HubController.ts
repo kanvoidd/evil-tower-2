@@ -1,6 +1,5 @@
 import type { HubCommand } from './interfaces/HubCommand';
 import type { HubControllerDeps } from './interfaces/HubControllerDeps';
-import type { HubEntry } from './interfaces/HubEntry';
 import type { HubMenu } from './interfaces/HubMenu';
 import type { HubOrigin } from './interfaces/HubOrigin';
 
@@ -21,17 +20,16 @@ export class HubController {
   constructor(private readonly d: HubControllerDeps) {}
 
   /**
-   * После постройки хаба: итог автопрокачки, а при запуске игры и возвращении из боя — ежедневная
-   * награда (после первого улучшения, чтобы не перебивать обучение).
+   * После постройки хаба: при запуске игры и возвращении из боя — ежедневная награда (после
+   * первого улучшения, чтобы не перебивать обучение).
    */
-  async start(entry: HubEntry, from?: HubOrigin): Promise<void> {
+  async start(from?: HubOrigin): Promise<void> {
     const { profile } = this.d;
     const greet =
       (!from || from === 'game') && profile.tutorial.skill && profile.dailyStatus().available;
-    if (!entry.autoSkillBuys && !greet) return;
+    if (!greet) return;
     await this.d.clock.delay(HubController.INTRO_MS);
-    if (entry.autoSkillBuys) this.d.view.autoSkilled(entry.autoSkillBuys);
-    if (greet) await this.claimDaily();
+    await this.claimDaily();
   }
 
   execute(cmd: HubCommand): void {
@@ -79,7 +77,7 @@ export class HubController {
 
   private async claimGift(): Promise<void> {
     if (!this.d.profile.giftReady()) return;
-    const choice = await this.d.dialogs.gift();
+    const choice = await this.d.dialogs.gift(this.d.profile.nextGift);
     await this.d.gift.execute(choice);
     this.rewarded();
   }

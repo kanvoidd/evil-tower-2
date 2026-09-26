@@ -1,12 +1,12 @@
 import { DEFAULT_AUTO_USE } from '../../../combat';
 import type { Lang } from '../../../shared';
 import type { SaveData } from '../interfaces/SaveData';
-import { PROFESSION_TREES } from '../migrations/profession-rework/professionTrees';
+import { CURRENT_TREE_VERSION } from '../migrations/treeVersions';
 
 /** Документ сохранения нового игрока. */
 export const freshSave = (lang: Lang, now: number): SaveData => ({
   v: 2,
-  treeVersion: PROFESSION_TREES,
+  treeVersion: CURRENT_TREE_VERSION,
   savedAt: 0,
   createdAt: now,
   lang,
@@ -32,6 +32,6 @@ export const freshSave = (lang: Lang, now: number): SaveData => ({
   gift: { readyAt: 0 },
   tutorial: { fight: false, hub: false, skill: false, shop: false, perk: false },
   ads: { lastInterstitial: 0, runsSinceAd: 0 },
-  auto: { use: { ...DEFAULT_AUTO_USE }, skill: {} },
+  auto: { use: { ...DEFAULT_AUTO_USE } },
   reviewAsked: false,
 });

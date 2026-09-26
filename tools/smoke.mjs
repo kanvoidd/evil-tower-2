@@ -544,7 +544,7 @@ await step('skilltree', async () => {
   await waitScene('Hub');
 });
 const TREE = "window.__game.scene.getScene('SkillTree')";
-await step('дерево: покупка кнопкой панели и автопрокачка', async () => {
+await step('дерево: покупка кнопкой панели', async () => {
   await click(164, 486);
   await waitScene('SkillTree');
   await sleep(1000);
@@ -565,16 +565,6 @@ await step('дерево: покупка кнопкой панели и авто
   const souls1 = await evaluate(`${P}.souls`);
   if (souls1 >= before.souls) throw new Error('души не списаны: ' + JSON.stringify(before));
   await shot('skilltree-bought');
-  // автопрокачка: включить (докупит по ветке) и выключить
-  const auto0 = await evaluate(`${P}.autoSkillCfg().on`);
-  await click(384, 66);
-  await sleep(700);
-  if ((await evaluate(`${P}.autoSkillCfg().on`)) === auto0)
-    throw new Error('автопрокачка не переключилась');
-  await click(384, 66);
-  await sleep(700);
-  if ((await evaluate(`${P}.autoSkillCfg().on`)) !== auto0)
-    throw new Error('автопрокачка не вернулась');
   await click(654, 62);
   await waitScene('Hub');
 });

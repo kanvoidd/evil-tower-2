@@ -3,7 +3,7 @@ import { newLineageSave, TREES } from '../../../../progression';
 import type { LegacySave } from '../interfaces/LegacySave';
 import type { SaveMigration } from '../interfaces/SaveMigration';
 import { lineageOfSaved } from '../legacy/legacyClasses';
-import { PROFESSION_TREES } from './professionTrees';
+import { TREE_VERSION } from '../treeVersions';
 
 /**
  * Профессиональное развитие мага и охотника: их деревья построены заново (подклассы, ветки,
@@ -18,7 +18,7 @@ export class ProfessionRework implements SaveMigration {
   readonly id = 'profession-rework';
 
   applies(doc: LegacySave): boolean {
-    return (doc.treeVersion ?? 1) < PROFESSION_TREES;
+    return (doc.treeVersion ?? 1) < TREE_VERSION.profession;
   }
 
   migrate(doc: LegacySave): void {
@@ -32,6 +32,6 @@ export class ProfessionRework implements SaveMigration {
       if (ProfessionRework.REWORKED.includes(lin) || !CLASSES[active as ClassId])
         doc.activeClass = baseClassOf(lin);
     }
-    doc.treeVersion = PROFESSION_TREES;
+    doc.treeVersion = TREE_VERSION.profession;
   }
 }

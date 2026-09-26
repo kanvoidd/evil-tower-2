@@ -3,7 +3,7 @@ import type Phaser from 'phaser';
 import type { IHubDialogs } from '../../application/hub/interfaces/IHubDialogs';
 import type { RewardChoice } from '../../application/rewards/interfaces/RewardChoice';
 import type { DailyStatus } from '../../domain/account';
-import { DAILY_REWARDS, type DailyReward, GIFT_REWARD } from '../../domain/rewards';
+import { DAILY_REWARDS, type DailyReward, type GiftReward } from '../../domain/rewards';
 import { fmt, t } from '../../i18n';
 import { Dialog, icon, plateTexture, txt, UiSound } from '../components';
 import { HEX } from '../theme';
@@ -105,7 +105,7 @@ export class HubDialogs implements IHubDialogs {
     });
   }
 
-  gift(): Promise<RewardChoice> {
+  gift(reward: GiftReward): Promise<RewardChoice> {
     return new Promise((choose) => {
       new Dialog(this.scene, {
         title: t('gift.title'),
@@ -118,8 +118,8 @@ export class HubDialogs implements IHubDialogs {
             c.add(s.add.image(-total / 2 + 28, y, key).setDisplaySize(56, 56));
             c.add(label);
           };
-          row('ico_gold', GIFT_REWARD.gold, 34, HEX.gold);
-          row('ico_soul', GIFT_REWARD.souls, 104, HEX.soul);
+          row('ico_gold', reward.gold, 34, HEX.gold);
+          row('ico_soul', reward.souls, 104, HEX.soul);
           return 140;
         },
         buttons: [

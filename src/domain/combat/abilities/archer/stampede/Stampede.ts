@@ -6,8 +6,8 @@ import type { AbilityUse } from '../../interfaces/AbilityUse';
 import type { IAbility } from '../../interfaces/IAbility';
 
 /**
- * «Стадо кабанов»: кабаны вбегают с края поля и пробегают строку или столбец — оглушают врагов, а
- * кучки золота на пути сминают до одной монеты. Героя не задевают. Сначала бежать можно только по
+ * «Стадо кабанов»: кабаны вбегают с края поля и пробегают строку или столбец — задевают врагов
+ * небольшим уроном и оглушают, а кучки золота на пути сминают до одной монеты. Героя не задевают. Сначала бежать можно только по
  * линии героя, на втором уровне — по любой; «Перекрёстная пробежка» — крестом через клетку.
  */
 export class Stampede implements IAbility<'stampede'> {
@@ -19,12 +19,18 @@ export class Stampede implements IAbility<'stampede'> {
     ctx.emit({ type: 'cast', ability: a.id, cells });
     for (const c of cells) {
       const card = ctx.cards[c];
-      if (card?.kind === 'enemy') ctx.applyStun(c, a.params.stun);
+      if (card?.kind === 'enemy') Stampede.trample(ctx, a, c);
       else if (card?.kind === 'gold' && card.value > 1) {
         card.value = 1;
         ctx.emit({ type: 'value', cell: c, uid: card.uid, value: card.value });
       }
     }
+  }
+
+  /** Кабаны задели врага: удар, а выжившего — оглушение. */
+  private static trample(ctx: AbilityContext, a: AbilityDefOf<'stampede'>, cell: CellIndex): void {
+    if (ctx.strike(cell, ctx.spellDamage(a.params.dmg), false)) return;
+    ctx.applyStun(cell, a.params.stun);
   }
 
   /** Без второго уровня — только клетки на линии героя. */

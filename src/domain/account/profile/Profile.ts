@@ -1,7 +1,7 @@
 import type { ClassId, ConsumableId, EquipmentSave, ItemDef, LineageId } from '../../catalog';
 import type { AutoUseSave, PlayerStats } from '../../combat';
-import type { AutoSkillPlan, AutoSkillSave, Hero, LineageSave, TreeNode } from '../../progression';
-import type { AchievementDef, DailyReward, GIFT_REWARD, ICalendar } from '../../rewards';
+import type { Hero, LineageSave } from '../../progression';
+import type { AchievementDef, DailyReward, GiftReward, ICalendar } from '../../rewards';
 import type { Gold, Lang, Signal, Souls } from '../../shared';
 import { emptyHeroSave } from '../save/fresh-save/emptyHeroSave';
 import { freshSave } from '../save/fresh-save/freshSave';
@@ -136,29 +136,6 @@ export class Profile {
 
   setAutoUse(patch: Partial<AutoUseSave>): void {
     this.parts.automation.setAutoUse(patch);
-  }
-
-  autoSkillCfg(l?: LineageId): AutoSkillSave {
-    return this.parts.automation.autoSkillCfg(l);
-  }
-
-  setAutoSkill(patch: Partial<AutoSkillSave>, l?: LineageId): void {
-    this.parts.automation.setAutoSkill(patch, l);
-  }
-
-  /** Автопрокачка одной кнопкой; при включении ветка — по последнему улучшению игрока. */
-  toggleAutoSkill(): AutoSkillSave {
-    return this.parts.automation.toggleAutoSkill();
-  }
-
-  /** Игрок сам купил узел: автопрокачка запоминает его ветку. */
-  noteManualBuy(n: TreeNode): void {
-    this.parts.automation.noteManualBuy(n);
-  }
-
-  /** Автопрокачка тратит души на ветку активной линейки (после первого ручного улучшения). */
-  runAutoSkill(): AutoSkillPlan | null {
-    return this.parts.automation.runAutoSkill();
   }
 
   // ------------------------------------------------------------------ герои
@@ -348,7 +325,12 @@ export class Profile {
     return this.parts.gift.remainingMs();
   }
 
-  claimGift(multiplier = 1): typeof GIFT_REWARD {
+  /** Сколько даст «Дар башни» активному герою сейчас: растёт с его рекордом. */
+  get nextGift(): GiftReward {
+    return this.parts.gift.next();
+  }
+
+  claimGift(multiplier = 1): GiftReward {
     return this.parts.gift.claim(multiplier);
   }
 }

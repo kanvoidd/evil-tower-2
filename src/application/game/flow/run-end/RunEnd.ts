@@ -21,7 +21,7 @@ export class RunEnd extends FlowPart {
     this.d.platform.gameplayStop();
     const tower = this.d.tower;
     const lootLost = (reason === 'dead' || reason === 'escape') && tower.lootAtStake;
-    const { record, best, autoBuys } = tower.end(reason);
+    const { record, best } = tower.end(reason);
     this.d.view.clearTutorial();
     const c = tower.state;
     const choice = await this.d.dialogs.runOver(
@@ -34,7 +34,6 @@ export class RunEnd extends FlowPart {
         gold: c.gold,
         souls: c.souls,
         lootLost,
-        autoBuys,
         canDouble: c.gold + c.souls > 0,
       },
       () => this.doubleReward(),
