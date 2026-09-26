@@ -10,16 +10,29 @@ android {
     applicationId = "com.eviltower.two"
     minSdk = 24
     targetSdk = 35
-    versionCode = 1
-    versionName = "0.2.0"
+    // Номер сборки GitHub Actions растёт с каждым запуском: новая версия ставится поверх старой.
+    versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
+    // По тегу v1.2.3 — версия 1.2.3.
+    versionName = System.getenv("GITHUB_REF_NAME")?.takeIf { it.startsWith("v") }?.drop(1) ?: "0.3.0"
+  }
+
+  signingConfigs {
+    // Постоянный ключ сборок «для себя» (установка APK с телефона). Отладочный ключ на раннере
+    // GitHub создаётся заново при каждом запуске — подпись каждой сборки была бы своей, и Android
+    // отказывался ставить новую версию поверх старой («Приложение не установлено»).
+    // Для публикации в магазине нужен свой ключ, который в репозиторий не кладут.
+    create("sideload") {
+      storeFile = file("sideload.keystore")
+      storePassword = "eviltower"
+      keyAlias = "eviltower"
+      keyPassword = "eviltower"
+    }
   }
 
   buildTypes {
     release {
       isMinifyEnabled = false
-      // Локальная сборка «для себя»: релизный APK подписывается отладочным ключом,
-      // чтобы его можно было просто установить с телефона без своего keystore.
-      signingConfig = signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.getByName("sideload")
     }
   }
 
