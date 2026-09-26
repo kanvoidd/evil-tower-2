@@ -1,5 +1,5 @@
 import { CLASSES } from '../../domain/catalog';
-import type { AutoSkillPlan, TreeNode } from '../../domain/progression';
+import type { TreeNode } from '../../domain/progression';
 import { ProgressionBalance } from '../../domain/progression';
 import type { SkillTreeCommand } from './interfaces/SkillTreeCommand';
 import type { SkillTreeControllerDeps } from './interfaces/SkillTreeControllerDeps';
@@ -7,26 +7,15 @@ import type { SkillTreeControllerDeps } from './interfaces/SkillTreeControllerDe
 /**
  * Поток дерева навыков: команда игрока → операция приложения → отклик экрана.
  *
- *   кнопка → SkillTreeCommand → SkillTreeController → BuySkill / Metamorphose / CancelMetamorphosis / AutoSkill
+ *   кнопка → SkillTreeCommand → SkillTreeController → BuySkill / Metamorphose / CancelMetamorphosis
  *                                                    → ISkillTreeView
  *
- * Метаморфоза и отказ от класса требуют подтверждения; после ручной покупки автопрокачка
- * (если включена) докупает по той же ветке.
+ * Метаморфоза и отказ от класса требуют подтверждения.
  */
 export class SkillTreeController {
-  /** Пауза перед итогом автопрокачки при входе — пока дерево проявляется. */
-  private static readonly INTRO_MS = 650;
-
   private closing = false;
 
   constructor(private readonly d: SkillTreeControllerDeps) {}
-
-  /** После постройки дерева: что успела купить автопрокачка на входе. */
-  async start(entry: AutoSkillPlan | null): Promise<void> {
-    if (!entry?.buys.length) return;
-    await this.d.clock.delay(SkillTreeController.INTRO_MS);
-    this.d.view.autoBought(entry);
-  }
 
   execute(cmd: SkillTreeCommand): void {
     switch (cmd.type) {
@@ -35,9 +24,6 @@ export class SkillTreeController {
         return;
       case 'cancel-metamorphosis':
         void this.cancelMetamorphosis();
-        return;
-      case 'toggle-auto':
-        this.toggleAuto();
         return;
       case 'switch-class':
         this.d.navigator.switchClass();
@@ -62,8 +48,6 @@ export class SkillTreeController {
       return;
     }
     this.d.view.learned(node);
-    const plan = this.d.autoSkill.afterManualBuy(node);
-    if (plan?.buys.length) this.d.view.autoBought(plan);
   }
 
   private async cancelMetamorphosis(): Promise<void> {
@@ -72,11 +56,6 @@ export class SkillTreeController {
     const pct = Math.round(ProgressionBalance.cancelMetamorphosisRefund * 100);
     if (!(await this.d.dialogs.confirmCancel(from, to, pct))) return;
     this.d.view.metamorphosisCancelled(this.d.cancelMetamorphosis.execute().to);
-  }
-
-  private toggleAuto(): void {
-    const { on, plan } = this.d.autoSkill.toggle();
-    this.d.view.autoToggled(on, plan);
   }
 
   private close(): void {

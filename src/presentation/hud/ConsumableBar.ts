@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 
 import type { ISoundPlayer } from '../../application/ports';
 import {
+  canUseConsumable,
   CONSUMABLE_SLOTS,
   type ConsumableId,
   CONSUMABLES,
-  type LineageId,
+  type LineageDef,
 } from '../../domain/catalog';
 import { type IBattleState, needsHeal, needsRegen, worthArtifact } from '../../domain/combat';
 import { t, type TKey } from '../../i18n';
@@ -33,7 +34,7 @@ export class ConsumableBar {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    lineage: LineageId,
+    lineage: LineageDef,
     private readonly actions: IHudActions,
     private readonly animations: Animations,
     private readonly sound: ISoundPlayer,
@@ -41,7 +42,7 @@ export class ConsumableBar {
     CONSUMABLE_SLOTS.forEach((id, i) => {
       const x = 62 + i * 84;
       const y = ConsumableBar.Y;
-      const locked = !!CONSUMABLES[id].lineage && CONSUMABLES[id].lineage !== lineage;
+      const locked = !canUseConsumable(id, lineage);
       const c = scene.add.container(x, y);
       c.add(scene.add.image(0, 5, shadowTexture(scene, 74, 74, 22, 10)).setAlpha(0.8));
       c.add(scene.add.image(0, 0, plateTexture(scene, 74, 74, 1, 'panel', 22)));

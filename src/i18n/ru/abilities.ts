@@ -106,7 +106,7 @@ export const abilities = {
   // hunter: beastmaster
   'ability.stampede.name': 'Стадо кабанов',
   'ability.stampede.desc':
-    'Кабаны пробегают вашу строку или столбец: враги оглушены, кучки золота смяты до монеты. Перезарядка {cooldown} хода.',
+    'Кабаны пробегают вашу строку или столбец: враги получают {dmg}% урона и оглушены, кучки золота смяты до монеты. Перезарядка {cooldown} хода.',
   'ability.stampede.lv2': 'Кабаны бегут по любой линии поля',
   'ability.falcon.name': 'Сокол',
   'ability.falcon.desc':

@@ -28,7 +28,6 @@ import { BuyItem } from '../../src/application/shop/BuyItem';
 import type { IShopView } from '../../src/application/shop/interfaces/IShopView';
 import { ShopCatalog } from '../../src/application/shop/ShopCatalog';
 import { ShopController } from '../../src/application/shop/ShopController';
-import { AutoSkill } from '../../src/application/skill-tree/AutoSkill';
 import { BuySkill } from '../../src/application/skill-tree/BuySkill';
 import { CancelMetamorphosis } from '../../src/application/skill-tree/CancelMetamorphosis';
 import type { ISkillTreeView } from '../../src/application/skill-tree/interfaces/ISkillTreeView';
@@ -41,7 +40,7 @@ import { CONSUMABLES } from '../../src/domain/catalog/consumables';
 import { type RoomBattle } from '../../src/domain/combat/room-battle';
 import { ProgressionBalance } from '../../src/domain/progression';
 import { DAILY_REWARDS } from '../../src/domain/rewards/daily';
-import { GIFT_REWARD } from '../../src/domain/rewards/tower-gift';
+import { GIFT_BASE } from '../../src/domain/rewards/tower-gift';
 import { DayKey, Gold, type Lang, Souls } from '../../src/domain/shared';
 import { ok } from './harness';
 
@@ -87,7 +86,6 @@ import { ok } from './harness';
         daily: new ClaimDailyReward(p, ads),
         gift: new ClaimTowerGift(p, ads),
         view: {
-          autoSkilled: (n) => void log.push(`auto:${n}`),
           rewarded: () => void log.push('reward'),
           showRewards: () => undefined,
         },
@@ -100,11 +98,8 @@ import { ok } from './harness';
     const p = heroProfile('warrior');
     let choice: RewardChoice = 'double';
     const h = hubFor(p, true, () => choice);
-    const entry = new EnterHub(p, h.platform).execute();
-    ok(
-      h.calls[0] === 'ready' && entry.autoSkillBuys === 0,
-      'хаб: вход сообщает платформе о готовности',
-    );
+    new EnterHub(h.platform).execute();
+    ok(h.calls[0] === 'ready', 'хаб: вход сообщает платформе о готовности');
     h.hub.execute({ type: 'daily' });
     await settle();
     ok(
@@ -118,7 +113,7 @@ import { ok } from './harness';
     h.hub.execute({ type: 'gift' });
     await settle();
     ok(
-      p.gold - gold1 === GIFT_REWARD.gold &&
+      p.gold - gold1 === GIFT_BASE.gold &&
         !p.giftReady() &&
         h.calls.filter((c) => c === 'rewarded').length === 1,
       'хаб: «Дар башни» без видео — обычный, реклама не показывается',
@@ -132,16 +127,14 @@ import { ok } from './harness';
       const q = heroProfile('warrior');
       q.markTutorial('skill');
       const r = hubFor(q, false, () => 'double');
-      return { q, r, done: r.hub.start({ autoSkillBuys: 3 }, from) };
+      return { q, r, done: r.hub.start(from) };
     };
     const fromGame = back('game');
     await fromGame.done;
     await settle();
     ok(
-      fromGame.r.log[0] === 'auto:3' &&
-        fromGame.r.asked() === 1 &&
-        fromGame.q.gold === DAILY_REWARDS[0].gold,
-      'хаб: из боя — итог автопрокачки и награда дня (видео не досмотрено — обычная)',
+      fromGame.r.asked() === 1 && fromGame.q.gold === DAILY_REWARDS[0].gold,
+      'хаб: из боя — награда дня (видео не досмотрено — обычная)',
     );
     const fromMenu = back('shop');
     await fromMenu.done;
@@ -230,15 +223,13 @@ import { ok } from './harness';
     );
   }
 
-  // дерево навыков: первая покупка, метаморфоза с подтверждением, отказ от финального класса, автопрокачка
+  // дерево навыков: первая покупка, метаморфоза с подтверждением, отказ от финального класса
   {
     const log: string[] = [];
     const view: ISkillTreeView = {
       refused: (r) => void log.push(`refused:${r}`),
       learned: (n) => void log.push(`learned:${n.id}`),
       metamorphosisCancelled: (to) => void log.push(`cancelled:${to}`),
-      autoBought: (plan) => void log.push(`auto:${plan.buys.length}`),
-      autoToggled: (on) => void log.push(`toggle:${on}`),
     };
     let confirm = false;
     let closes = 0;
@@ -249,11 +240,9 @@ import { ok } from './harness';
         buySkill: new BuySkill(p),
         metamorphose: new Metamorphose(p),
         cancelMetamorphosis: new CancelMetamorphosis(p),
-        autoSkill: new AutoSkill(p),
         view,
         dialogs: { confirmMetamorphosis: async () => confirm, confirmCancel: async () => confirm },
         navigator: { close: () => void closes++, switchClass: () => undefined },
-        clock,
       });
       return { query, ctl };
     };
@@ -308,10 +297,6 @@ import { ok } from './harness';
       p.activeClass === 'magister' && p.data.stats.metamorphoses === 3,
       'дерево: метаморфоза в магистра',
     );
-    ctl.execute({ type: 'toggle-auto' });
-    ok(log.includes('toggle:true') && p.autoSkillCfg().on, 'дерево: автопрокачка включается');
-    ctl.execute({ type: 'toggle-auto' });
-    ok(log.at(-1) === 'toggle:false' && !p.autoSkillCfg().on, 'дерево: автопрокачка выключается');
     ctl.execute({ type: 'close' });
     ctl.execute({ type: 'close' });
     ok(closes === 1, 'дерево: закрывается один раз');

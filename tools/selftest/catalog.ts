@@ -13,7 +13,7 @@ import { CLASSES, isBranched } from '../../src/domain/catalog/classes';
 import { CONSUMABLES } from '../../src/domain/catalog/consumables';
 import { ENEMY_LIST } from '../../src/domain/catalog/enemies';
 import { FLOOR_SCALING, FloorCurveScaling, FLOORS } from '../../src/domain/catalog/floors';
-import { HEROES } from '../../src/domain/catalog/heroes';
+import { HEROES, LINEAGES } from '../../src/domain/catalog/heroes';
 import { ITEMS } from '../../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../../src/domain/catalog/levels';
 import { PERK_BY_ABILITY, perkOf, PERKS, perksOfClass } from '../../src/domain/catalog/perks';
@@ -358,8 +358,8 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
   );
   ok(new Set(list.map((tr) => tr.id)).size === list.length, `сводка ${id}: без повторов`);
   ok(
-    (lineage === 'mage') === list.some((tr) => tr.id === 'artifact'),
-    `сводка ${id}: артефакты только у магов`,
+    LINEAGES[lineage].artifacts === list.some((tr) => tr.id === 'artifact'),
+    `сводка ${id}: артефакты — только у линеек, где они включены`,
   );
   ok(
     (lineage === 'mercenary') === list.some((tr) => tr.id === 'gold'),

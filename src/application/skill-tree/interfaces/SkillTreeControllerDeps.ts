@@ -1,5 +1,3 @@
-import type { IClock } from '../../ports';
-import type { AutoSkill } from '../AutoSkill';
 import type { BuySkill } from '../BuySkill';
 import type { CancelMetamorphosis } from '../CancelMetamorphosis';
 import type { Metamorphose } from '../Metamorphose';
@@ -13,9 +11,7 @@ export interface SkillTreeControllerDeps {
   buySkill: BuySkill;
   metamorphose: Metamorphose;
   cancelMetamorphosis: CancelMetamorphosis;
-  autoSkill: AutoSkill;
   view: ISkillTreeView;
   dialogs: ISkillTreeDialogs;
   navigator: ISkillTreeNavigator;
-  clock: IClock;
 }

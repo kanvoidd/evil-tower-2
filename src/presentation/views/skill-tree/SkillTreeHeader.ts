@@ -10,14 +10,12 @@ import {
   icon,
   type IWalletSource,
   PlateButton,
-  tipOnHover,
   txt,
 } from '../../components';
 import { GAME_W, HEX } from '../../theme';
 
 /**
- * Шапка дерева: герб класса (смена героя), имя класса и вложенные очки, автопрокачка,
- * валюта и крестик. Держится на экране, пока дерево панорамируется под ней.
+ * Шапка дерева: герб класса (смена героя), имя класса и вложенные очки, валюта и крестик. Держится на экране, пока дерево панорамируется под ней.
  */
 export class SkillTreeHeader {
   /** Размер и ширина названия класса: длинное название уменьшается, пока не поместится. */
@@ -29,8 +27,6 @@ export class SkillTreeHeader {
   private readonly classBtn: PlateButton;
   private readonly name: Phaser.GameObjects.Text;
   private readonly spent: Phaser.GameObjects.Text;
-  private readonly autoBtn: PlateButton;
-  private readonly autoCap: Phaser.GameObjects.Text;
 
   constructor(
     scene: Phaser.Scene,
@@ -89,27 +85,6 @@ export class SkillTreeHeader {
       .setDepth(710);
     const close = closeButton(scene, onClose).setScrollFactor(0).setDepth(710);
     this.items = [this.classBtn, swap, this.name, this.spent, cur, close];
-
-    this.autoBtn = new PlateButton(scene, 384, 66, {
-      w: 68,
-      h: 68,
-      icon: 'svg_auto',
-      iconSize: 34,
-      radius: 22,
-      style: 'raised',
-      onClick: () => commands({ type: 'toggle-auto' }),
-    });
-    this.autoBtn.iconImg?.setY(-10);
-    this.autoCap = txt(scene, 0, 21, '', 15, { weight: 900, strokeThickness: 0 });
-    this.autoBtn.pulseC.add(this.autoCap);
-    this.autoBtn.setScrollFactor(0).setDepth(710).setVisible(q.tutorialDone);
-    tipOnHover(
-      scene,
-      this.autoBtn,
-      () => `${t('auto.skill.tip')}\n${t(q.autoSkillOn ? 'auto.state.on' : 'auto.state.off')}`,
-    );
-    this.paintAuto(q.autoSkillOn);
-    this.items.push(this.autoBtn);
   }
 
   /** После покупки, метаморфозы или её отмены: герб и название класса, вложенные очки. */
@@ -122,15 +97,5 @@ export class SkillTreeHeader {
 
   private static className(q: SkillTreeQuery): string {
     return t(`class.${q.activeClass}.name` as TKey);
-  }
-
-  /** Кнопка автопрокачки появляется после первого улучшения. */
-  showAuto(): void {
-    this.autoBtn.setVisible(true);
-  }
-
-  paintAuto(on: boolean): void {
-    this.autoBtn.setStyle(on ? 'green' : 'raised');
-    this.autoCap.setText(t(on ? 'auto.on' : 'auto.off')).setColor(on ? '#0f3b23' : HEX.textDim);
   }
 }

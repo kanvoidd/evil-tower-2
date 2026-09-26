@@ -1,8 +1,8 @@
 import {
   ABILITY_BY_ID,
   type AbilityId,
+  canUseConsumable,
   type ConsumableId,
-  CONSUMABLES,
 } from '../../../../domain/catalog';
 import type { CellIndex } from '../../../../domain/shared';
 import { GameCommandHandler } from '../../GameCommandHandler';
@@ -60,9 +60,8 @@ export class PlayerMoves extends FlowPart {
   onItem(id: ConsumableId, auto: boolean): void {
     if (!this.state.idle) return;
     const battle = this.d.battle;
-    // расходник чужой линейки (артефакт не у мага) не применяется вовсе
-    const lineage = CONSUMABLES[id].lineage;
-    if (lineage && lineage !== battle.lineage) {
+    // расходник чужой линейки или выключенный (артефакты сейчас) не применяется вовсе
+    if (!canUseConsumable(id, battle.lineageDef)) {
       if (!auto) this.d.view.deny();
       return;
     }

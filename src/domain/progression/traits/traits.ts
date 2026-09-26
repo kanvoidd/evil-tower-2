@@ -38,7 +38,15 @@ export interface Trait {
 }
 
 /** Пороги «выдающихся» характеристик: в сводку попадает только то, чем класс действительно выделяется. */
-export const TRAIT_LIMITS = { hp: 28, crit: 12, dodge: 5, parry: 1, armor: 1, dmg: 7 } as const;
+export const TRAIT_LIMITS = {
+  hp: 28,
+  crit: 12,
+  dodge: 5,
+  parry: 1,
+  armor: 1,
+  dmg: 7,
+  res: 12,
+} as const;
 
 /** Не больше стольких строк — чтобы сводка читалась с одного взгляда. */
 export const MAX_TRAITS = 4;
@@ -61,6 +69,7 @@ export const classTraits = (classId: ClassId, max = MAX_TRAITS): Trait[] => {
   // механика линейки: у воина её нет — он просто бьёт рукой
   if (lin.id !== 'warrior') out.push({ id: 'mech', lineage: lin.id });
   if (lin.artifacts) out.push({ id: 'artifact' });
+  if (s.resMax >= TRAIT_LIMITS.res) out.push({ id: 'res', n: s.resMax });
   if (lin.goldBonus > 0) out.push({ id: 'gold', n: Math.round(lin.goldBonus * 100) });
 
   // стартовая способность класса

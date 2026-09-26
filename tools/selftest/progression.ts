@@ -7,7 +7,6 @@ import {
   childrenOf,
   CLASS_DEFINITIONS,
   CLASSES,
-  isBranched,
 } from '../../src/domain/catalog/classes';
 import { LINEAGE_ORDER, LINEAGES } from '../../src/domain/catalog/heroes';
 import { PERK_BY_ID, perksOfClass } from '../../src/domain/catalog/perks';
@@ -20,12 +19,6 @@ import {
 } from '../../src/domain/catalog/talents';
 import { bonus } from '../../src/domain/catalog/talents/talentEffects';
 import { ATTACK_STRATEGIES, HandAttack } from '../../src/domain/combat/attack';
-import type { AutoSkillSave } from '../../src/domain/progression';
-import {
-  branchOf,
-  inferBranch,
-  planAutoSkill,
-} from '../../src/domain/progression/auto-skill/autoSkill';
 import { HeroClassState } from '../../src/domain/progression/hero';
 import {
   activePerkIds,
@@ -568,131 +561,28 @@ for (const lin of LINEAGE_ORDER) {
   );
   const sameBlock = (a: TreeNode, b: TreeNode): boolean => a.owner === b.owner && a.tab === b.tab;
   const ordered = tree.nodes.every((a) =>
-    tree.nodes.every(
-      (b) =>
-        !sameBlock(a, b) || Math.sign(a.row - b.row) === Math.sign(layout.at(a).y - layout.at(b).y),
-    ),
+    tree.nodes.every((b) => !sameBlock(a, b) || a.row >= b.row || layout.at(a).y < layout.at(b).y),
   );
   ok(ordered, `${lin}: выше по уровню — выше на экране`);
+  // плитки узлов не наезжают друг на друга: между краями — хотя бы зазор
+  // стороны плиток — NodeView.SIZE (вид тянет Phaser, поэтому числами)
+  const SIDE = { talent: 108, perk: 118, class: 150, evo: 96 } as const;
+  const side = (n: TreeNode): number => SIDE[n.kind];
+  const apart = (a: TreeNode, b: TreeNode): number => (side(a) + side(b)) / 2 + 4;
+  const clash = tree.nodes.find((a) =>
+    tree.nodes.some(
+      (b) =>
+        a !== b &&
+        a.tab === b.tab &&
+        Math.abs(layout.at(a).x - layout.at(b).x) < apart(a, b) &&
+        Math.abs(layout.at(a).y - layout.at(b).y) < apart(a, b),
+    ),
+  );
+  ok(!clash, `${lin}: узлы не наезжают друг на друга (${clash?.id ?? ''})`);
   ok(
     layout.hasBaseTab === (tree.shape === 'branched'),
     `${lin}: вкладка «Основа» у дерева с ветками`,
   );
-}
-
-// ---------------------------------------------------------------- автопрокачка
-const PATHS: TalentPath[] = ['attack', 'vitality', 'guard'];
-for (const lin of TIERED) {
-  const tree = tieredTree(lin);
-  for (const path of PATHS) {
-    const cfg: AutoSkillSave = { on: true, path };
-    const ls = newLineageSave(tree);
-    const tag = `${lin}/${path}`;
-    const plan = planAutoSkill(tree, ls, Souls.of(1e9), cfg);
-    ok(plan.buys.length >= 8, `автопрокачка ${tag}: купила ветку (${plan.buys.length})`);
-    ok(plan.stop === 'meta', `автопрокачка ${tag}: остановилась перед метаморфозой (${plan.stop})`);
-    ok(
-      plan.buys.every((n) => n.kind !== 'class'),
-      `автопрокачка ${tag}: не покупает смену класса`,
-    );
-    ok(
-      plan.buys.every((n) => n.kind === 'perk' || n.path === path),
-      `автопрокачка ${tag}: только выбранный путь`,
-    );
-    ok(
-      plan.buys.filter((n) => n.kind === 'perk').length === 2,
-      `автопрокачка ${tag}: перки-ворота между ярусами`,
-    );
-
-    const sim = newLineageSave(tree);
-    let souls: number = plan.spent;
-    for (const n of plan.buys) {
-      const r = canBuy(tree, sim, n, Souls.of(souls));
-      ok(r.ok, `автопрокачка ${tag}: узел ${n.id} покупается по порядку`);
-      if (r.ok) souls -= r.cost;
-      applyBuy(tree, sim, n);
-    }
-    ok(souls === 0, `автопрокачка ${tag}: потрачено ровно столько, сколько в плане`);
-    const again = planAutoSkill(tree, sim, Souls.of(1e9), cfg);
-    ok(
-      again.buys.length === 0 && again.stop === 'meta',
-      `автопрокачка ${tag}: повтор ничего не покупает`,
-    );
-
-    applyBuy(tree, sim, tree.classNode[tree.second]);
-    const next = planAutoSkill(tree, sim, Souls.of(1e9), cfg);
-    ok(
-      next.buys.length >= 8,
-      `автопрокачка ${tag}: продолжает после метаморфозы (${next.buys.length})`,
-    );
-    ok(
-      next.buys.every((n) => n.owner === tree.second),
-      `автопрокачка ${tag}: покупает узлы нового класса`,
-    );
-  }
-}
-for (const lin of BRANCHED) {
-  const tree = branchedTree(lin);
-  const cfg: AutoSkillSave = { on: true, path: 'guard' };
-  const ls = newLineageSave(tree);
-  const plan = planAutoSkill(tree, ls, Souls.of(1e9), cfg);
-  ok(
-    plan.buys.length >= 6 &&
-      plan.buys.every((n) => n.tab === 'base' && n.path === 'guard') &&
-      plan.stop === 'meta',
-    `автопрокачка ${lin}: до выбора подкласса — только путь «Основы» (${plan.buys.length})`,
-  );
-  for (const n of plan.buys) applyBuy(tree, ls, n);
-  const sub = tree.subclasses.find((c) => {
-    const cls = CLASSES[c];
-    return isBranched(cls) && cls.branchChoice === 'all';
-  })!;
-  applyBuy(tree, ls, tree.classNode[sub]);
-  const next = planAutoSkill(tree, ls, Souls.of(1e9), cfg);
-  ok(
-    next.buys.some((n) => n.kind === 'perk' && n.owner === sub) &&
-      next.buys.every((n) => n.kind !== 'class'),
-    `автопрокачка ${lin}: после выбора подкласса покупает его перки (${sub})`,
-  );
-}
-{
-  const tree = branchedTree('mage');
-  const ls = newLineageSave(tree);
-  applyBuy(tree, ls, tree.classNode.elementalist);
-  const plan = planAutoSkill(tree, ls, Souls.of(1e9), { on: true, path: 'attack' });
-  ok(
-    plan.buys.every((n) => n.owner !== 'elementalist') && plan.stop === 'meta',
-    'автопрокачка: стихию элементалиста выбирает игрок',
-  );
-}
-for (const lin of LINEAGE_ORDER) {
-  const tree = TREES[lin];
-  const ls = newLineageSave(tree);
-  const small = planAutoSkill(tree, ls, Souls.of(40), { on: true, path: 'attack' });
-  ok(
-    small.spent <= 40 && small.buys.length > 0,
-    `автопрокачка ${lin}: на малые души купила часть (${small.buys.length}, ${small.spent})`,
-  );
-  ok(small.stop === 'souls', `автопрокачка ${lin}: остановилась из-за нехватки душ`);
-  ok(
-    planAutoSkill(tree, ls, Souls.of(0), { on: true, path: 'vitality' }).buys.length === 0,
-    `автопрокачка ${lin}: без душ ничего не покупает`,
-  );
-}
-{
-  const tree = TREES.warrior;
-  const ls = newLineageSave(tree);
-  ok(inferBranch(tree, ls) === null, 'путь автопрокачки: без покупок неизвестен');
-  const guard = tree.nodes.find(
-    (n) => n.kind === 'talent' && n.owner === 'warrior' && n.path === 'guard' && n.tier === 1,
-  )!;
-  applyBuy(tree, ls, guard);
-  ok(inferBranch(tree, ls)?.path === 'guard', 'путь автопрокачки: берётся из последней покупки');
-  ok(branchOf(guard).path === 'guard', 'узел таланта задаёт путь');
-  const perk = tree.nodes.find((n) => n.kind === 'perk' && n.slot === 'p2')!;
-  ok(Object.keys(branchOf(perk)).length === 0, 'способность путь не меняет');
-  const branchTalent = TREES.mage.byId.get('tal/elementalist/fire-2')!;
-  ok(Object.keys(branchOf(branchTalent)).length === 0, 'талант ветки путь не меняет');
 }
 
 // ---------------------------------------------------------------- определения классов и герой

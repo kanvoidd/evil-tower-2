@@ -110,7 +110,6 @@ export class GameDialogs implements IGameDialogs {
 
   runOver(o: RunSummary, double: () => Promise<boolean>): Promise<'new-run' | 'hub'> {
     const s = this.scene;
-    if (o.autoBuys > 0) toast(s, t('auto.skill.result', { n: o.autoBuys }), 'ico_soul');
     return new Promise((resolve) => {
       const buttons: DialogBtn[] = [];
       let doubled = false;

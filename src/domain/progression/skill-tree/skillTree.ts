@@ -106,16 +106,6 @@ const branchTaken = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
   );
 };
 
-/**
- * Покупка узла — выбор ветки: класс развивает только одну ветку (стихия элементалиста), а в его
- * ветках ещё ничего не изучено. Такой выбор делает игрок, а не автопрокачка.
- */
-export const opensBranchChoice = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
-  const cls = CLASSES[n.owner];
-  if (!n.branch || !isBranched(cls) || cls.branchChoice !== 'one') return false;
-  return !tree.nodes.some((o) => o.owner === n.owner && o.branch && rankOf(s, o.id) > 0);
-};
-
 export const nodeState = (tree: Tree, s: LineageSave, n: TreeNode): NodeState => {
   if (n.kind === 'evo') return satisfied(tree, s, n.id) ? 'owned' : 'locked';
   if (isStartPerk(n)) return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';

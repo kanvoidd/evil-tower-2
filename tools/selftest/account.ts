@@ -6,8 +6,10 @@ import {
   SAVE_MIGRATIONS,
   SaveFormat,
 } from '../../src/domain/account/save';
+import { ROOMS, ROOMS_PER_FLOOR } from '../../src/domain/catalog';
 import { newLineageSave, TREES } from '../../src/domain/progression/skill-tree';
 import { DAILY_REWARDS } from '../../src/domain/rewards/daily';
+import { GIFT_BASE, towerGiftFor } from '../../src/domain/rewards/tower-gift';
 import { DayKey } from '../../src/domain/shared';
 import { ok } from './harness';
 
@@ -91,8 +93,8 @@ import { ok } from './harness';
   );
   const none = SaveFormat.restore({ v: 2 }, 5);
   ok(
-    !off.auto.use.heal && on.auto.use.heal && !on.auto.use.regen && on.auto.skill.mage?.on === true,
-    'сохранение: выключенный общий переключатель выключает все расходники, свои — сохраняются',
+    !off.auto.use.heal && on.auto.use.heal && !on.auto.use.regen && !('skill' in on.auto),
+    'сохранение: выключенный общий переключатель выключает все расходники, свои — сохраняются, автопрокачка убрана',
   );
   ok(
     JSON.stringify(none.auto) === JSON.stringify(fresh.auto) && !('on' in off.auto.use),
@@ -125,7 +127,38 @@ import { ok } from './harness';
   );
   ok(reworked.activeClass === 'mage', 'сохранение: удалённый класс — базовый класс своей линейки');
   ok(reworked.heroes.mage?.souls === 500, 'сохранение: души героя при сбросе дерева остаются');
-  ok(reworked.treeVersion === 2, 'сохранение: отмечена версия деревьев');
+  ok(reworked.treeVersion === 3, 'сохранение: отмечена версия деревьев');
+
+  // мастер зверей: «Сокол» стал первым, ранги мест меняются вслед за перками
+  const beasts = SaveFormat.restore(
+    {
+      v: 2,
+      treeVersion: 2,
+      lineages: {
+        archer: {
+          ranks: {
+            'cls/hunter': 1,
+            'cls/beastmaster': 1,
+            'perk/beastmaster/beasts-1': 1,
+            'tal/beastmaster/beasts-2': 2,
+          },
+          last: 'tal/beastmaster/beasts-2',
+        },
+      },
+    },
+    5,
+  );
+  const br = beasts.lineages.archer!.ranks;
+  ok(
+    br['perk/beastmaster/beasts-3'] === 1 &&
+      br['tal/beastmaster/beasts-4'] === 2 &&
+      !br['perk/beastmaster/beasts-1'] &&
+      !br['tal/beastmaster/beasts-2'] &&
+      br['cls/beastmaster'] === 1 &&
+      beasts.lineages.archer!.last === 'cls/beastmaster' &&
+      beasts.treeVersion === 3,
+    'сохранение: купленное «Стадо кабанов» и его талант переезжают на новые места',
+  );
   const archerActive = SaveFormat.restore(
     { v: 2, activeClass: 'archer' as LegacySave['activeClass'] },
     5,
@@ -197,5 +230,47 @@ import { ok } from './harness';
   ok(
     p.dailyStatus().dayIndex === 0 && p.dailyStatus().streak === DAILY_REWARDS.length,
     'награда дня: после недели наград круг начинается заново, серия растёт',
+  );
+}
+
+// ---------------------------------------------------------------- «Дар башни»: растёт с рекордом
+{
+  const top = towerGiftFor(ROOMS.length);
+  ok(
+    JSON.stringify(towerGiftFor(0)) === JSON.stringify(GIFT_BASE),
+    '«Дар башни»: без пройденных комнат — базовый',
+  );
+  let grows = true;
+  for (let r = 1; r + ROOMS_PER_FLOOR <= ROOMS.length; r++) {
+    const a = towerGiftFor(r);
+    const b = towerGiftFor(r + ROOMS_PER_FLOOR);
+    if (
+      a.gold < GIFT_BASE.gold ||
+      a.souls < GIFT_BASE.souls ||
+      b.gold < a.gold ||
+      b.souls < a.souls
+    )
+      grows = false;
+  }
+  ok(grows, '«Дар башни»: не меньше базового и не убывает с рекордом');
+  ok(
+    top.gold > GIFT_BASE.gold * 10 && top.souls > GIFT_BASE.souls * 10,
+    '«Дар башни»: на вершине башни — в разы больше базового',
+  );
+  ok(
+    JSON.stringify(towerGiftFor(ROOMS.length + 50)) === JSON.stringify(top),
+    '«Дар башни»: за вершиной не растёт',
+  );
+  const p = new Profile(Profile.freshData('ru', 0), () => 0, {
+    today: () => DayKey.of(2026, 9, 25),
+  });
+  p.unlockLineage('warrior');
+  p.setActiveClass('warrior');
+  p.recordRun(20);
+  const gold0 = p.gold;
+  const got = p.claimGift();
+  ok(
+    got.gold === towerGiftFor(20).gold && p.gold - gold0 === got.gold && got.gold > GIFT_BASE.gold,
+    '«Дар башни»: профиль платит по рекорду активного героя',
   );
 }

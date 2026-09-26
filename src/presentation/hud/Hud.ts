@@ -47,7 +47,7 @@ export class Hud implements IBattleHud {
     sound: ISoundPlayer,
     audio: IMuteSwitch,
   ) {
-    this.consumables = new ConsumableBar(scene, battle.lineage, actions, animations, sound);
+    this.consumables = new ConsumableBar(scene, battle.lineageDef, actions, animations, sound);
     // «сбежать», звук и добыча за комнату — верхняя полоса: весь низ экрана отдан кнопкам способностей
     new PlateButton(scene, 330, ConsumableBar.Y, {
       w: 68,

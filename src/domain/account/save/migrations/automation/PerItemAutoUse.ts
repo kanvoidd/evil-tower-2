@@ -3,10 +3,10 @@ import type { LegacySave } from '../interfaces/LegacySave';
 import type { SaveMigration } from '../interfaces/SaveMigration';
 
 /**
- * Автоматизация: старые сохранения не знают про автоприменение и автопрокачку — подставляем
- * значения по умолчанию. Раньше у автоприменения был общий переключатель `on`: если он был
- * выключен, все расходники остаются выключенными. Шаг выполняется всегда и заодно приводит
- * переключатели к `true`/`false`.
+ * Автоматизация: старые сохранения не знают про автоприменение — подставляем значения по
+ * умолчанию. Раньше у автоприменения был общий переключатель `on`: если он был выключен, все
+ * расходники остаются выключенными. Шаг выполняется всегда, приводит переключатели к
+ * `true`/`false` и убирает настройки удалённой автопрокачки (`skill`).
  */
 export class PerItemAutoUse implements SaveMigration {
   readonly id = 'per-item-auto-use';
@@ -23,6 +23,7 @@ export class PerItemAutoUse implements SaveMigration {
       artifact: !!auto?.use?.artifact,
     };
     if (auto?.use?.on === false) Object.assign(use, DEFAULT_AUTO_USE);
-    doc.auto = { use, skill: { ...auto?.skill } };
+    // настройки автопрокачки (`skill`) больше не нужны: автопрокачка удалена
+    doc.auto = { use };
   }
 }

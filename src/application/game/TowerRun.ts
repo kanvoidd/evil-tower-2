@@ -132,9 +132,9 @@ export class TowerRun {
 
   /**
    * Конец забега: гибель, побег или вся башня. Награда за пройденные комнаты уже в кошельке.
-   * Здесь — рекорд, таблица рекордов и автопрокачка на заработанные души.
+   * Здесь — рекорд и таблица рекордов.
    */
-  end(reason: RunEndReason): { record: boolean; best: number; autoBuys: number } {
+  end(reason: RunEndReason): { record: boolean; best: number } {
     const p = this.profile;
     this.commitRoom();
     if (reason === 'dead') p.bump('deaths');
@@ -143,10 +143,9 @@ export class TowerRun {
     // в таблицу рекордов идёт лучший забег среди героев
     void this.platform.submitScore('rooms', p.bestClimb);
     void this.platform.setStats({ rooms: p.bestClimb, kills: p.stats.kills });
-    const autoBuys = p.runAutoSkill()?.buys.length ?? 0;
     p.checkNow();
     this.storage.flush();
-    return { record, best: p.best, autoBuys };
+    return { record, best: p.best };
   }
 
   /** «Удвоить награду»: весь забег ещё раз (видео уже досмотрено). */

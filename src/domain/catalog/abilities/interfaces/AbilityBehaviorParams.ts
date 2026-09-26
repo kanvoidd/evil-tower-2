@@ -105,10 +105,11 @@ export interface AbilityBehaviorParams {
    */
   hook: { pullDmg?: Ratio; pullStun?: Turns; chainPull?: number };
   /**
-   * Кабаны пробегают линию: оглушают врагов на `stun` ходов, кучки золота сминаются до монеты.
+   * Кабаны пробегают линию: бьют врагов на `dmg` урона героя и оглушают на `stun` ходов, кучки
+   * золота сминаются до монеты.
    * `anyLine` (1) — любая линия, иначе только строка или столбец героя; `cross` (1) — крестом.
    */
-  stampede: { stun: Turns; anyLine?: number; cross?: number };
+  stampede: { dmg: Ratio; stun: Turns; anyLine?: number; cross?: number };
   /** Ловушка на клетку: враг, попавший на неё, получает `dmg` урона героя и оглушение. */
   trap: { dmg: Ratio; stun: Turns };
   /** Отложенная способность на клетку: задержка до `maxDelay` ходов, `charges` штук за комнату. */

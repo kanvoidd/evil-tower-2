@@ -191,14 +191,6 @@ export const ui: Record<keyof typeof ru, string> = {
   'auto.use.artifact.tip':
     'Auto-use for artifacts (mage only). The artifact fires by itself when it would destroy 3 or more enemies — or 2 when you are in danger.',
 
-  'auto.skill.tip':
-    'Auto-upgrade. While it is on, every upgrade you buy sends the rest of your soul XP down the same path. Metamorphosis is always your choice: auto-upgrade stops before it.',
-  'auto.skill.enabled': 'Auto-upgrade on',
-  'auto.skill.disabled': 'Auto-upgrade off',
-  'auto.skill.result': 'Auto-upgrade: {n} upgrades',
-  'auto.skill.meta': 'Metamorphosis next — your call',
-  'auto.skill.done': 'The path is fully learned',
-
   'tut.attack': 'Tap an adjacent enemy to attack',
   'tut.loot': 'Move onto gold and chests to collect loot',
   'tut.finish': 'Defeat every enemy in the room!',

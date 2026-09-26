@@ -196,10 +196,6 @@ export class HubView implements IHubView {
     this.items.forEach((o, i) => this.introIn(o, fromShop ? 0 : i * 30));
   }
 
-  autoSkilled(buys: number): void {
-    toast(this.scene, t('auto.skill.result', { n: buys }), 'ico_soul');
-  }
-
   rewarded(): void {
     toast(this.scene, t('toast.reward'));
   }

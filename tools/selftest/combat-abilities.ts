@@ -1,6 +1,8 @@
 /** Самопроверка: Способности в бою — по одной проверке на механику каждой способности. */
 import type { ClassId } from '../../src/domain/catalog';
 import { CLASSES } from '../../src/domain/catalog/classes';
+import { FLOOR_FACTORIES } from '../../src/domain/catalog/floors';
+import { LINEAGES } from '../../src/domain/catalog/heroes';
 import { ROOMS } from '../../src/domain/catalog/levels';
 import { PERK_BY_ID } from '../../src/domain/catalog/perks';
 import type { IAttackStrategy } from '../../src/domain/combat/attack';
@@ -475,9 +477,10 @@ const aim = (battle: RoomBattle, label: string): void => {
     const surround = (
       id: ClassId,
       patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {},
+      factory = RoomBattleFactory.standard(),
     ) => {
       const stats = handless(id);
-      const battle = RoomBattleFactory.standard().create({
+      const battle = factory.create({
         room: ROOMS[30],
         stats,
         weapon: null,
@@ -535,7 +538,15 @@ const aim = (battle: RoomBattle, label: string): void => {
       !surround('elementalist', { potion_regen: 1 }).cornered(),
       'зелье восстановления — не тупик',
     );
-    ok(!surround('mage', { artifact: 1 }).cornered(), 'артефакт мага — не тупик');
+    const artifactsOn = new RoomBattleFactory(
+      { ...LINEAGES, mage: { ...LINEAGES.mage, artifacts: true } },
+      FLOOR_FACTORIES,
+    );
+    ok(!surround('mage', { artifact: 1 }, artifactsOn).cornered(), 'артефакт мага — не тупик');
+    ok(
+      surround('mage', { artifact: 1 }).cornered() === !LINEAGES.mage.artifacts,
+      'выключенный артефакт мага из окружения не выводит',
+    );
   }
 
   // постоянное клеймо не вешается на уже заклеймённую цель — ход не пропадает зря

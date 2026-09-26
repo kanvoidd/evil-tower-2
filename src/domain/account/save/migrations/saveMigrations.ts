@@ -1,4 +1,5 @@
 import { PerItemAutoUse } from './automation/PerItemAutoUse';
+import { FalconFirst } from './falcon-first/FalconFirst';
 import type { SaveMigration } from './interfaces/SaveMigration';
 import { ProfessionRework } from './profession-rework/ProfessionRework';
 import { SharedWalletToHeroes } from './shared-wallet/SharedWalletToHeroes';
@@ -8,4 +9,5 @@ export const SAVE_MIGRATIONS: readonly SaveMigration[] = [
   new PerItemAutoUse(),
   new SharedWalletToHeroes(),
   new ProfessionRework(),
+  new FalconFirst(),
 ];

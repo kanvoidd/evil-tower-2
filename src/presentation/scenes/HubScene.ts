@@ -35,8 +35,7 @@ export class HubScene extends Phaser.Scene {
   create(): void {
     const { profile, platform, ads } = this.services;
     bindAchievementToasts(this, profile.achievementUnlocked);
-    // до вида: карточка героя и значки показывают уже итог автопрокачки
-    const entry = new EnterHub(profile, platform).execute();
+    new EnterHub(platform).execute();
     const state = new GetHubState(profile, new ShopCatalog(profile));
     const view = new HubView(this, {
       state: () => state.execute(),
@@ -56,6 +55,6 @@ export class HubScene extends Phaser.Scene {
       navigator: new HubNavigator(this, view),
       clock: new PhaserClock(this),
     });
-    void this.controller.start(entry, this.from);
+    void this.controller.start(this.from);
   }
 }

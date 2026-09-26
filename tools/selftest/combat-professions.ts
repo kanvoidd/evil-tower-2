@@ -496,7 +496,7 @@ const withAbility = (stats: PlayerStats, a: AbilityDef): PlayerStats => ({
 
 // ---------------------------------------------------------------- мастер зверей
 {
-  const b = arena(hero('beastmaster', { 'perk/beastmaster/beasts-1': 1 }));
+  const b = arena(hero('beastmaster', { 'perk/beastmaster/beasts-3': 1 }));
   ok(
     !b.perkTargetOk(ABILITY_BY_ID.stampede, C(0)),
     'кабаны первого уровня — только по линии героя',
@@ -504,36 +504,41 @@ const withAbility = (stats: PlayerStats, a: AbilityDef): PlayerStats => ({
   ok(b.perkTargetOk(ABILITY_BY_ID.stampede, C(1)), 'кабаны: клетка на линии героя подходит');
   b.cards[1] = enemy(100000, 50);
   b.cards[7] = enemy(100000, 50);
-  b.cards[3] = enemy(100000, 50);
+  const boar = (b.cards[3] = enemy(100000, 50));
   const pile = gold(40);
   b.cards[5] = pile;
   const run = cast(b, 'stampede', 3);
   const stunned = (cell: number): boolean =>
     run.events.some((e) => e.type === 'status' && e.kind === 'stun' && e.cell === cell);
   ok(stunned(3) && pile.value === 1, 'кабаны оглушают и сминают золото по строке героя');
+  ok(boar.hp < 100000, 'кабаны задевают врага уроном');
   ok(!stunned(1) && !stunned(7), 'столбец героя не задет');
+  const weak = arena(hero('beastmaster', { 'perk/beastmaster/beasts-3': 1 }));
+  weak.cards[5] = enemy(1, 50);
+  const trampled = cast(weak, 'stampede', 5);
+  ok(
+    trampled.events.some((e) => e.type === 'kill' && e.cell === 5) &&
+      !trampled.events.some((e) => e.type === 'status' && e.kind === 'stun'),
+    'кабаны добивают слабого врага, мёртвого не оглушают',
+  );
 
-  const any = arena(hero('beastmaster', { 'perk/beastmaster/beasts-1': 2 }));
+  const any = arena(hero('beastmaster', { 'perk/beastmaster/beasts-3': 2 }));
   const herd2 = any.stats.abilities.find((x) => x.id === 'stampede')!;
   ok(any.perkTargetOk(herd2, C(0)), 'кабаны второго уровня — по любой линии');
 
   const cross = arena(
-    hero('beastmaster', { 'perk/beastmaster/beasts-1': 1, 'tal/beastmaster/beasts-2': 1 }),
+    hero('beastmaster', { 'perk/beastmaster/beasts-3': 1, 'tal/beastmaster/beasts-4': 1 }),
   );
   for (const c of [0, 1, 2, 7]) cross.cards[c] = enemy(100000, 50);
-  cast(cross, 'stampede', 1);
+  const herd = cast(cross, 'stampede', 1);
   ok(
-    [0, 2, 7].every((c) => cross.cards[c]!.stun > 0),
+    [0, 1, 2, 7].every((c) =>
+      herd.events.some((e) => e.type === 'status' && e.kind === 'stun' && e.cell === c),
+    ),
     'перекрёстная пробежка: по строке и столбцу выбранной клетки',
   );
 
-  const fal = arena(
-    hero('beastmaster', {
-      'perk/beastmaster/beasts-1': 1,
-      'tal/beastmaster/beasts-2': 1,
-      'perk/beastmaster/beasts-3': 1,
-    }),
-  );
+  const fal = arena(hero('beastmaster', { 'perk/beastmaster/beasts-1': 1 }));
   fal.cards[0] = enemy(100000);
   cast(fal, 'falcon', 0);
   ok(fal.cards[0]!.bleed === 2, 'сокол: кровотечение, первый тик — в ход удара');

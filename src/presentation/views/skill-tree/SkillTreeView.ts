@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 
 import type { ISkillTreeView } from '../../../application/skill-tree/interfaces/ISkillTreeView';
 import type { ClassId, TalentTab } from '../../../domain/catalog';
-import type { AutoSkillPlan, NodeState, Tree, TreeNode } from '../../../domain/progression';
+import type { NodeState, Tree, TreeNode } from '../../../domain/progression';
 import { t } from '../../../i18n';
 import {
   background,
@@ -113,7 +113,6 @@ export class SkillTreeView implements ISkillTreeView {
   }
 
   learned(node: TreeNode): void {
-    this.header.showAuto();
     if (node.kind === 'class') {
       this.scene.cameras.main.flash(300, 255, 220, 120);
       UiSound.play('reward');
@@ -135,42 +134,6 @@ export class SkillTreeView implements ISkillTreeView {
     this.refresh();
     this.header.refresh();
     this.select(this.tree.classNode[to]);
-  }
-
-  autoBought(plan: AutoSkillPlan): void {
-    this.refresh();
-    this.header.refresh();
-    const last = plan.buys[plan.buys.length - 1];
-    const v = this.nodes.get(last.id);
-    if (v && last.tab === this.tab) {
-      this.burst(v.x, v.y, NodeView.colorOf(last));
-      this.pan.setCenter(v.x, v.y + 90);
-    }
-    UiSound.play('upgrade');
-    if (this.selected) this.showInfo(this.selected);
-    toast(this.scene, t('auto.skill.result', { n: plan.buys.length }), 'ico_soul');
-  }
-
-  autoToggled(on: boolean, plan: AutoSkillPlan | null): void {
-    this.header.paintAuto(on);
-    UiSound.play('click');
-    if (!on) {
-      toast(this.scene, t('auto.skill.disabled'), 'svg_auto');
-      return;
-    }
-    if (plan?.buys.length) this.autoBought(plan);
-    else
-      toast(
-        this.scene,
-        t(
-          plan?.stop === 'meta'
-            ? 'auto.skill.meta'
-            : plan?.stop === 'done'
-              ? 'auto.skill.done'
-              : 'auto.skill.enabled',
-        ),
-        'svg_auto',
-      );
   }
 
   // ------------------------------------------------------------------------------ вкладки
