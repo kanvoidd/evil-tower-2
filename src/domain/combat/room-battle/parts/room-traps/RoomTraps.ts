@@ -24,18 +24,21 @@ export class RoomTraps extends RoomPart {
     this.add({ cell, ability, armed: true, turns, fresh: true });
   }
 
-  /** Капканы, на клетках которых оказался враг, срабатывают: урон и оглушение. */
-  springSnares(): void {
+  /** Капканы, на клетках которых оказался враг, срабатывают: урон и оглушение. `true` — сработал хоть один. */
+  springSnares(): boolean {
+    let sprung = false;
     for (const t of [...this.state.traps]) {
-      if (this.state.over) return;
+      if (this.state.over) return sprung;
       if (t.armed || this.state.cards[t.cell]?.kind !== 'enemy') continue;
       this.remove(t);
+      sprung = true;
       if (t.ability.behavior !== 'trap') continue;
       const { dmg, stun } = t.ability.params;
       this.state.emit({ type: 'cast', ability: t.ability.id, cells: [t.cell] });
       this.parts.status.applyStun(t.cell, stun);
       this.parts.hits.strike(t.cell, this.parts.damage.spellDamage(dmg), false);
     }
+    return sprung;
   }
 
   /** Взведённые ловушки отсчитывают ход; дошла до нуля — способность срабатывает на клетке. */
