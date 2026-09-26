@@ -674,8 +674,14 @@ await step('escape → new run → escape → hub', async () => {
   await shot('hub-after-runs');
 });
 
-// бой каждой линейкой: стратегии атаки (выстрел лучника, удар в спину наёмника, маг без удара рукой)
-for (const cls of ['archer', 'mercenary', 'mage']) {
+// бой каждой линейкой: удар рукой у всех, выстрел лучника, удар в спину наёмника, заклинания мага,
+// ловушки ловчего
+for (const [cls, lin] of [
+  ['bowman', 'archer'],
+  ['mercenary', 'mercenary'],
+  ['elementalist', 'mage'],
+  ['huntsman', 'archer'],
+]) {
   await step(`бой: ${cls}`, async () => {
     await cdp('Page.navigate', { url: `${base}?class=${cls}&souls=30000&tut=1&autoskill=12` });
     await waitScene('Hub', 30000);
@@ -686,7 +692,7 @@ for (const cls of ['archer', 'mercenary', 'mage']) {
     await waitScene('Hub');
     await freshGame();
     const lineage = await evaluate(`${RUN}.stats.lineage`);
-    if (lineage !== cls) throw new Error(`в бою линейка ${lineage}, ожидалась ${cls}`);
+    if (lineage !== lin) throw new Error(`в бою линейка ${lineage}, ожидалась ${lin}`);
     let r = MONKEY_SEED + cls.length;
     const rnd = () => (r = (r * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
     for (let i = 0; i < 40; i++) {
@@ -700,8 +706,8 @@ for (const cls of ['archer', 'mercenary', 'mage']) {
   });
 }
 
-await step('дерево: отказ от финального класса и метаморфоза обратно', async () => {
-  await cdp('Page.navigate', { url: `${base}?class=pyromancer&souls=200000&tut=1` });
+await step('дерево: вкладки, отказ от подкласса, другой подкласс и магистр', async () => {
+  await cdp('Page.navigate', { url: `${base}?reset=1&class=elementalist&souls=200000&tut=1` });
   await waitScene('Hub', 30000);
   await evaluate(
     `(() => { const s = window.__store; s.data.daily = { lastClaim: '${dayKey}', streak: 1 }; s.data.gift.readyAt = Date.now() + 1e9; s.flush(); return true; })()`,
@@ -711,8 +717,20 @@ await step('дерево: отказ от финального класса и �
   await click(164, 486);
   await waitScene('SkillTree');
   await sleep(1000);
+  const tab = () => evaluate(`${TREE}.view.tab`);
+  await click(220, 178); // «Основа»
+  await sleep(500);
+  if ((await tab()) !== 'base') throw new Error('вкладка «Основа» не открылась');
+  await shot('skilltree-base-tab');
+  await click(500, 178); // «Профессия»
+  await sleep(500);
+  if ((await tab()) !== 'profession') throw new Error('вкладка «Профессия» не открылась');
+  // перк подкласса — чтобы отказу было что вернуть
+  await evaluate(`(() => { const sc = ${TREE}; const n = sc.view.tree.byId.get('perk/elementalist/fire-1');
+    sc.controller.execute({ type: 'buy', node: n }); return true; })()`);
+  await sleep(500);
   await evaluate(
-    `(() => { const v = ${TREE}.view; v.select(v.tree.classNode.pyromancer); return true; })()`,
+    `(() => { const v = ${TREE}.view; v.select(v.tree.classNode.elementalist); return true; })()`,
   );
   await sleep(300);
   const souls0 = await evaluate(`${P}.souls`);
@@ -721,26 +739,14 @@ await step('дерево: отказ от финального класса и �
   await shot('skilltree-cancel-dialog');
   await clickButton(/^Да$/);
   await sleep(800);
-  if ((await evaluate(`${P}.activeClass`)) !== 'magister')
-    throw new Error('герой не вернулся в магистры');
+  if ((await evaluate(`${P}.activeClass`)) !== 'mage') throw new Error('герой не вернулся в маги');
   const headerName = () => evaluate(`${TREE}.view.header.name.text`);
-  if ((await headerName()) !== 'Магистр')
-    throw new Error(`в шапке «${await headerName()}» после отказа от класса (BUG-003)`);
+  if ((await headerName()) !== 'Маг')
+    throw new Error(`в шапке «${await headerName()}» после отказа от подкласса (BUG-003)`);
   if ((await evaluate(`${P}.souls`)) <= souls0) throw new Error('души за отказ не вернулись');
-  // проходим ярус магистра командами дерева, пока метаморфоза в пироманта не откроется
-  const opened =
-    await evaluate(`(() => { const sc = ${TREE}; const v = sc.view; const q = v.d.query;
-    for (let i = 0; i < 80; i++) {
-      if (q.check(v.tree.classNode.pyromancer).ok) return true;
-      const n = v.tree.nodes.find((x) => x.kind !== 'class' && x.owner === 'magister' && q.check(x).ok);
-      if (!n) return false;
-      sc.controller.execute({ type: 'buy', node: n });
-    }
-    return q.check(v.tree.classNode.pyromancer).ok; })()`);
-  if (!opened) throw new Error('метаморфоза в пироманта не открылась');
-  await sleep(600);
+  // выбираем другой подкласс кнопкой панели
   await evaluate(
-    `(() => { const v = ${TREE}.view; v.select(v.tree.classNode.pyromancer); return true; })()`,
+    `(() => { const v = ${TREE}.view; v.select(v.tree.classNode.warlock); return true; })()`,
   );
   await sleep(300);
   await click(530, 1226);
@@ -748,12 +754,36 @@ await step('дерево: отказ от финального класса и �
   await shot('skilltree-meta-dialog');
   await clickButton(/Продолжить/);
   await sleep(900);
-  if ((await evaluate(`${P}.activeClass`)) !== 'pyromancer')
-    throw new Error('метаморфоза в пироманта не прошла');
-  if ((await headerName()) !== 'Пиромант')
+  if ((await evaluate(`${P}.activeClass`)) !== 'warlock')
+    throw new Error('подкласс чернокнижника не выбран');
+  if ((await headerName()) !== 'Чернокнижник')
+    throw new Error(`в шапке «${await headerName()}» после выбора подкласса (BUG-003)`);
+  // проходим ветку чернокнижника командами дерева, пока не откроется магистр
+  const opened =
+    await evaluate(`(() => { const sc = ${TREE}; const v = sc.view; const q = v.d.query;
+    for (let i = 0; i < 80; i++) {
+      if (q.check(v.tree.classNode.magister).ok) return true;
+      const n = v.tree.nodes.find((x) => x.kind !== 'class' && x.owner === 'warlock' && q.check(x).ok);
+      if (!n) return false;
+      sc.controller.execute({ type: 'buy', node: n });
+    }
+    return q.check(v.tree.classNode.magister).ok; })()`);
+  if (!opened) throw new Error('магистр не открылся');
+  await sleep(600);
+  await evaluate(
+    `(() => { const v = ${TREE}.view; v.select(v.tree.classNode.magister); return true; })()`,
+  );
+  await sleep(300);
+  await click(530, 1226);
+  await sleep(700);
+  await clickButton(/Продолжить/);
+  await sleep(900);
+  if ((await evaluate(`${P}.activeClass`)) !== 'magister')
+    throw new Error('метаморфоза в магистра не прошла');
+  if ((await headerName()) !== 'Магистр')
     throw new Error(`в шапке «${await headerName()}» после метаморфозы (BUG-003)`);
-  if ((await evaluate(`${P}.data.stats.metamorphoses`)) < 1)
-    throw new Error('метаморфоза не посчитана');
+  if ((await evaluate(`${P}.data.stats.metamorphoses`)) < 2)
+    throw new Error('метаморфозы не посчитаны');
   await shot('skilltree-meta-done');
   await click(654, 62);
   await waitScene('Hub');

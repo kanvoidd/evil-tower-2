@@ -1,4 +1,4 @@
-import { type AbilityDef, type AbilityId, FULL_BAR } from '../../../../catalog';
+import { type AbilityDef, type AbilityDefOf, type AbilityId, FULL_BAR } from '../../../../catalog';
 import { type CellIndex, Gold } from '../../../../shared';
 import { ABILITY_BEHAVIORS, type AbilityContext, type IAbility } from '../../../abilities';
 import type { Card } from '../../../card/Card';
@@ -29,12 +29,14 @@ export class PerkActions extends RoomPart {
     this.abilities = new BattleAbilityContext(state, parts);
   }
 
-  // ------------------------------------------------------------------ способности
+  // ------------------------------------------------------------------ готовность и цена
 
   /** Доступна ли способность прямо сейчас. */
   perkReady(p: AbilityDef): PerkReadiness {
     if (this.state.over) return { ok: false, reason: 'once' };
     if (p.once && this.state.usedOnce.has(p.id)) return { ok: false, reason: 'once' };
+    if (p.behavior === 'armed_trap' && this.state.armedTrapsUsed >= p.params.charges)
+      return { ok: false, reason: 'once' };
     if (this.cooldownOf(p) > 0) return { ok: false, reason: 'cooldown' };
     if (p.goldCost !== undefined) {
       return this.state.totals.gold >= p.goldCost.min
@@ -57,16 +59,16 @@ export class PerkActions extends RoomPart {
   /** Держится ли уже эффект этой способности. */
   private buffActive(p: AbilityDef): boolean {
     return (
-      (ABILITY_BEHAVIORS[p.behavior] as IAbility | undefined)?.active?.(this.abilities) ?? false
+      (ABILITY_BEHAVIORS[p.behavior] as IAbility | undefined)?.active?.(this.abilities, p) ?? false
     );
   }
 
-  /** Цена способности с учётом «первый перк в комнате бесплатен» и «Жнеца». */
+  /** Цена способности с учётом «первый перк в комнате бесплатен». */
   perkCostOf(p: AbilityDef): number {
     if (this.state.freePerkLeft > 0) return 0;
     if (p.cost === FULL_BAR) return this.state.stats.resMax;
-    // скидка не опускает цену ниже двух: иначе молния за единицу окупалась бы
-    // восстановлением каждого хода, и мана перестала бы что-то значить
+    // скидка не опускает цену ниже двух: иначе способность за единицу окупалась бы
+    // восстановлением каждого хода, и ресурс перестал бы что-то значить
     const base = p.cost ?? 0;
     return Math.max(
       Math.min(base, PerkActions.PERK_COST_FLOOR),
@@ -74,73 +76,123 @@ export class PerkActions extends RoomPart {
     );
   }
 
+  // ------------------------------------------------------------------ кнопка и наведение
+
   /**
    * Нажатие на кнопку способности: несфокусированные применяются сразу,
-   * остальные «заряжаются» — следующее касание поля наводит их на цель.
+   * остальные «заряжаются» — следующее касание поля наводит их на цель. Пока заряжена
+   * «Взведённая ловушка», кнопки других способностей выбирают, чем она сработает.
    */
   usePerk(id: AbilityId): TurnResult {
     // только кнопки самого героя: пассивки и базовое действие нажатием не применяются
     const p = this.state.stats.abilities.find((a) => a.id === id);
     if (!p) return { ok: false, reason: 'invalid', events: this.state.engine.flush() };
-    if (this.state.armed?.id === id) {
-      this.state.armed = null;
-      this.state.swapFirst = null;
+    const armed = this.state.armed;
+    if (armed?.id === id) {
+      this.disarm();
       this.state.emit({ type: 'armed', ability: null });
       return { ok: true, events: this.state.engine.flush() };
     }
+    if (armed?.behavior === 'armed_trap') return this.pickTrapSkill(armed, p);
     const ready = this.perkReady(p);
     if (!ready.ok) return { ok: false, reason: ready.reason, events: this.state.engine.flush() };
     if (p.target === 'self') {
-      // «Откат времени» возвращает к началу прошлого хода: снимок своего хода его бы затёр.
-      // Если отматывать нечего (первый ход комнаты), снимок берётся — откат вернёт и свою цену.
-      this.parts.flow.beginTurn(p.behavior !== 'rewind' || !this.state.snapshot);
+      this.parts.flow.beginTurn();
+      this.beginCast(p);
       this.payPerk(p);
       this.state.emit({ type: 'perk', ability: p.id });
-      this.runAbility(p, Grid.NO_CELL);
+      this.cast(p, Grid.NO_CELL);
       this.afterPerk();
       this.parts.flow.finishTurn();
       return { ok: true, events: this.state.engine.flush() };
     }
+    this.disarm();
     this.state.armed = p;
-    this.state.swapFirst = null;
     this.state.emit({ type: 'armed', ability: p.id });
     return { ok: true, events: this.state.engine.flush() };
   }
 
   cancelPerk(): GameEvent[] {
     if (!this.state.armed) return [];
+    this.disarm();
+    return [{ type: 'armed', ability: null }];
+  }
+
+  private disarm(): void {
     this.state.armed = null;
     this.state.swapFirst = null;
-    return [{ type: 'armed', ability: null }];
+    this.state.trapSkill = null;
+    this.state.trapDelay = 0;
+  }
+
+  /**
+   * «Взведённая ловушка»: нажатие на кнопку способности выбирает её, повторные нажатия той же
+   * кнопки переключают задержку (1 → 2 → … → предел → 1).
+   */
+  private pickTrapSkill(trap: AbilityDefOf<'armed_trap'>, p: AbilityDef): TurnResult {
+    if (!this.canArmWith(trap, p))
+      return { ok: false, reason: 'invalid', events: this.state.engine.flush() };
+    if (this.state.trapSkill?.id === p.id)
+      this.state.trapDelay = (this.state.trapDelay % trap.params.maxDelay) + 1;
+    else {
+      this.state.trapSkill = p;
+      this.state.trapDelay = 1;
+    }
+    this.state.emit({
+      type: 'armed',
+      ability: trap.id,
+      skill: p.id,
+      delay: this.state.trapDelay,
+    });
+    return { ok: true, events: this.state.engine.flush() };
+  }
+
+  /** Подходит ли способность для «Взведённой ловушки»: кнопка с целью на клетке, готова, по карману. */
+  canArmWith(trap: AbilityDef, p: AbilityDef): boolean {
+    if (p.id === trap.id || p.behavior === 'armed_trap') return false;
+    if (p.target === 'self' || p.target === 'two' || p.target === undefined) return false;
+    if (!this.perkReady(p).ok) return false;
+    return this.perkCostOf(trap) + this.perkCostOf(p) <= this.state.res;
   }
 
   /** Подходит ли клетка под заряженную способность. */
   perkTargetOk(p: AbilityDef, cell: CellIndex): boolean {
     if (cell === this.state.playerCell) return false;
     const card = this.state.cards[cell];
+    if (p.behavior === 'armed_trap') return !!this.state.trapSkill && this.cellOk(card, cell);
+    if (p.target === 'cell') return this.cellOk(card, cell) && this.behaviorOk(p, card, cell);
     if (!card) return false;
-    // Клеймо, приговор и кукла вуду держатся до смерти цели — вешать их второй раз
-    // значит выбросить ход, поэтому такая цель просто не подсвечивается.
+    // Приговор и заражение держатся до смерти цели — вешать их второй раз значит выбросить
+    // ход, поэтому такая цель просто не подсвечивается.
     if (card.kind === 'exit' || card.kind === 'ghost') return false;
-    if ((ABILITY_BEHAVIORS[p.behavior] as IAbility | undefined)?.targetable?.(card) === false)
-      return false;
-    return this.inReach(p, card, cell);
+    return this.inReach(p, card, cell) && this.behaviorOk(p, card, cell);
+  }
+
+  /** Клетка для ловушки или пробежки: не переход и без ловушки. */
+  private cellOk(card: Card | null, cell: CellIndex): boolean {
+    return card?.kind !== 'exit' && !this.parts.traps.hasTrap(cell);
+  }
+
+  /** Свои правила цели у механики (например, заражение не вешают дважды). */
+  private behaviorOk(p: AbilityDef, card: Card | null, cell: CellIndex): boolean {
+    const b = ABILITY_BEHAVIORS[p.behavior] as IAbility | undefined;
+    if (card && b?.targetable?.(card, p) === false) return false;
+    return b?.targetOk?.(this.abilities, p, cell) ?? true;
   }
 
   /** Подходит ли карта под вид цели способности (`AbilityDef.target`). */
   private inReach(p: AbilityDef, card: Card, cell: CellIndex): boolean {
+    const hero = this.state.playerCell;
     switch (p.target) {
       case 'enemy':
         return card.kind === 'enemy';
       case 'adjacent':
-        return card.kind === 'enemy' && Grid.neighbors(this.state.playerCell).includes(cell);
+        return card.kind === 'enemy' && Grid.neighbors(hero).includes(cell);
       // выстрел идёт ЧЕРЕЗ карту: вплотную из него не бьют
       case 'line':
-        return (
-          card.kind === 'enemy' &&
-          Grid.sameLine(this.state.playerCell, cell) &&
-          Grid.dist(this.state.playerCell, cell) > 1
-        );
+        return card.kind === 'enemy' && Grid.sameLine(hero, cell) && Grid.dist(hero, cell) > 1;
+      case 'ray':
+        return card.kind === 'enemy' && Grid.sameLine(hero, cell);
       case 'card':
         return card.kind !== 'enemy';
       case 'any_card':
@@ -161,15 +213,41 @@ export class PerkActions extends RoomPart {
       this.state.emit({ type: 'armed', ability: p.id });
       return { ok: true, events: this.state.engine.flush() };
     }
+    if (p.behavior === 'armed_trap') return this.setArmedTrap(p, cell);
     this.state.armed = null;
     this.parts.flow.beginTurn();
+    this.beginCast(p);
     this.payPerk(p);
     this.state.emit({ type: 'perk', ability: p.id });
-    this.runAbility(p, cell);
+    this.cast(p, cell);
     this.state.swapFirst = null;
     this.afterPerk();
     this.parts.flow.finishTurn();
     return { ok: true, events: this.state.engine.flush() };
+  }
+
+  /** «Взведённая ловушка» встаёт на клетку: платятся её цена и цена выбранной способности. */
+  private setArmedTrap(trap: AbilityDefOf<'armed_trap'>, cell: CellIndex): TurnResult {
+    const skill = this.state.trapSkill!;
+    const delay = this.state.trapDelay;
+    this.disarm();
+    this.parts.flow.beginTurn();
+    this.beginCast(trap);
+    this.payPerk(trap);
+    this.payPerk(skill);
+    this.state.armedTrapsUsed++;
+    this.state.emit({ type: 'perk', ability: trap.id });
+    this.state.emit({ type: 'cast', ability: trap.id, cells: [cell] });
+    this.parts.traps.placeArmed(cell, skill, delay);
+    this.afterPerk();
+    this.parts.flow.finishTurn();
+    return { ok: true, events: this.state.engine.flush() };
+  }
+
+  /** Перед оплатой: ресурс в момент применения и отметка «способность применена в этом ходу». */
+  private beginCast(p: AbilityDef): void {
+    this.state.castRes = this.state.res;
+    this.state.usedThisTurn.add(p.id);
   }
 
   private payPerk(p: AbilityDef): void {
@@ -205,12 +283,36 @@ export class PerkActions extends RoomPart {
     }
   }
 
-  // ------------------------------------------------------------------ способности: реализация
+  // ------------------------------------------------------------------ применение
+
+  /**
+   * «Взведённая ловушка» сработала: способность применяется к своей клетке без хода героя и без
+   * оплаты (её заплатили, когда ставили ловушку). Цель не подходит — ловушка сработала впустую.
+   */
+  castDelayed(p: AbilityDef, cell: CellIndex): void {
+    if (!this.fitsCell(p, cell)) {
+      this.state.emit({ type: 'cast', ability: p.id, cells: [cell] });
+      return;
+    }
+    this.state.castRes = this.state.res;
+    this.cast(p, cell);
+  }
+
+  /** Подходит ли клетка под способность без учёта досягаемости героя (для отложенного применения). */
+  private fitsCell(p: AbilityDef, cell: CellIndex): boolean {
+    if (cell === this.state.playerCell) return false;
+    const card = this.state.cards[cell];
+    if (p.target === 'cell') return this.cellOk(card, cell);
+    if (!card || card.kind === 'exit' || card.kind === 'ghost') return false;
+    if (p.target === 'card') return card.kind !== 'enemy';
+    if (p.target === 'any_card') return true;
+    return card.kind === 'enemy' && this.behaviorOk(p, card, cell);
+  }
 
   /** Применяет способность, пометив урон как «от способности» — тогда работают таланты-синергии. */
-  private runAbility(p: AbilityDef, cell: CellIndex): void {
+  private cast(p: AbilityDef, cell: CellIndex): void {
     const target = cell >= 0 ? this.state.cards[cell] : null;
-    if (target?.kind === 'enemy') this.state.engaged.add(target.uid);
+    if (target?.kind === 'enemy' && this.state.acting) this.state.engaged.add(target.uid);
     this.state.inAbility = true;
     this.state.abilityCost = this.perkCostOf(p);
     const mark = this.state.engine.mark();
@@ -224,7 +326,9 @@ export class PerkActions extends RoomPart {
     // (усиления, лечение, щиты), показываем её вспышку на герое или на цели — стиль выбирает показ.
     const drew = this.state.engine
       .since(mark)
-      .some((e) => e.type === 'fx' || (e.type === 'attack' && e.by === 'player'));
+      .some(
+        (e) => e.type === 'fx' || e.type === 'cast' || (e.type === 'attack' && e.by === 'player'),
+      );
     if (!drew)
       this.state.engine.insert(mark, {
         type: 'cast',

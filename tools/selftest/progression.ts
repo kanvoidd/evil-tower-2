@@ -1,12 +1,25 @@
 /** Самопроверка: Прогресс героя: дерево талантов, цены в душах, метаморфозы, характеристики, автопрокачка. */
 import { Profile } from '../../src/domain/account/profile';
-import type { ClassId, LineageId, TalentPath } from '../../src/domain/catalog';
-import { type AbilityBehaviorId, hasButton } from '../../src/domain/catalog/abilities';
-import { CLASS_DEFINITIONS, CLASSES } from '../../src/domain/catalog/classes';
+import type { ClassId, LineageId, TalentPath, TalentPlace } from '../../src/domain/catalog';
+import { hasButton } from '../../src/domain/catalog/abilities';
+import {
+  baseClassOf,
+  childrenOf,
+  CLASS_DEFINITIONS,
+  CLASSES,
+  isBranched,
+} from '../../src/domain/catalog/classes';
 import { LINEAGE_ORDER, LINEAGES } from '../../src/domain/catalog/heroes';
-import { perksOfClass } from '../../src/domain/catalog/perks';
-import { maxRank, placesOfClass, TALENT_PLACE_BY_ID } from '../../src/domain/catalog/talents';
-import { ATTACK_STRATEGIES, SpellAttack } from '../../src/domain/combat/attack';
+import { PERK_BY_ID, perksOfClass } from '../../src/domain/catalog/perks';
+import {
+  maxRank,
+  placesOfClass,
+  talent,
+  TALENT_PLACE_BY_ID,
+  TALENT_PLACES,
+} from '../../src/domain/catalog/talents';
+import { bonus } from '../../src/domain/catalog/talents/talentEffects';
+import { ATTACK_STRATEGIES, HandAttack } from '../../src/domain/combat/attack';
 import type { AutoSkillSave } from '../../src/domain/progression';
 import {
   branchOf,
@@ -18,6 +31,7 @@ import {
   activePerkIds,
   applyBuy,
   applyCancelMetamorphosis,
+  type BranchedTree,
   canBuy,
   canCancelMetamorphosis,
   canInvest,
@@ -26,10 +40,14 @@ import {
   isClassOwned,
   isPurchasable,
   learnedTalents,
+  type LineageSave,
   newLineageSave,
   nodeState,
   openedClasses,
+  ownedPerks,
   rankOf,
+  type TieredTree,
+  type Tree,
   type TreeNode,
   TREES,
 } from '../../src/domain/progression/skill-tree';
@@ -44,20 +62,40 @@ import { CellIndex, DayKey, Ratio, Souls } from '../../src/domain/shared';
 import { SkillTreeLayout } from '../../src/presentation/views/skill-tree/SkillTreeLayout';
 import { ok } from './harness';
 
-// ---------------------------------------------------------------- дерево талантов
-for (const lin of LINEAGE_ORDER) {
-  const tree = TREES[lin];
+const TIERED = LINEAGE_ORDER.filter((l) => TREES[l].shape === 'tiered');
+const BRANCHED = LINEAGE_ORDER.filter((l) => TREES[l].shape === 'branched');
+const tieredTree = (l: LineageId): TieredTree => TREES[l] as TieredTree;
+const branchedTree = (l: LineageId): BranchedTree => TREES[l] as BranchedTree;
+
+/** Купить всё, что подходит, — дешёвое первым (как игрок, у которого души не кончаются). */
+const buyAll = (tree: Tree, ls: LineageSave, pred: (n: TreeNode) => boolean): void => {
+  for (let guard = 0; guard < 4000; guard++) {
+    const list = tree.nodes.filter((n) => isPurchasable(n) && pred(n) && canInvest(tree, ls, n));
+    if (!list.length) return;
+    applyBuy(tree, ls, list.sort((a, b) => costOf(ls, a) - costOf(ls, b))[0]);
+  }
+};
+
+ok(
+  TIERED.length === 2 && BRANCHED.length === 2,
+  'воин и наёмник — деревья с ярусами, маг и охотник — с ветками',
+);
+
+// ---------------------------------------------------------------- дерево с ярусами
+for (const lin of TIERED) {
+  const tree = tieredTree(lin);
+  const base = baseClassOf(lin);
   const ls = newLineageSave(tree);
-  ok(isClassOwned(tree, ls, lin), `${lin}: базовый класс открыт`);
-  ok(activePerkIds(tree, ls, lin).length === 1, `${lin}: активна только стартовая способность`);
+  ok(isClassOwned(tree, ls, base), `${lin}: базовый класс открыт`);
+  ok(activePerkIds(tree, ls).length === 1, `${lin}: активна только стартовая способность`);
   const talentNodes = tree.nodes.filter((n) => n.kind === 'talent').length;
   ok(talentNodes >= 60 && talentNodes <= 64, `${lin}: талантов в дереве ${talentNodes}`);
 
   // ворота: перк 2 закрыт, пока ни один талант первого яруса не прокачан до максимума
-  const p2 = tree.nodes.find((n) => n.kind === 'perk' && n.owner === lin && n.slot === 'p2')!;
+  const p2 = tree.nodes.find((n) => n.kind === 'perk' && n.owner === base && n.slot === 'p2')!;
   ok(nodeState(tree, ls, p2) === 'locked', `${lin}: перк 2 закрыт до прокачки яруса`);
   const chainStarts = tree.nodes.filter(
-    (n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.step === 0,
+    (n) => n.kind === 'talent' && n.owner === base && n.tier === 1 && n.step === 0,
   );
   ok(chainStarts.length === 3, `${lin}: на первом ярусе три цепочки (${chainStarts.length})`);
   for (const n of chainStarts)
@@ -66,20 +104,13 @@ for (const lin of LINEAGE_ORDER) {
       `${lin}: начала цепочек первого яруса доступны сразу`,
     );
   // берём самую длинную цепочку — её середина должна открываться только после предыдущего таланта
-  const chain1 = tree.nodes
-    .filter(
-      (n) =>
-        n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === chainStarts[0].path,
-    )
-    .sort((a, b) => a.step! - b.step!);
   const longest = (['attack', 'vitality', 'guard'] as TalentPath[])
     .map((path) =>
       tree.nodes
-        .filter((n) => n.kind === 'talent' && n.owner === lin && n.tier === 1 && n.path === path)
+        .filter((n) => n.kind === 'talent' && n.owner === base && n.tier === 1 && n.path === path)
         .sort((a, b) => a.step! - b.step!),
     )
     .sort((a, b) => b.length - a.length)[0];
-  void chain1;
   if (longest.length > 1)
     ok(
       nodeState(tree, ls, longest[1]) === 'locked',
@@ -100,15 +131,156 @@ for (const lin of LINEAGE_ORDER) {
   ok(costOf(ls, t1) === 0, `${lin}: у прокачанного до конца таланта нет цены`);
 
   // цена ранга растёт
+  const place = TALENT_PLACE_BY_ID[t1.talentId!];
   ok(
-    SOUL_PRICING.talentRank(lin, 1, 2) > SOUL_PRICING.talentRank(lin, 1, 1),
+    SOUL_PRICING.talentRank(place, 2) > SOUL_PRICING.talentRank(place, 1),
     `${lin}: второй ранг дороже первого`,
   );
+  const perk = (slot: string) => PERK_BY_ID[`${base}_${slot}`];
   ok(
-    SOUL_PRICING.perk(lin, 'p3') > SOUL_PRICING.perk(lin, 'p2'),
+    SOUL_PRICING.perk(perk('p3'), 1) > SOUL_PRICING.perk(perk('p2'), 1),
     `${lin}: третья способность дороже второй`,
   );
-  ok(SOUL_PRICING.perk(lin, 'start') === 0, `${lin}: стартовая способность бесплатна`);
+  ok(SOUL_PRICING.perk(perk('start'), 1) === 0, `${lin}: стартовая способность бесплатна`);
+}
+
+// ---------------------------------------------------------------- дерево с ветками
+for (const lin of BRANCHED) {
+  const tree = branchedTree(lin);
+  const base = baseClassOf(lin);
+  const ls = newLineageSave(tree);
+  const tag = (s: string): string => `${lin}: ${s}`;
+  ok(isClassOwned(tree, ls, base), tag('базовый класс открыт'));
+  ok(
+    ownedPerks(tree, ls).length === 0,
+    tag('у базового класса нет перков — сразу выбор подкласса'),
+  );
+  ok(
+    tree.subclasses.length === 3 && tree.transitional.length === 1,
+    tag('три подкласса и переходный'),
+  );
+
+  // «Основа»: первый ярус открыт сразу, следующий — после любой пройденной цепочки
+  const baseNodes = tree.nodes.filter((n) => n.tab === 'base');
+  ok(
+    baseNodes.length > 20 && baseNodes.every((n) => n.kind === 'talent'),
+    tag('«Основа» — таланты'),
+  );
+  const t1 = baseNodes.filter((n) => n.tier === 1 && n.step === 0);
+  ok(
+    t1.length === 3 && t1.every((n) => nodeState(tree, ls, n) === 'available'),
+    tag('ярус 1 открыт'),
+  );
+  const t2 = baseNodes.find((n) => n.tier === 2 && n.step === 0)!;
+  ok(nodeState(tree, ls, t2) === 'locked', tag('ярус 2 закрыт'));
+  const chain = baseNodes.filter((n) => n.tier === 1 && n.path === t1[0].path);
+  for (const n of chain) while (nodeState(tree, ls, n) !== 'owned') applyBuy(tree, ls, n);
+  ok(nodeState(tree, ls, t2) === 'available', tag('пройденная цепочка открыла ярус 2'));
+  ok(
+    SOUL_PRICING.talentRank(TALENT_PLACE_BY_ID[t2.talentId!], 1) >
+      SOUL_PRICING.talentRank(TALENT_PLACE_BY_ID[t1[0].talentId!], 1),
+    tag('ярус 2 «Основы» дороже яруса 1'),
+  );
+
+  // подклассы: выбор бесплатный, остальные закрываются
+  for (const c of tree.subclasses) {
+    const n = tree.classNode[c];
+    ok(nodeState(tree, ls, n) === 'available', tag(`подкласс ${c} доступен`));
+    ok(costOf(ls, n) === 0, tag(`выбор подкласса ${c} бесплатный`));
+  }
+  const firstStep = (c: ClassId): TreeNode =>
+    tree.nodes.find((n) => n.owner === c && n.branch && n.step === 0)!;
+  ok(
+    nodeState(tree, ls, firstStep(tree.subclasses[0])) === 'locked',
+    tag('ветки закрыты до выбора'),
+  );
+  const [sub, other] = tree.subclasses;
+  applyBuy(tree, ls, tree.classNode[sub]);
+  ok(nodeState(tree, ls, tree.classNode[other]) === 'blocked', tag('соседний подкласс закрыт'));
+  ok(currentClassOf(tree, ls) === sub, tag('герой стал подклассом'));
+  const p1 = firstStep(sub);
+  ok(
+    p1.kind === 'perk' && nodeState(tree, ls, p1) === 'available',
+    tag('первый перк ветки открыт'),
+  );
+  ok(costOf(ls, p1) > 0 && costOf(ls, p1) <= 100, tag(`первый перк дешёвый (${costOf(ls, p1)})`));
+  const magister = tree.classNode[tree.transitional[0]];
+  ok(nodeState(tree, ls, magister) === 'locked', tag('переходный класс закрыт до конца ветки'));
+  ok(canCancelMetamorphosis(tree, ls, sub), tag('от подкласса можно отказаться'));
+
+  // уровни перка: ранги узла, следующий уровень дороже
+  const leveled = tree.nodes.find(
+    (n) => n.kind === 'perk' && n.tab === 'profession' && (n.ranks ?? 1) > 1,
+  );
+  if (leveled) {
+    const perk = PERK_BY_ID[`${leveled.owner}_${leveled.slot}`];
+    ok(
+      SOUL_PRICING.perk(perk, 2) > SOUL_PRICING.perk(perk, 1),
+      tag('следующий уровень перка дороже'),
+    );
+  }
+
+  // все ветки выбранного подкласса — до конца; конец ветки открывает переходный класс
+  buyAll(tree, ls, (n) => n.owner === sub && n.kind !== 'class');
+  const owned = ownedPerks(tree, ls);
+  ok(
+    owned.length > 0 && owned.every((o) => o.perk.classId === sub),
+    tag('перки подкласса у героя'),
+  );
+  ok(
+    owned.every((o) => o.level === (tree.byId.get(`perk/${sub}/${o.perk.slot}`)!.ranks ?? 1)),
+    tag('перки прокачаны до последнего уровня'),
+  );
+  ok(
+    nodeState(tree, ls, magister) === 'available',
+    tag('пройденная ветка открыла переходный класс'),
+  );
+  applyBuy(tree, ls, magister);
+  ok(currentClassOf(tree, ls) === magister.classId, tag('герой стал переходным классом'));
+  ok(!canCancelMetamorphosis(tree, ls, sub), tag('подкласс не отменить, пока герой ушёл дальше'));
+  ok(!canCancelMetamorphosis(tree, ls, magister.classId!), tag('переходный класс не отменить'));
+  buyAll(tree, ls, (n) => n.owner === magister.classId && n.kind !== 'class');
+  ok(
+    ownedPerks(tree, ls).some((o) => o.perk.classId === magister.classId) &&
+      ownedPerks(tree, ls).some((o) => o.perk.classId === sub),
+    tag('перки подкласса остаются в переходном классе'),
+  );
+
+  // отказ от подкласса: ветки сброшены, часть душ возвращается, соседи снова открыты
+  const ls2 = newLineageSave(tree);
+  applyBuy(tree, ls2, tree.classNode[sub]);
+  buyAll(tree, ls2, (n) => n.owner === sub && n.kind !== 'class');
+  const { refund } = applyCancelMetamorphosis(tree, ls2, sub);
+  ok(refund > 0 && !isClassOwned(tree, ls2, sub), tag(`отказ от подкласса, возврат ${refund}`));
+  ok(ownedPerks(tree, ls2).length === 0, tag('после отказа перков нет'));
+  ok(nodeState(tree, ls2, tree.classNode[other]) === 'available', tag('соседний подкласс открыт'));
+  ok(currentClassOf(tree, ls2) === base, tag('после отказа — снова базовый класс'));
+}
+
+// ---------------------------------------------------------------- одна ветка на выбор (стихия)
+{
+  const tree = branchedTree('mage');
+  const ls = newLineageSave(tree);
+  applyBuy(tree, ls, tree.classNode.elementalist);
+  const starts = tree.nodes.filter((n) => n.owner === 'elementalist' && n.step === 0);
+  ok(starts.length === 3, 'элементалист: три стихии');
+  ok(
+    starts.every((n) => nodeState(tree, ls, n) === 'available'),
+    'элементалист: стихии открыты',
+  );
+  applyBuy(tree, ls, starts[0]);
+  ok(
+    starts.slice(1).every((n) => nodeState(tree, ls, n) === 'blocked'),
+    'элементалист: выбранная стихия закрывает остальные',
+  );
+  const arc = newLineageSave(tree);
+  applyBuy(tree, arc, tree.classNode.arcanist);
+  const arcStarts = tree.nodes.filter((n) => n.owner === 'arcanist' && n.step === 0);
+  applyBuy(tree, arc, arcStarts[0]);
+  ok(
+    arcStarts.slice(1).every((n) => nodeState(tree, arc, n) === 'available'),
+    'арканист: ветки урона и манипуляции развиваются обе',
+  );
 }
 
 // ---------------------------------------------------------------- цены в душах по таблице ступеней
@@ -121,48 +293,73 @@ for (const lin of LINEAGE_ORDER) {
     ],
     rankStep: 0.5,
     perkMul: { start: 0, p2: 2, p3: 3, legend: 4 },
-    metamorphosis: { second: 500, final: 5000 },
+    branchPerkMul: 4,
+    perkLevelStep: 1,
+    metamorphosis: { second: 500, final: 5000, subclass: 0, transitional: 700 },
   };
   const pr = new StageTablePricing(table, Ratio.of(0.5));
-  const ofStage = (stage: number): ClassId =>
-    (Object.keys(CLASSES) as ClassId[]).find((c) => CLASSES[c].stage === stage)!;
-  const [base, second, final] = [ofStage(0), ofStage(1), ofStage(2)];
+  const place = (classId: ClassId, tier: number, tab: 'base' | 'profession'): TalentPlace => ({
+    id: 'test',
+    classId,
+    tab,
+    path: 'attack',
+    tier: tier as TalentPlace['tier'],
+    step: 0,
+    talent: talent('test', bonus('crit', [1, 2, 3])),
+  });
   ok(
-    pr.talentRank(base, 1, 1) === 10 &&
-      pr.talentRank(base, 1, 3) === 20 &&
-      pr.talentRank(second, 2, 1) === 200 &&
-      pr.talentRank(final, 3, 2) === 4500,
+    pr.talentRank(place('warrior', 1, 'profession'), 1) === 10 &&
+      pr.talentRank(place('warrior', 1, 'profession'), 3) === 20 &&
+      pr.talentRank(place('knight', 2, 'profession'), 1) === 200 &&
+      pr.talentRank(place('paladin', 3, 'profession'), 2) === 4500,
     'цена ранга: база ступени и яруса, каждый ранг дороже на долю базы',
   );
-  ok(pr.talentTotal(base, 1, 3) === 10 + 15 + 20, 'полная цена таланта — сумма его рангов');
   ok(
-    pr.perk(base, 'start') === 0 &&
-      pr.perk(base, 'p2') === 20 &&
-      pr.perk(base, 'p3') === 60 &&
-      pr.perk(second, 'legend') === 1200,
-    'цена способности кратна базе яруса, после которого она открывается',
+    pr.talentRank(place('elementalist', 2, 'profession'), 1) === 20 &&
+      pr.talentRank(place('magister', 1, 'profession'), 1) === 100,
+    'подкласс платит по первой строке, переходный класс — по второй',
   );
   ok(
-    pr.metamorphosis(second) === 500 && pr.metamorphosis(final) === 5000,
-    'метаморфоза: во вторую ступень и в финальный класс',
+    pr.talentRank(place('mage', 3, 'base'), 1) === 30 &&
+      pr.talentRank(place('mage', 4, 'base'), 1) === 100,
+    '«Основа»: ярусы 1–3 — первая строка, 4–6 — вторая',
+  );
+  ok(
+    pr.talentTotal(place('warrior', 1, 'profession'), 3) === 10 + 15 + 20,
+    'полная цена таланта — сумма его рангов',
+  );
+  ok(
+    pr.perk(PERK_BY_ID.warrior_start, 1) === 0 &&
+      pr.perk(PERK_BY_ID.warrior_p2, 1) === 20 &&
+      pr.perk(PERK_BY_ID.warrior_p3, 1) === 60 &&
+      pr.perk(PERK_BY_ID.paladin_legend, 1) === 12000,
+    'цена способности класса с ярусами кратна базе яруса, после которого она открывается',
+  );
+  const ignite = PERK_BY_ID['elementalist_fire-1'];
+  const detonate = PERK_BY_ID['elementalist_fire-3'];
+  ok(
+    pr.perk(ignite, 1) === 40 && pr.perk(ignite, 2) === 80 && pr.perkTotal(ignite, 2) === 120,
+    'перк ветки: первый уровень кратен базе, следующие дороже на долю его цены',
+  );
+  ok(pr.perk(detonate, 1) === 80, 'перк дальше по ветке стоит по следующему ярусу');
+  ok(
+    pr.metamorphosis('knight') === 500 &&
+      pr.metamorphosis('paladin') === 5000 &&
+      pr.metamorphosis('elementalist') === 0 &&
+      pr.metamorphosis('magister') === 700,
+    'метаморфоза: вторая ступень, финал, подкласс (бесплатно), переходный класс',
   );
   ok(pr.refund(101) === 50, 'возврат — доля вложенного с округлением вниз');
 }
 
-// ---------------------------------------------------------------- метаморфоза
-for (const lin of LINEAGE_ORDER) {
-  const tree = TREES[lin];
+// ---------------------------------------------------------------- метаморфоза (ярусы)
+for (const lin of TIERED) {
+  const tree = tieredTree(lin);
+  const base = baseClassOf(lin);
   const ls = newLineageSave(tree);
-  const buyAll = (pred: (n: TreeNode) => boolean): void => {
-    for (let guard = 0; guard < 4000; guard++) {
-      const list = tree.nodes.filter((n) => isPurchasable(n) && pred(n) && canInvest(tree, ls, n));
-      if (!list.length) return;
-      applyBuy(tree, ls, list.sort((a, b) => costOf(ls, a) - costOf(ls, b))[0]);
-    }
-  };
-  buyAll((n) => n.owner === lin && n.kind !== 'class');
+  buyAll(tree, ls, (n) => n.owner === base && n.kind !== 'class');
   const bonusBefore = talentBonuses(learnedTalents(tree, ls));
-  const perksBefore = activePerkIds(tree, ls, lin);
+  const perksBefore = activePerkIds(tree, ls);
   ok(perksBefore.length === 3, `${lin}: у базового класса три способности (${perksBefore.length})`);
 
   const second = tree.classNode[tree.second];
@@ -177,7 +374,7 @@ for (const lin of LINEAGE_ORDER) {
     `${lin}: таланты сохранились при метаморфозе`,
   );
   // способности прежнего класса остаются с героем — метаморфоза ничего не отнимает
-  const afterMeta = activePerkIds(tree, ls, tree.second);
+  const afterMeta = activePerkIds(tree, ls);
   ok(
     perksBefore.every((id) => afterMeta.includes(id)),
     `${lin}: способности базового класса сохранились`,
@@ -192,7 +389,7 @@ for (const lin of LINEAGE_ORDER) {
     `${lin}: в выборе класса новый класс заменил прежний`,
   );
 
-  buyAll((n) => n.owner === tree.second && n.kind !== 'class');
+  buyAll(tree, ls, (n) => n.owner === tree.second && n.kind !== 'class');
   const [a, b] = tree.terminals;
   ok(
     canBuy(tree, ls, tree.classNode[a], Souls.of(1e9)).ok,
@@ -206,10 +403,10 @@ for (const lin of LINEAGE_ORDER) {
     nodeState(tree, ls, legend) === 'locked',
     `${lin}: легендарная способность закрыта до третьего яруса`,
   );
-  buyAll((n) => n.owner === a && n.kind !== 'class');
+  buyAll(tree, ls, (n) => n.owner === a && n.kind !== 'class');
   ok(nodeState(tree, ls, legend) === 'owned', `${lin}: легендарная способность покупается`);
   // 3 (база) + 3 (второй класс) + 4 (финальный) — все они в руках героя одновременно
-  const full = activePerkIds(tree, ls, a);
+  const full = activePerkIds(tree, ls);
   ok(full.length === 10, `${lin}: у финального класса десять способностей (${full.length})`);
   ok(
     perksBefore.every((id) => full.includes(id)),
@@ -250,7 +447,7 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     });
   const w = start('warrior');
   const m = start('mage');
-  const a = start('archer');
+  const a = start('hunter');
   const c = start('mercenary');
   ok(
     w.maxHp > m.maxHp && w.maxHp > a.maxHp && w.maxHp > c.maxHp,
@@ -260,56 +457,58 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
     m.resMax > w.resMax && m.resMax > a.resMax && m.resMax > c.resMax,
     'маг: самый большой запас ресурса',
   );
-  ok(a.crit > w.crit && a.crit > m.crit && a.crit > c.crit, 'лучник: самый высокий шанс крита');
+  ok(a.crit > w.crit && a.crit > m.crit && a.crit > c.crit, 'охотник: самый высокий шанс крита');
   ok(Math.abs(c.goldBonus - 0.2) < 1e-9, 'наёмник: +20% золота');
   ok(
-    !m.attack.melee && w.attack.melee && a.attack.melee && c.attack.melee,
-    'маг вообще не бьёт рукой, остальные бьют',
+    [w, m, a, c].every((s) => s.attack.melee),
+    'базовая атака у всех одна: рукой по соседнему врагу',
+  );
+  ok(
+    m.attack instanceof HandAttack && a.attack instanceof HandAttack,
+    'маг и охотник без перков бьют только рукой',
   );
   ok(
     m.attack.mode === 'none' &&
-      a.attack.mode === 'skip' &&
+      a.attack.mode === 'none' &&
       c.attack.mode === 'any' &&
       w.attack.mode === 'none',
-    'базовые действия линеек',
+    'базовые дальние действия: только у наёмника с самого начала',
   );
   ok(
     c.attack.guaranteedCrit && !a.attack.guaranteedCrit,
     'гарантированный крит только у удара в спину',
   );
   ok(
-    LINEAGE_ORDER.every((lin) => start(lin).attack === ATTACK_STRATEGIES[LINEAGES[lin].attack]),
-    'стиль боя героя — стратегия его линейки',
+    LINEAGE_ORDER.every(
+      (lin) => start(baseClassOf(lin)).attack === ATTACK_STRATEGIES[LINEAGES[lin].attack],
+    ),
+    'без перков стиль боя героя — стратегия его линейки',
   );
+  // дальний выстрел — перк: «Сквозной выстрел» лучника и «Залп болтом» арбалетчика
+  for (const [cls, perkId] of [
+    ['bowman', 'bowman_bow-1'],
+    ['crossbowman', 'crossbowman_crossbow-1'],
+  ] as const) {
+    const tree = TREES.archer;
+    const ls = newLineageSave(tree);
+    applyBuy(tree, ls, tree.classNode[cls]);
+    applyBuy(tree, ls, tree.byId.get(`perk/${cls}/${PERK_BY_ID[perkId].slot}`)!);
+    const s = buildPlayerStats({ classId: cls, lineage: ls, weapon: null, armor: null });
+    ok(
+      s.attack === ATTACK_STRATEGIES.shot && s.rangedCost === PERK_BY_ID[perkId].ability.cost,
+      `${cls}: базовый перк даёт выстрел через карту`,
+    );
+  }
 
   // досягаемость базового действия (поле 0 1 2 / 3 4 5 / 6 7 8)
-  const reach = (
-    lin: LineageId,
-    from: number,
-    to: number,
-    passives: AbilityBehaviorId[] = [],
-  ): boolean =>
-    ATTACK_STRATEGIES[LINEAGES[lin].attack].reaches(
-      CellIndex.of(from),
-      CellIndex.of(to),
-      new Set(passives),
-    );
+  const reach = (style: 'hand' | 'shot' | 'backstab', from: number, to: number): boolean =>
+    ATTACK_STRATEGIES[style].reaches(CellIndex.of(from), CellIndex.of(to));
   ok(
-    reach('archer', 0, 2) &&
-      reach('archer', 1, 7) &&
-      !reach('archer', 0, 4) &&
-      !reach('archer', 0, 8),
-    'лучник: выстрел через карту по прямой',
+    reach('shot', 0, 2) && reach('shot', 1, 7) && !reach('shot', 0, 4) && !reach('shot', 0, 8),
+    'выстрел: через карту по прямой',
   );
-  ok(
-    reach('archer', 0, 4, ['diagonal']) && reach('archer', 0, 1, ['eagle_eye']),
-    'лучник: «Косой прицел» — диагонали, «Орлиный глаз» — соседи',
-  );
-  ok(reach('mercenary', 0, 8) && reach('mercenary', 4, 2), 'удар в спину достаёт любую клетку');
-  ok(
-    !reach('warrior', 0, 2) && !reach('mage', 0, 2) && !reach('mage', 0, 4, ['diagonal']),
-    'воин и маг вдаль не бьют',
-  );
+  ok(reach('backstab', 0, 8) && reach('backstab', 4, 2), 'удар в спину достаёт любую клетку');
+  ok(!reach('hand', 0, 2), 'рукой вдаль не достать');
 
   // цена спасения от смерти
   const price = (lin: LineageId) => LINEAGES[lin].cheatDeathPrice;
@@ -326,7 +525,35 @@ for (const id of Object.keys(CLASSES) as ClassId[]) {
       price('warrior').goldShare === 0 &&
       !price('archer').drainsResource &&
       price('archer').goldShare === 0,
-    'воин и лучник спасаются даром',
+    'воин и охотник спасаются даром',
+  );
+}
+
+// ---------------------------------------------------------------- уровни перков и правки талантов
+{
+  const tree = TREES.mage;
+  const ls = newLineageSave(tree);
+  applyBuy(tree, ls, tree.classNode.elementalist);
+  const node = (id: string): TreeNode => tree.byId.get(id)!;
+  const stats = () =>
+    buildPlayerStats({ classId: 'elementalist', lineage: ls, weapon: null, armor: null });
+  applyBuy(tree, ls, node('perk/elementalist/fire-1'));
+  const ignite1 = stats().abilities.find((a) => a.id === 'ignite')!;
+  ok(
+    ignite1.behavior === 'strike' && ignite1.params.ticks === 2,
+    'поджог первого уровня: два тика',
+  );
+  applyBuy(tree, ls, node('perk/elementalist/fire-1'));
+  const ignite2 = stats().abilities.find((a) => a.id === 'ignite')!;
+  ok(
+    ignite2.behavior === 'strike' && ignite2.params.ticks === 3 && !ignite2.params.burstAt,
+    'второй уровень: три тика, без «Воспламенения» взрыва нет',
+  );
+  applyBuy(tree, ls, node('tal/elementalist/fire-2'));
+  const ignited = stats().abilities.find((a) => a.id === 'ignite')!;
+  ok(
+    ignited.behavior === 'strike' && ignited.params.burstAt === 4 && ignited.params.ticks === 3,
+    '«Воспламенение» добавляет поджогу взрыв на четырёх тиках, уровень перка сохранён',
   );
 }
 
@@ -339,7 +566,7 @@ for (const lin of LINEAGE_ORDER) {
     tree.nodes.every((n) => !!layout.at(n)),
     `${lin}: раскладка даёт координаты каждому узлу`,
   );
-  const sameBlock = (a: TreeNode, b: TreeNode): boolean => a.owner === b.owner;
+  const sameBlock = (a: TreeNode, b: TreeNode): boolean => a.owner === b.owner && a.tab === b.tab;
   const ordered = tree.nodes.every((a) =>
     tree.nodes.every(
       (b) =>
@@ -347,12 +574,16 @@ for (const lin of LINEAGE_ORDER) {
     ),
   );
   ok(ordered, `${lin}: выше по уровню — выше на экране`);
+  ok(
+    layout.hasBaseTab === (tree.shape === 'branched'),
+    `${lin}: вкладка «Основа» у дерева с ветками`,
+  );
 }
 
 // ---------------------------------------------------------------- автопрокачка
 const PATHS: TalentPath[] = ['attack', 'vitality', 'guard'];
-for (const lin of LINEAGE_ORDER) {
-  const tree = TREES[lin];
+for (const lin of TIERED) {
+  const tree = tieredTree(lin);
   for (const path of PATHS) {
     const cfg: AutoSkillSave = { on: true, path };
     const ls = newLineageSave(tree);
@@ -399,6 +630,43 @@ for (const lin of LINEAGE_ORDER) {
       `автопрокачка ${tag}: покупает узлы нового класса`,
     );
   }
+}
+for (const lin of BRANCHED) {
+  const tree = branchedTree(lin);
+  const cfg: AutoSkillSave = { on: true, path: 'guard' };
+  const ls = newLineageSave(tree);
+  const plan = planAutoSkill(tree, ls, Souls.of(1e9), cfg);
+  ok(
+    plan.buys.length >= 6 &&
+      plan.buys.every((n) => n.tab === 'base' && n.path === 'guard') &&
+      plan.stop === 'meta',
+    `автопрокачка ${lin}: до выбора подкласса — только путь «Основы» (${plan.buys.length})`,
+  );
+  for (const n of plan.buys) applyBuy(tree, ls, n);
+  const sub = tree.subclasses.find((c) => {
+    const cls = CLASSES[c];
+    return isBranched(cls) && cls.branchChoice === 'all';
+  })!;
+  applyBuy(tree, ls, tree.classNode[sub]);
+  const next = planAutoSkill(tree, ls, Souls.of(1e9), cfg);
+  ok(
+    next.buys.some((n) => n.kind === 'perk' && n.owner === sub) &&
+      next.buys.every((n) => n.kind !== 'class'),
+    `автопрокачка ${lin}: после выбора подкласса покупает его перки (${sub})`,
+  );
+}
+{
+  const tree = branchedTree('mage');
+  const ls = newLineageSave(tree);
+  applyBuy(tree, ls, tree.classNode.elementalist);
+  const plan = planAutoSkill(tree, ls, Souls.of(1e9), { on: true, path: 'attack' });
+  ok(
+    plan.buys.every((n) => n.owner !== 'elementalist') && plan.stop === 'meta',
+    'автопрокачка: стихию элементалиста выбирает игрок',
+  );
+}
+for (const lin of LINEAGE_ORDER) {
+  const tree = TREES[lin];
   const ls = newLineageSave(tree);
   const small = planAutoSkill(tree, ls, Souls.of(40), { on: true, path: 'attack' });
   ok(
@@ -423,6 +691,8 @@ for (const lin of LINEAGE_ORDER) {
   ok(branchOf(guard).path === 'guard', 'узел таланта задаёт путь');
   const perk = tree.nodes.find((n) => n.kind === 'perk' && n.slot === 'p2')!;
   ok(Object.keys(branchOf(perk)).length === 0, 'способность путь не меняет');
+  const branchTalent = TREES.mage.byId.get('tal/elementalist/fire-2')!;
+  ok(Object.keys(branchOf(branchTalent)).length === 0, 'талант ветки путь не меняет');
 }
 
 // ---------------------------------------------------------------- определения классов и герой
@@ -434,8 +704,8 @@ for (const lin of LINEAGE_ORDER) {
       !!def &&
         def.lineage.id === cls.lineage &&
         def.stage === cls.stage &&
-        def.parent === cls.parent,
-      `${id}: определение класса совпадает с классом фабрики`,
+        JSON.stringify(def.parents) === JSON.stringify(cls.parents),
+      `${id}: определение класса совпадает с классом`,
     );
     const base = def.lineage.base;
     ok(
@@ -447,17 +717,22 @@ for (const lin of LINEAGE_ORDER) {
     ok(
       JSON.stringify(def.abilities.map((p) => p.id)) ===
         JSON.stringify(perksOfClass(id).map((p) => p.id)),
-      `${id}: способности класса по слотам`,
+      `${id}: способности класса`,
     );
     ok(def.talents.length === placesOfClass(id).length, `${id}: таланты класса`);
-    const children = (Object.keys(CLASSES) as ClassId[]).filter((c) => CLASSES[c].parent === id);
     ok(
-      JSON.stringify([...def.next].sort()) === JSON.stringify(children.sort()),
+      JSON.stringify([...def.next].sort()) === JSON.stringify(childrenOf(id).sort()),
       `${id}: метаморфоза ведёт в дочерние классы (${def.next.join(',')})`,
     );
   }
+  ok(
+    TALENT_PLACES.filter((p) => p.tab === 'base').every(
+      (p) => p.classId === baseClassOf(CLASSES[p.classId].lineage),
+    ),
+    '«Основа» принадлежит базовому классу линейки',
+  );
 
-  // жизненный цикл: маг → магистр → пиромант, тот же экземпляр героя; отмена — назад к магистру
+  // жизненный цикл: маг → элементалист → магистр, тот же экземпляр героя; отказ — назад к магу
   const profile = new Profile(Profile.freshData('ru', 0), () => 0, {
     today: () => DayKey.of(2026, 9, 25),
   });
@@ -471,6 +746,7 @@ for (const lin of LINEAGE_ORDER) {
         (n) =>
           n.owner === owner &&
           n.kind !== 'class' &&
+          n.tab === 'profession' &&
           isPurchasable(n) &&
           canInvest(tree, hero.save, n),
       );
@@ -479,53 +755,39 @@ for (const lin of LINEAGE_ORDER) {
     }
   };
   ok(hero.classId === 'mage' && profile.activeClass === 'mage', 'герой начинает базовым классом');
-  ok(
-    !hero.canMetamorphose('magister', Souls.of(1e9)).ok,
-    'метаморфоза закрыта, пока ярус не пройден',
-  );
-  ok(!hero.canMetamorphose('pyromancer', Souls.of(1e9)).ok, 'через ступень не перепрыгнуть');
-  buyOwn('mage');
-  ok(
-    hero.canMetamorphose('magister', Souls.of(1e9)).ok,
-    'после третьего яруса открыта метаморфоза в магистра',
-  );
-  ok(!hero.canMetamorphose('magister', Souls.of(0)).ok, 'без душ метаморфоза не покупается');
-  hero.metamorphose('magister');
+  ok(!hero.canMetamorphose('magister', Souls.of(1e9)).ok, 'через подкласс не перепрыгнуть');
+  ok(hero.canMetamorphose('elementalist', Souls.of(0)).ok, 'подкласс выбирается даром');
+  hero.metamorphose('elementalist');
   ok(profile.activeHero === hero, 'после метаморфозы — тот же экземпляр героя');
-  ok(hero.classId === 'magister' && profile.activeClass === 'magister', 'герой стал магистром');
   ok(
-    hero.combatStats(null, null).abilities.some((p) => p.id === 'lightning'),
-    'молния мага осталась у магистра',
+    hero.classId === 'elementalist' && profile.activeClass === 'elementalist',
+    'герой стал элементалистом',
   );
-  let threw = false;
-  try {
-    hero.metamorphose('necromancer');
-  } catch {
-    threw = true;
-  }
-  ok(threw, 'финальный класс закрыт, пока ярус магистра не пройден');
-  buyOwn('magister');
-  hero.metamorphose('pyromancer');
-  ok(
-    hero.classId === 'pyromancer' && hero.classState.next.length === 0,
-    'пиромант — финальный класс',
-  );
-  ok(hero.classState === HeroClassState.of('pyromancer'), 'состояние класса одно на класс');
-  ok(
-    hero.classState.attack instanceof SpellAttack && !hero.classState.attack.melee,
-    'пиромант атакует как маг — только заклинаниями',
-  );
-  ok(
-    hero.classState.getAbilities() === CLASS_DEFINITIONS.pyromancer.abilities,
-    'способности состояния — из определения класса',
-  );
-  ok(!hero.canMetamorphose('necromancer', Souls.of(1e9)).ok, 'соседний финальный класс закрыт');
-  ok(hero.canCancelMetamorphosis, 'метаморфозу в финальный класс можно отменить');
+  ok(!hero.canMetamorphose('arcanist', Souls.of(1e9)).ok, 'соседний подкласс закрыт');
+  ok(!hero.canMetamorphose('magister', Souls.of(1e9)).ok, 'магистр закрыт до конца ветки');
+  buyOwn('elementalist');
+  ok(hero.canMetamorphose('magister', Souls.of(1e9)).ok, 'пройденная стихия открыла магистра');
+  ok(hero.canCancelMetamorphosis, 'от подкласса можно отказаться');
   const back = hero.cancelMetamorphosis();
   ok(
-    back.to === 'magister' && back.refund > 0 && hero.classId === 'magister',
-    `отмена вернула магистра (возврат ${back.refund})`,
+    back.to === 'mage' && back.refund > 0 && hero.classId === 'mage',
+    `отказ вернул мага (возврат ${back.refund})`,
   );
-  ok(profile.activeHero === hero, 'после отмены — всё тот же герой');
-  ok(!hero.canCancelMetamorphosis, 'метаморфозу в магистра не отменить');
+  hero.metamorphose('warlock');
+  buyOwn('warlock');
+  hero.metamorphose('magister');
+  ok(
+    hero.classId === 'magister' && hero.classState.next.length === 0,
+    'магистр — переходный класс, дальше пока некуда',
+  );
+  ok(hero.classState === HeroClassState.of('magister'), 'состояние класса одно на класс');
+  ok(
+    hero.combatStats(null, null).abilities.some((p) => p.id === 'blight_shot'),
+    'перк чернокнижника остался у магистра',
+  );
+  ok(
+    hero.classState.getAbilities() === CLASS_DEFINITIONS.magister.abilities,
+    'способности состояния — из определения класса',
+  );
+  ok(!hero.canCancelMetamorphosis, 'от переходного класса не отказаться');
 }

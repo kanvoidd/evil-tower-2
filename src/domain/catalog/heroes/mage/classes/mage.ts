@@ -1,14 +1,15 @@
-import type { ClassDef } from '../../../classes/interfaces/ClassDef';
-import { chainLightning, lightning, magicShot } from '../abilities/mage';
-import { mageTalents } from '../talents/mage';
+import type { BranchedClassDef } from '../../../classes/interfaces/ClassDef';
 
-/** «Маг» — базовый класс. */
-export const mage: ClassDef = {
+/**
+ * «Маг» — базовый класс. Своих перков нет: сразу бесплатный выбор подкласса, а общие
+ * характеристики растут в дереве «Основа» (talents/base.ts).
+ */
+export const mage: BranchedClassDef = {
   id: 'mage',
   lineage: 'mage',
   stage: 0,
-  parent: null,
+  parents: [],
   bonuses: {},
-  perks: { start: lightning, p2: magicShot, p3: chainLightning },
-  talents: mageTalents,
+  branches: [],
+  branchChoice: 'all',
 };

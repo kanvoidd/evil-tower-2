@@ -36,7 +36,7 @@ import { Metamorphose } from '../../src/application/skill-tree/Metamorphose';
 import { SkillTreeController } from '../../src/application/skill-tree/SkillTreeController';
 import { SkillTreeQuery } from '../../src/application/skill-tree/SkillTreeQuery';
 import { Profile } from '../../src/domain/account/profile';
-import type { ClassId, LineageId } from '../../src/domain/catalog';
+import { baseClassOf, type ClassId, type LineageId } from '../../src/domain/catalog';
 import { CONSUMABLES } from '../../src/domain/catalog/consumables';
 import { type RoomBattle } from '../../src/domain/combat/room-battle';
 import { ProgressionBalance } from '../../src/domain/progression';
@@ -69,7 +69,7 @@ import { ok } from './harness';
       today: () => DayKey.of(2026, 9, 25),
     });
     p.unlockLineage(lin);
-    p.setActiveClass(lin);
+    p.setActiveClass(baseClassOf(lin));
     return p;
   };
 
@@ -267,8 +267,8 @@ import { ok } from './harness';
       log.at(-1) === `learned:${first.id}` && p.tutorial.skill && query.tutorialTarget() === null,
       'дерево: первая покупка завершает обучение',
     );
-    /** Проходит ярус класса `owner` командами дерева, пока не откроется метаморфоза в `to`. */
-    const passTier = (owner: ClassId, to: ClassId): boolean => {
+    /** Проходит ветку класса `owner` командами дерева, пока не откроется метаморфоза в `to`. */
+    const passBranch = (owner: ClassId, to: ClassId): boolean => {
       for (let i = 0; i < 200 && !query.check(tree.classNode[to]).ok; i++) {
         const n = tree.nodes.find(
           (x) => x.kind !== 'class' && x.owner === owner && query.check(x).ok,
@@ -278,29 +278,35 @@ import { ok } from './harness';
       }
       return query.check(tree.classNode[to]).ok;
     };
-    ok(passTier('mage', 'magister'), 'дерево: покупки мага открывают метаморфозу в магистра');
-    ctl.execute({ type: 'buy', node: tree.classNode.magister });
+    ctl.execute({ type: 'buy', node: tree.classNode.elementalist });
     await settle();
-    ok(p.activeClass === 'mage', 'дерево: без подтверждения метаморфозы нет');
+    ok(p.activeClass === 'mage', 'дерево: без подтверждения выбора подкласса нет');
     confirm = true;
-    ctl.execute({ type: 'buy', node: tree.classNode.magister });
+    ctl.execute({ type: 'buy', node: tree.classNode.elementalist });
     await settle();
     ok(
-      p.activeClass === 'magister' &&
+      p.activeClass === 'elementalist' &&
         p.data.stats.metamorphoses === 1 &&
-        log.at(-1) === `learned:${tree.classNode.magister.id}`,
-      'дерево: метаморфоза в магистра — с подтверждением и в счётчике',
+        log.at(-1) === `learned:${tree.classNode.elementalist.id}`,
+      'дерево: выбор подкласса — с подтверждением и в счётчике',
     );
-    ok(passTier('magister', 'pyromancer'), 'дерево: ярус магистра открывает финальные классы');
-    ctl.execute({ type: 'buy', node: tree.classNode.pyromancer });
-    await settle();
     const souls0 = p.souls;
-    ok(p.activeClass === 'pyromancer', 'дерево: метаморфоза в пироманта');
+    ctl.execute({ type: 'buy', node: tree.byId.get('perk/elementalist/fire-1')! });
     ctl.execute({ type: 'cancel-metamorphosis' });
     await settle();
     ok(
-      p.activeClass === 'magister' && p.souls > souls0 && log.at(-1) === 'cancelled:magister',
-      'дерево: отказ от пироманта возвращает магистра и часть душ',
+      p.activeClass === 'mage' && p.souls < souls0 && log.at(-1) === 'cancelled:mage',
+      'дерево: отказ от подкласса возвращает мага и часть душ',
+    );
+    ctl.execute({ type: 'buy', node: tree.classNode.warlock });
+    await settle();
+    ok(p.activeClass === 'warlock', 'дерево: после отказа можно выбрать другой подкласс');
+    ok(passBranch('warlock', 'magister'), 'дерево: пройденная ветка открывает магистра');
+    ctl.execute({ type: 'buy', node: tree.classNode.magister });
+    await settle();
+    ok(
+      p.activeClass === 'magister' && p.data.stats.metamorphoses === 3,
+      'дерево: метаморфоза в магистра',
     );
     ctl.execute({ type: 'toggle-auto' });
     ok(log.includes('toggle:true') && p.autoSkillCfg().on, 'дерево: автопрокачка включается');
@@ -351,15 +357,15 @@ import { ok } from './harness';
         first.selection.choices().every((c) => c.opened && c.action === 'start'),
       'выбор героя: в первый запуск доступны все герои',
     );
-    first.ctl.execute({ type: 'choose', classId: 'archer' });
+    first.ctl.execute({ type: 'choose', classId: 'hunter' });
     await settle();
     ok(
-      p.activeClass === 'archer' && !p.isFirstRun && games === 1 && log.at(-1) === 'started',
+      p.activeClass === 'hunter' && !p.isFirstRun && games === 1 && log.at(-1) === 'started',
       'выбор героя: первый выбор открывает героя и ведёт в забег',
     );
     const sw = selectFor('switch');
     ok(
-      sw.selection.choice('archer').action === 'current' &&
+      sw.selection.choice('hunter').action === 'current' &&
         sw.selection.choice('mage').action === 'unlock',
       'выбор героя: текущий герой отмечен, закрытые — за золото',
     );
@@ -374,7 +380,7 @@ import { ok } from './harness';
     await settle();
     ok(
       log.at(-1) === 'unlocked:mage' &&
-        p.activeClass === 'archer' &&
+        p.activeClass === 'hunter' &&
         p.gold === 100 &&
         sw.selection.choice('mage').action === 'pick',
       'выбор героя: открытие стоит своё и героя не меняет',

@@ -44,95 +44,80 @@ export const abilities = {
   'ability.heavens_wrath.name': 'Гнев небес',
   'ability.heavens_wrath.desc':
     'Небо раскалывается: каждый враг получает двойной урон (нежить и демоны — четырёхкратный) и оглушён.',
-  // mage
-  'ability.lightning.name': 'Удар молнии',
-  'ability.lightning.desc':
-    'Маг вообще не бьёт рукой — только молнией. Нажмите кнопку способности и выберите соседнего врага (вверх, вниз, влево или вправо): {dmg}% урона заклинанием за {cost} маны. Мана восстанавливается всего по {regen} за ход — следите за ней: маг, которого зажали со всех сторон с пустой шкалой, обречён.',
-  'ability.magic_shot.name': 'Магический выстрел',
-  'ability.magic_shot.desc':
-    '{dmg}% урона по цели на одной линии с героем — но только ЧЕРЕЗ карту: вплотную выстрел не бьёт. Перезарядка {cooldown} ход.',
-  'ability.chain_lightning.name': 'Цепная молния',
-  'ability.chain_lightning.desc':
-    'Бьёт цель и перескакивает по соседним врагам: {falloff1}% → {falloff2}% → {falloff3}%. Перезарядка {cooldown} хода.',
-  // magister
-  'ability.swap.name': 'Перестановка',
-  'ability.swap.desc':
-    'Поменять местами две любые карты (два касания): подтянуть зелье поближе или убрать голема от героя. Перезарядка {cooldown} ходов.',
-  'ability.deck_draw.name': 'Жребий колоды',
-  'ability.deck_draw.desc':
-    'Отправить выбранную карту (кроме босса) вниз колоды и вытянуть новую на её место. Перезарядка {cooldown} хода.',
-  'ability.rewind.name': 'Откат времени',
-  'ability.rewind.desc':
-    'Раз за комнату отматывает последний ход целиком: поле, здоровье, ресурс. В новой попытке случайность выпадет иначе.',
-  // necromancer
-  'ability.corpse_blast.name': 'Взрыв трупа',
-  'ability.corpse_blast.desc':
-    'Пометьте врага: когда он умрёт, его труп взорвётся — соседи получат половину его максимального здоровья. Помеченные соседи рвутся цепью. Перезарядка {cooldown} ход.',
-  'ability.ghosts.name': 'Призрачные слуги',
-  'ability.ghosts.desc':
-    'Заразите врага: когда он умрёт, на его месте встанет призрак. Три хода призрак бьёт соседних врагов (вверх, вниз, влево, вправо) на {dmg}% вашего урона. Не больше двух призраков на поле. Перезарядка {cooldown} хода.',
-  'ability.voodoo.name': 'Кукла вуду',
-  'ability.voodoo.desc':
-    'Связывает врага: половина урона, который он получает, достаётся всем остальным врагам на поле. Перезарядка {cooldown} хода.',
-  'ability.dead_harvest.name': 'Жатва мёртвых',
-  'ability.dead_harvest.desc':
-    'Каждый враг теряет половину текущего здоровья (боссы — четверть). Умершие дают вдвое больше душ.',
-  // pyromancer
+  // mage: elementalist
   'ability.ignite.name': 'Поджог',
   'ability.ignite.desc':
-    'Поджигает любого врага на {turns} хода. Умерший от огня передаёт пламя соседям. Перезарядка {cooldown} ход.',
-  'ability.fireball.name': 'Огненный шар',
-  'ability.fireball.desc':
-    'Дальний бросок: цель получает {dmg}% урона, соседи — {splash}%, все загораются. Маны не стоит — его сдерживает перезарядка в {cooldown} хода.',
+    'Поджигает любого врага: тиков горения — {ticks}, по {burn}% урона за тик. Тики копятся на цели. Перезарядка {cooldown} ход.',
+  'ability.ignite.lv2': 'Тиков горения за поджог: {ticks}',
   'ability.detonate.name': 'Детонация',
   'ability.detonate.desc':
-    'Все горящие враги взрываются: {blastMul}% урона себе и {splashMul}% соседям. Взрывы идут цепью по всему полю. Перезарядка {cooldown} хода.',
-  'ability.inferno.name': 'Инферно',
-  'ability.inferno.desc':
-    'Огненный шторм волнами расходится от героя: все враги горят {turns} ходов по {burn}% вашего урона за ход.',
-  // archer
+    'Все горящие враги взрываются: себе {blastMul}% накопленного горения, соседям {splashMul}%. Перезарядка {cooldown} хода.',
+  'ability.frost_spike.name': 'Ледяной шип',
+  'ability.frost_spike.desc':
+    'Шип в любого врага: {dmg}% урона, враг бьёт на {weaken}% слабее ещё {debuffTurns} хода. Перезарядка {cooldown} ход.',
+  'ability.frost_spike.lv2': 'Ещё и броня врага меньше на {armorBreak}%',
+  'ability.ice_armor.name': 'Ледяной доспех',
+  'ability.ice_armor.desc':
+    'На {turns} хода: щит на {shield}% здоровья, +{defense} к защите, а каждый ударивший вас получает {thorns}% урона. Перезарядка {cooldown} ходов.',
+  'ability.lightning.name': 'Молния',
+  'ability.lightning.desc': 'Разряд в соседнего врага: {dmg}% урона за {cost} маны.',
+  'ability.lightning.lv2': 'При мане от {manaAbove}% шкалы — ещё +{manaBonus}% урона',
+  'ability.chain_lightning.name': 'Цепная молния',
+  'ability.chain_lightning.desc':
+    'Бьёт цель и перескакивает на соседнего врага: {falloff1}% → {falloff2}%. Перезарядка {cooldown} хода.',
+  'ability.chain_lightning.lv2': 'Третья цель цепи: {falloff3}%',
+  'ability.chain_lightning.lv3': 'Четвёртая цель цепи: {falloff4}%',
+  // mage: arcanist
+  'ability.magic_shot.name': 'Магический выстрел',
+  'ability.magic_shot.desc':
+    'Бьёт ближайшего врага на выбранной линии: {dmg}% урона. Перезарядка {cooldown} ход.',
+  'ability.magic_shot.lv2': 'Пробивает линию: следующий враг получает на {stepLoss}% меньше',
+  'ability.swap.name': 'Точечная перестановка',
+  'ability.swap.desc':
+    'Поменять местами две любые карты (два касания): подтянуть зелье или убрать врага от героя. Перезарядка {cooldown} ходов.',
+  'ability.shuffle.name': 'Перемешивание поля',
+  'ability.shuffle.desc':
+    'Все карты поля, кроме героя, встают на новые места. Перезарядка {cooldown} хода.',
+  // mage: warlock
+  'ability.blight_shot.name': 'Выстрел скверны',
+  'ability.blight_shot.desc':
+    '{dmg}% урона и заражение: умирая, враг взрывается и бьёт соседей на {infect}% своего здоровья. Перезарядка {cooldown} ход.',
+  'ability.dead_servant.name': 'Мёртвый слуга',
+  'ability.dead_servant.desc':
+    'Заражённый враг, умирая, встаёт вашим слугой: {hp}% его здоровья и {dmg}% удара. Ходов слуги: {turns} — он бьёт соседних врагов.',
+  // mage: magister
+  'ability.magic_shield.name': 'Магический щит',
+  'ability.magic_shield.desc':
+    'Щит на {shield}% максимального здоровья. Перезарядка {cooldown} хода.',
+  // hunter: bowman
   'ability.pierce_shot.name': 'Сквозной выстрел',
   'ability.pierce_shot.desc':
-    'Выстрел через карту: нажмите на врага в двух клетках по прямой — он получит урон, оставаясь вне досягаемости руки.',
-  'ability.diagonal.name': 'Косой прицел',
-  'ability.diagonal.desc':
-    'Стрелять можно и по диагональным соседям, до которых обычно не дотянуться.',
-  'ability.ricochet.name': 'Рикошет',
-  'ability.ricochet.desc':
-    'Стрела отскакивает от цели к ближайшему врагу ({falloff2}%), затем ещё раз ({falloff3}%).',
-  // hawkeye
-  'ability.falcon_hunt.name': 'Сокол-охотник',
-  'ability.falcon_hunt.desc': 'Сокол пикирует на любого врага на поле: {dmg}% урона и оглушение.',
-  'ability.falcon_courier.name': 'Сокол-курьер',
-  'ability.falcon_courier.desc':
-    'Сокол приносит любую нужную карту — золото, сундук или зелье, — а герой остаётся на месте.',
-  'ability.eagle_eye.name': 'Орлиный взор',
-  'ability.eagle_eye.desc':
-    'Над полем видны три верхние карты колоды. Стрелять можно и по соседним врагам — без ответа.',
-  // arrowgod
-  'ability.double_shot.name': 'Двойной выстрел',
-  'ability.double_shot.desc':
-    'Две стрелы подряд. Если первая убила — вторая летит в ближайшего врага.',
-  'ability.hunter_thrill.name': 'Азарт охотника',
-  'ability.hunter_thrill.desc': 'Критический выстрел возвращает потраченную концентрацию.',
-  'ability.arrow_rain.name': 'Дождь стрел',
-  'ability.arrow_rain.desc':
-    'Пять стрел падают с неба на случайных врагов, по {dmg}% урона каждая.',
-  'ability.starfall.name': 'Звездопад',
-  'ability.starfall.desc':
-    'Небо чернеет от стрел: каждый враг получает три попадания по {dmg}% с отдельными критами.',
-  // sniper
-  'ability.rail_shot.name': 'Пробивающий выстрел',
-  'ability.rail_shot.desc':
-    'Стрела пробивает всю линию: все враги в ряду или столбце цели получают урон, каждый следующий на {stepLoss}% слабее.',
-  'ability.armor_piercing.name': 'Бронебойный',
-  'ability.armor_piercing.desc':
-    'Выстрел с бонусом в {hpShare}% максимального здоровья цели. Главные жертвы — големы и боссы.',
-  'ability.hunters_mark.name': 'Охотничья метка',
-  'ability.hunters_mark.desc': 'Первый выстрел по неповреждённому врагу всегда критический.',
-  'ability.one_shot.name': 'Один выстрел — один труп',
-  'ability.one_shot.desc':
-    'Время замедляется: выстрел мгновенно убивает любого не-босса и летит дальше по линии, до трёх убийств. Босс теряет {bossHpShare}% максимального здоровья.',
+    'Выстрел через карту: нажмите на врага в двух клетках по прямой — {cost} концентрации.',
+  'ability.still_aim.name': 'Затаившийся стрелок',
+  'ability.still_aim.desc':
+    'Каждый ход на месте: урон +{perStack}%, стаков до {maxStacks}. Шаг сбрасывает стаки.',
+  // hunter: crossbowman
+  'ability.bolt_volley.name': 'Залп болтом',
+  'ability.bolt_volley.desc':
+    'Выстрел через карту за {cost} концентрации, а удар вплотную пробивает броню врага.',
+  'ability.hook_bolt.name': 'Крюк-болт',
+  'ability.hook_bolt.desc':
+    'Притягивает дальнего врага с вашей строки или столбца на соседнюю клетку. Перезарядка {cooldown} хода.',
+  // hunter: beastmaster
+  'ability.stampede.name': 'Стадо кабанов',
+  'ability.stampede.desc':
+    'Кабаны пробегают вашу строку или столбец: враги оглушены, кучки золота смяты до монеты. Перезарядка {cooldown} хода.',
+  'ability.stampede.lv2': 'Кабаны бегут по любой линии поля',
+  'ability.falcon.name': 'Сокол',
+  'ability.falcon.desc':
+    'Сокол бьёт любого врага: {dmg}% урона и кровотечение по {bleed}% за ход, ходов: {bleedTurns}. Перезарядка {cooldown} ход.',
+  // hunter: huntsman
+  'ability.snare.name': 'Капкан',
+  'ability.snare.desc':
+    'Ловушка на клетку: враг, попавший на неё, получает {dmg}% урона и оглушение. Перезарядка {cooldown} хода.',
+  'ability.armed_trap.name': 'Взведённая ловушка',
+  'ability.armed_trap.desc':
+    'Нажмите кнопку другой способности: каждое нажатие — ход задержки, до {maxDelay}. Затем выберите клетку — способность сработает там сама. Ловушек за комнату: {charges}.',
   // mercenary
   'ability.backstab.name': 'Удар в спину',
   'ability.backstab.desc':

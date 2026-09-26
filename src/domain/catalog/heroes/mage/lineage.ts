@@ -1,8 +1,8 @@
 import type { LineageDef } from '../interfaces/LineageDef';
 
 /**
- * Маг · мана. Пассивка линейки — самый большой запас ресурса и подбор артефактов;
- * рукой маг не бьёт вовсе, только заклинаниями.
+ * Маг · мана. Пассивка линейки — самый большой запас ресурса и подбор артефактов. Рукой маг бьёт,
+ * как и все, а его сила — заклинания подкласса: элементалиста, арканиста или чернокнижника.
  */
 export const mageLineage: LineageDef = {
   id: 'mage',
@@ -12,7 +12,7 @@ export const mageLineage: LineageDef = {
   resRegen: 1,
   goldBonus: 0,
   artifacts: true,
-  attack: 'spell',
+  attack: 'hand',
   // «Аварийный барьер» сжигает всю ману
   cheatDeathPrice: { drainsResource: true, goldShare: 0 },
 };

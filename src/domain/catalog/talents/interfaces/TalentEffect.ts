@@ -1,11 +1,12 @@
+import type { AbilityDef } from '../../abilities/interfaces/AbilityDef';
 import type { TalentBonusFx } from './TalentBonusFx';
 import type { TalentChanceFx } from './TalentChanceFx';
 import type { TalentSynergyFx } from './TalentSynergyFx';
 
 /**
  * Что даёт талант — эффект по рангам. Значения по рангам СУММАРНЫЕ: [20, 30, 40] значит
- * «+20% → +30% → +40%»; число рангов — длина списка. Записывается помощниками `bonus`, `synergy`
- * и `chanceAndPower`.
+ * «+20% → +30% → +40%»; число рангов — длина списка. Записывается помощниками `bonus`, `synergy`,
+ * `chanceAndPower` и `modify`.
  */
 export type TalentEffect =
   /** Прибавка к характеристике или правилу героя; у нескольких талантов — складывается. */
@@ -21,4 +22,13 @@ export type TalentEffect =
       readonly fx: TalentChanceFx;
       readonly chance: readonly number[];
       readonly power: readonly number[];
+    }
+  /**
+   * Правка перка: на каждом ранге — числа, которые заменяют числа способности `ability` у героя
+   * («Воспламенение» добавляет «Поджогу» взрыв, «Камуфляж» — стаки «Затаившемуся стрелку»).
+   */
+  | {
+      readonly kind: 'modify';
+      readonly ability: AbilityDef;
+      readonly perRank: readonly Readonly<object>[];
     };

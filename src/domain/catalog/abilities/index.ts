@@ -1,3 +1,4 @@
+export { abilityAtLevel, levelsOf, withPatch } from './abilityLevels';
 export { ABILITY_BY_ID, ABILITY_LIST, hasButton, withBehavior } from './abilityRegistry';
 export { defineAbility } from './defineAbility';
 export { FULL_BAR } from './fullBar';

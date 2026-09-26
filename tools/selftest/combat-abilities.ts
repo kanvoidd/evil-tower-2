@@ -3,6 +3,7 @@ import type { ClassId } from '../../src/domain/catalog';
 import { CLASSES } from '../../src/domain/catalog/classes';
 import { ROOMS } from '../../src/domain/catalog/levels';
 import { PERK_BY_ID } from '../../src/domain/catalog/perks';
+import type { IAttackStrategy } from '../../src/domain/combat/attack';
 import { Card } from '../../src/domain/combat/card';
 import { Grid } from '../../src/domain/combat/engine';
 import { type RoomBattle, RoomBattleFactory } from '../../src/domain/combat/room-battle';
@@ -13,8 +14,17 @@ import { makeRng } from '../../src/domain/shared/rng/rng';
 import { cons, ok } from './harness';
 
 // ---------------------------------------------------------------- способности в бою
+/** «Взведённая ловушка» заряжена: выбрать для неё первую подходящую способность. */
+const pickTrapSkill = (battle: RoomBattle): void => {
+  const trap = battle.armed;
+  if (trap?.behavior !== 'armed_trap' || battle.trapSkill) return;
+  const skill = battle.stats.abilities.find((a) => battle.canArmWith(trap, a));
+  if (skill) battle.usePerk(skill.id);
+};
+
 /** Навести заряженную способность на первую подходящую цель; «Перестановке» нужно второе касание. */
 const aim = (battle: RoomBattle, label: string): void => {
+  pickTrapSkill(battle);
   const cell = Grid.CELLS.slice(1).find((c) => battle.perkTargetOk(battle.armed!, c));
   ok(cell !== undefined, `${label}: нашлась подходящая цель`);
   if (cell === undefined) return;
@@ -87,11 +97,11 @@ const aim = (battle: RoomBattle, label: string): void => {
       );
     }
   }
-  ok(used >= 35, `проверены все активные способности (${used})`);
+  ok(used >= 44, `проверены все активные способности (${used})`);
 
-  // маг вообще не бьёт рукой, зато ходит по пустым клеткам
+  // базовая атака у всех одна: маг и охотник тоже бьют рукой соседнего врага
   {
-    for (const id of ['mage', 'magister', 'necromancer', 'pyromancer'] as ClassId[]) {
+    for (const id of ['mage', 'elementalist', 'hunter', 'crossbowman'] as ClassId[]) {
       const stats = build(id);
       const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
@@ -106,27 +116,12 @@ const aim = (battle: RoomBattle, label: string): void => {
       battle.playerCell = CellIndex.of(4);
       battle.cards[1] = enemy(500, 3);
       battle.hp = 100000;
-      const act = battle.actionFor(CellIndex.of(1));
-      ok(
-        act.kind === 'none' && act.reason === 'melee',
-        `${id}: рукой не бьёт (${act.kind}/${act.kind === 'none' ? act.reason : ''})`,
-      );
-      ok(!battle.tap(CellIndex.of(1)).ok, `${id}: касание соседнего врага не тратит ход`);
-      ok(battle.cards[1] !== null && battle.cards[1]!.hp === 500, `${id}: враг не получил урона`);
-      // молния по кнопке — единственный способ ударить
-      battle.res = stats.resMax;
-      // «Удар молнии» мага остаётся в руках у всей линейки — метаморфоза ничего не отнимает
-      ok(
-        stats.abilities.some((p2) => p2.id === 'lightning'),
-        `${id}: молния мага сохранилась`,
-      );
-      ok(battle.usePerk('lightning').ok, `${id}: молния мага доступна`);
-      if (battle.armed)
-        ok(battle.tap(CellIndex.of(1)).ok, `${id}: молния наводится на соседнего врага`);
-      ok(battle.cards[1] === null || battle.cards[1]!.hp < 500, `${id}: молния нанесла урон`);
+      ok(battle.actionFor(CellIndex.of(1)).kind === 'melee', `${id}: соседнего врага бьёт рукой`);
+      ok(battle.tap(CellIndex.of(1)).ok, `${id}: удар рукой — ход`);
+      ok(battle.cards[1] !== null && battle.cards[1]!.hp < 500, `${id}: враг получил урон`);
     }
     // ход на пустую соседнюю клетку — полноценный ход для всех классов
-    for (const id of ['warrior', 'archer', 'mage', 'ninja'] as ClassId[]) {
+    for (const id of ['warrior', 'bowman', 'mage', 'ninja'] as ClassId[]) {
       const stats = build(id);
       const battle = RoomBattleFactory.standard().create({
         room: ROOMS[10],
@@ -232,9 +227,9 @@ const aim = (battle: RoomBattle, label: string): void => {
     );
   }
 
-  // «Раздвоение молнии»: второй разряд по той же цели, соседи не задеты
+  // «Поддержка с воздуха»: после удара рукой сокол бьёт ту же цель, соседи не задеты
   {
-    const stats = build('mage', { echoChance: 1, echoDmg: 0.16 } as Record<string, number>);
+    const stats = build('beastmaster', { echoChance: 1, echoDmg: 0.6 } as Record<string, number>);
     const battle = RoomBattleFactory.standard().create({
       room: ROOMS[10],
       stats,
@@ -247,17 +242,15 @@ const aim = (battle: RoomBattle, label: string): void => {
     battle.cards.fill(null);
     battle.playerCell = CellIndex.of(4);
     battle.hp = 100000;
-    battle.res = stats.resMax;
     battle.cards[1] = enemy(100000, 1);
     battle.cards[3] = enemy(100000, 1);
-    battle.usePerk('lightning');
     const hits = battle
       .tap(CellIndex.of(1))
       .events.filter((e) => e.type === 'hit' && e.target === 'enemy')
       .map((e) => (e as { cell: number }).cell);
     ok(
       hits.length === 2 && hits.every((c) => c === 1),
-      `молния бьёт одну цель дважды (${hits.join(',')})`,
+      `поддержка с воздуха бьёт ту же цель второй раз (${hits.join(',')})`,
     );
   }
 
@@ -336,7 +329,7 @@ const aim = (battle: RoomBattle, label: string): void => {
     farm.tap(CellIndex.of(3));
     ok(farm.hp < hp0, 'бегать по клеткам рядом с врагами больно');
 
-    // маг без маны ударить не может — значит, и шаг к другому врагу не наказывается
+    // маг бьёт рукой, поэтому шаг мимо удара под чужую руку наказывается и без маны
     const mstats = build('mage');
     const dry = RoomBattleFactory.standard().create({
       room: ROOMS[10],
@@ -355,29 +348,8 @@ const aim = (battle: RoomBattle, label: string): void => {
     dry.cards[1] = enemy(100000, 20);
     dry.cards[6] = enemy(100000, 20);
     ok(
-      strikers(dry.tap(CellIndex.of(3)).events).length === 0,
-      'маг без маны шагает к врагу — удара нет',
-    );
-    // а с маной на молнию тот же шаг — уже подставиться
-    const wet = RoomBattleFactory.standard().create({
-      room: ROOMS[10],
-      stats: mstats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(50),
-    });
-    wet.start();
-    wet.cards.fill(null);
-    wet.playerCell = CellIndex.of(4);
-    wet.hp = 100000;
-    wet.shield = 0;
-    wet.res = mstats.resMax;
-    wet.cards[1] = enemy(100000, 20);
-    wet.cards[6] = enemy(100000, 20);
-    ok(
-      JSON.stringify(strikers(wet.tap(CellIndex.of(3)).events)) === '[6]',
-      'маг с маной прошёл мимо удара под чужую руку — бьют',
+      JSON.stringify(strikers(dry.tap(CellIndex.of(3)).events)) === '[6]',
+      'маг без маны прошёл мимо удара под чужую руку — бьют',
     );
   }
 
@@ -461,42 +433,6 @@ const aim = (battle: RoomBattle, label: string): void => {
     ok(spawned > 0, `враги продолжают лезть после нормы (${spawned})`);
   }
 
-  // Перезарядка способностей и дальность магического выстрела
-  {
-    const stats = build('mage');
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[10],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(53),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(0);
-    battle.hp = 100000;
-    battle.res = 100;
-    battle.cards[2] = enemy(100000, 1);
-    battle.cards[4] = enemy(100000, 1);
-    const shot = PERK_BY_ID.mage_p2.ability;
-    ok(!battle.perkTargetOk(shot, CellIndex.of(1)), 'магический выстрел не бьёт вплотную');
-    ok(battle.perkTargetOk(shot, CellIndex.of(2)), 'магический выстрел бьёт через карту');
-    ok(battle.usePerk(shot.id).ok && battle.tap(CellIndex.of(2)).ok, 'выстрел применяется');
-    battle.res = 100;
-    const after = battle.perkReady(shot);
-    ok(
-      !after.ok && after.reason === 'cooldown',
-      `выстрел на перезарядке (${after.reason ?? 'готов'})`,
-    );
-    ok(battle.cooldownOf(shot) === 1, `перезарядка один ход (${battle.cooldownOf(shot)})`);
-    const chain = PERK_BY_ID.mage_p3.ability;
-    battle.res = 100;
-    ok(battle.usePerk(chain.id).ok && battle.tap(CellIndex.of(2)).ok, 'цепная молния применяется');
-    battle.res = 100;
-    ok(battle.cooldownOf(chain) === 2, `цепная молния на двух ходах (${battle.cooldownOf(chain)})`);
-  }
-
   // Кто умеет бить рукой — не попадает в тупик никогда.
   {
     for (const id of Object.keys(CLASSES) as ClassId[]) {
@@ -524,13 +460,23 @@ const aim = (battle: RoomBattle, label: string): void => {
     }
   }
 
-  // «Растерзание»: мага без маны, зажатого со всех сторон, карты добивают насмерть
+  // «Растерзание»: героя, которому нечем ответить, зажатого со всех сторон, карты добивают насмерть.
+  // Рукой сейчас бьют все, поэтому «безрукого» героя собираем стратегией-заглушкой.
   {
+    const noHand: IAttackStrategy = {
+      melee: false,
+      mode: 'none',
+      mul: 1,
+      guaranteedCrit: false,
+      style: 'shot',
+      reaches: () => false,
+    };
+    const handless = (id: ClassId) => ({ ...build(id), attack: noHand });
     const surround = (
       id: ClassId,
       patch: Partial<{ res: number; potion_regen: number; artifact: number }> = {},
     ) => {
-      const stats = build(id);
+      const stats = handless(id);
       const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
         stats,
@@ -551,23 +497,13 @@ const aim = (battle: RoomBattle, label: string): void => {
       for (const c of [0, 1, 2, 3, 5, 6, 7, 8]) battle.cards[c] = enemy(100000, 3);
       return battle;
     };
-    for (const id of ['mage', 'magister', 'necromancer'] as ClassId[]) {
-      ok(surround(id).cornered(), `${id}: пустая шкала в окружении — это тупик`);
-    }
-    // у пироманта огненный шар маны не стоит: пока он не на перезарядке, выход есть
-    {
-      const pyro = surround('pyromancer');
-      ok(!pyro.cornered(), 'пиромант: готовый огненный шар — не тупик');
-      pyro.state.cooldowns.fireball = 3;
-      ok(pyro.cornered(), 'пиромант: шар на перезарядке и пустая шкала — тупик');
-    }
+    ok(surround('elementalist').cornered(), 'без руки и маны в окружении — тупик');
     // Ход, который сам загоняет в угол: герой шагает на пустую клетку, освободившуюся
     // занимает новый враг — и в конце хода отбиваться уже нечем.
     {
-      const stats = build('mage');
       const battle = RoomBattleFactory.standard().create({
         room: ROOMS[30],
-        stats,
+        stats: handless('mage'),
         weapon: null,
         armor: null,
         consumables: cons(),
@@ -592,15 +528,14 @@ const aim = (battle: RoomBattle, label: string): void => {
       ok(battle.over === 'lose' && battle.hp === 0, 'растерзание доводит до смерти');
       const hits = res.events.filter((e) => e.type === 'hit' && e.target === 'player').length;
       ok(hits >= 4, `бьют все карты по очереди (${hits})`);
-      // поднявшись, герой получает полную шкалу и снова может бить
-      battle.revive();
-      ok(!battle.cornered(), 'после воскрешения герой снова может ходить');
     }
-    // выходы из окружения: мана, зелье восстановления, артефакт мага
-    ok(!surround('mage', { res: 20 }).cornered(), 'мана на молнию — не тупик');
-    ok(!surround('mage', { potion_regen: 1 }).cornered(), 'зелье восстановления — не тупик');
+    // выходы из окружения: ресурс на способность, зелье восстановления, артефакт мага
+    ok(!surround('elementalist', { res: 20 }).cornered(), 'мана на способность — не тупик');
+    ok(
+      !surround('elementalist', { potion_regen: 1 }).cornered(),
+      'зелье восстановления — не тупик',
+    );
     ok(!surround('mage', { artifact: 1 }).cornered(), 'артефакт мага — не тупик');
-    // поднявшись, герой получает полную шкалу и снова может бить
   }
 
   // постоянное клеймо не вешается на уже заклеймённую цель — ход не пропадает зря
@@ -608,7 +543,6 @@ const aim = (battle: RoomBattle, label: string): void => {
     const cases: Array<[ClassId, string, (c: Card) => void]> = [
       ['assassin', 'assassin_p2', (c) => (c.vuln = 1)],
       ['darkassassin', 'darkassassin_start', (c) => (c.mark = 3)],
-      ['necromancer', 'necromancer_p3', (c) => (c.link = true)],
     ];
     for (const [id, perkId2, apply] of cases) {
       const stats = build(id);
@@ -634,130 +568,6 @@ const aim = (battle: RoomBattle, label: string): void => {
         `${perkId2}: заклеймённая цель больше не подсвечивается`,
       );
     }
-  }
-
-  // «Взрыв трупа» по выбранной цели: рвётся именно она, помеченных повторно не метим
-  {
-    const stats = build('necromancer');
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[30],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(19),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(4);
-    battle.hp = 100000;
-    battle.res = 100;
-    battle.cards[1] = enemy(10, 1);
-    battle.cards[0] = enemy(100000, 1);
-    battle.cards[2] = enemy(100000, 1);
-    battle.cards[7] = enemy(10, 1);
-    ok(
-      battle.usePerk('corpse_blast').ok && battle.tap(CellIndex.of(1)).ok,
-      'взрыв трупа наводится на врага',
-    );
-    ok(!!battle.cards[1]?.corpse, 'цель помечена');
-    ok(
-      !battle.perkTargetOk(PERK_BY_ID.necromancer_start.ability, CellIndex.of(1)),
-      'помеченного повторно не метят',
-    );
-    const hp0 = battle.cards[0]!.hp;
-    battle.res = 100;
-    battle.usePerk('lightning');
-    battle.tap(CellIndex.of(1));
-    ok(battle.cards[0]!.hp < hp0, 'смерть помеченного взрывает соседей');
-    // смерть непомеченного ничего не взрывает
-    const hp2 = battle.cards[2] ? battle.cards[2]!.hp : 0;
-    battle.res = 100;
-    battle.state.cooldowns = {};
-    battle.usePerk('lightning');
-    const r = battle.tap(CellIndex.of(7));
-    ok(!r.events.some((e) => e.type === 'fx' && e.style === 'corpse'), 'непомеченный умирает тихо');
-    void hp2;
-  }
-
-  // «Призрачные слуги»: призрак встаёт на месте заражённого, бьёт крестом три хода, максимум два
-  {
-    const stats = build('necromancer');
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[30],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(23),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(4);
-    battle.hp = 100000;
-    battle.res = 100;
-    battle.cards[1] = enemy(10, 1);
-    battle.cards[0] = enemy(100000, 1);
-    battle.cards[2] = enemy(100000, 1);
-    battle.cards[3] = enemy(100000, 1);
-    battle.cards[5] = enemy(100000, 1);
-    battle.cards[6] = enemy(100000, 1);
-    battle.cards[7] = enemy(100000, 1);
-    battle.cards[8] = enemy(100000, 1);
-    ok(
-      battle.usePerk('ghosts').ok && battle.tap(CellIndex.of(1)).ok,
-      'заражение наводится на врага',
-    );
-    ok(!!battle.cards[1]?.haunt, 'цель заражена');
-    battle.res = 100;
-    battle.usePerk('lightning');
-    battle.tap(CellIndex.of(1));
-    const ghost = battle.cards[1];
-    ok(ghost?.kind === 'ghost', `на месте заражённого встал призрак (${ghost?.kind ?? 'пусто'})`);
-    ok(ghost?.ttl === 2, `призрак отработал первый ход (${ghost?.ttl})`);
-    // призрак бьёт соседей крестом: 0 и 2 — соседи клетки 1, 4 — герой
-    ok(battle.cards[0]!.hp < 100000 || battle.cards[2]!.hp < 100000, 'призрак бьёт соседа');
-    // ещё два хода — и призрак исчезает
-    for (let i = 0; i < 2; i++) {
-      battle.res = 100;
-      battle.state.cooldowns = {};
-      battle.usePerk('lightning');
-      battle.tap(CellIndex.of(3));
-    }
-    ok(battle.cards[1]?.kind !== 'ghost', 'через три хода призрак растаял');
-  }
-
-  // Горение: число на значке — ровно столько тиков, сколько впереди
-  {
-    const stats = build('pyromancer');
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[10],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(29),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(4);
-    battle.hp = 100000;
-    battle.res = 100;
-    battle.cards[0] = enemy(100000, 1);
-    battle.usePerk('ignite');
-    battle.tap(CellIndex.of(0));
-    ok(battle.cards[0]!.burn === 3, `после поджога на значке три хода (${battle.cards[0]!.burn})`);
-    let ticks = 0;
-    for (let i = 0; i < 5; i++) {
-      const hp = battle.cards[0]!.hp;
-      // любой шаг на не-врага — полноценный ход, горение тикает в его конце
-      const step = Grid.CELLS.slice(1).find((c) => battle.actionFor(c).kind === 'move');
-      if (step === undefined) break;
-      battle.tap(step);
-      battle.hp = 100000;
-      if (battle.cards[0]!.hp < hp) ticks++;
-    }
-    ok(ticks === 3, `поджог тикает ровно три раза (${ticks})`);
   }
 
   // у каждой способности есть своя вспышка
@@ -788,6 +598,7 @@ const aim = (battle: RoomBattle, label: string): void => {
         });
         const r = battle.usePerk(perk.id);
         let events = r.events;
+        pickTrapSkill(battle);
         while (battle.armed) {
           const cell = Grid.CELLS.slice(1).find((c) => battle.perkTargetOk(battle.armed!, c));
           if (cell === undefined) break;
@@ -853,33 +664,6 @@ const aim = (battle: RoomBattle, label: string): void => {
     ok(battle.hp === before, 'оглушённый враг не наносит урона');
   }
 
-  // горение тикает и гаснет
-  {
-    const stats = build('pyromancer');
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[10],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(9),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(4);
-    battle.cards[0] = enemy(100000, 1);
-    battle.hp = 100000;
-    battle.res = stats.resMax;
-    battle.usePerk('ignite');
-    battle.tap(CellIndex.of(0));
-    const burning = battle.cards[0]!;
-    ok(burning.burn > 0 && burning.burnDmg > 0, 'поджог вешает горение');
-    const hp0 = burning.hp;
-    // маг рукой не бьёт, зато ходит по пустым клеткам — это полноценный ход
-    ok(battle.tap(CellIndex.of(1)).ok, 'ход на пустую соседнюю клетку засчитывается');
-    ok(battle.cards[0]!.hp < hp0, 'горение отнимает здоровье в конце хода');
-  }
-
   // талант «перк сильнее» действительно усиливает способность
   {
     const weak = build('warrior');
@@ -904,38 +688,5 @@ const aim = (battle: RoomBattle, label: string): void => {
       return 100000 - battle.cards[1]!.hp;
     };
     ok(hit(strong) > hit(weak), 'талант «способности сильнее» повышает урон способности');
-  }
-
-  // BUG-002: «Откат времени» отматывает прошлый ход целиком — поле, здоровье, ресурс
-  {
-    // без уворота и парирования: ответ врага в первый ход должен дойти
-    const stats = build('magister', { dodge: 0, parry: 0, block: 0 });
-    const rewind = stats.abilities.find((p) => p.behavior === 'rewind')!;
-    const bolt = stats.abilities.find((p) => p.target === 'adjacent')!;
-    const battle = RoomBattleFactory.standard().create({
-      room: ROOMS[20],
-      stats,
-      weapon: null,
-      armor: null,
-      consumables: cons(),
-      rng: makeRng(11),
-    });
-    battle.start();
-    battle.cards.fill(null);
-    battle.playerCell = CellIndex.of(4);
-    battle.hp = 1000;
-    battle.res = battle.stats.resMax;
-    battle.cards[1] = enemy(1000, 30);
-    const before = { hero: battle.hp, foe: battle.cards[1]!.hp, res: battle.res };
-    ok(battle.usePerk(bolt.id).ok && battle.tap(CellIndex.of(1)).ok, 'откат: первый ход сделан');
-    ok(
-      battle.hp < before.hero && battle.cards[1]!.hp < before.foe,
-      'откат: за первый ход обе стороны ранены',
-    );
-    ok(battle.usePerk(rewind.id).ok, 'откат: способность применяется');
-    ok(
-      battle.hp === before.hero && battle.cards[1]?.hp === before.foe && battle.res === before.res,
-      `откат: здоровье, враг и ресурс — как до прошлого хода (${battle.hp}/${battle.cards[1]?.hp}/${battle.res})`,
-    );
   }
 }

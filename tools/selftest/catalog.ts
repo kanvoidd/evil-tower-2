@@ -3,19 +3,25 @@ import type { ClassId } from '../../src/domain/catalog';
 import {
   ABILITY_BY_ID,
   ABILITY_LIST,
+  abilityAtLevel,
   FULL_BAR,
   hasButton,
+  levelsOf,
+  withPatch,
 } from '../../src/domain/catalog/abilities';
-import { CLASSES, classesOfLineage } from '../../src/domain/catalog/classes';
+import { CLASSES, isBranched } from '../../src/domain/catalog/classes';
 import { CONSUMABLES } from '../../src/domain/catalog/consumables';
 import { ENEMY_LIST } from '../../src/domain/catalog/enemies';
 import { FLOOR_SCALING, FloorCurveScaling, FLOORS } from '../../src/domain/catalog/floors';
+import { HEROES } from '../../src/domain/catalog/heroes';
 import { ITEMS } from '../../src/domain/catalog/items';
 import { MODIFIERS, rollRoom, ROOMS, ROOMS_PER_FLOOR } from '../../src/domain/catalog/levels';
 import { PERK_BY_ABILITY, perkOf, PERKS, perksOfClass } from '../../src/domain/catalog/perks';
 import {
+  basePlacesOf,
   isSynergy,
   maxRank,
+  patchAt,
   PATH_ORDER,
   placesOfClass,
   placesOfTier,
@@ -35,12 +41,85 @@ import { abilityIcon, contentArtKeys } from '../../src/presentation/textures/art
 import { ABILITY_FX } from '../../src/presentation/theme/abilityFx';
 import { ok } from './harness';
 
-/** Значения эффекта таланта по рангам: у пары «шанс / сила» — шансы. */
+/** Значения эффекта таланта по рангам: у пары «шанс / сила» — шансы, у правки перка — пусто. */
 const rankValues = (e: TalentEffect): readonly number[] =>
-  e.kind === 'chance' ? e.chance : e.perRank;
+  e.kind === 'chance' ? e.chance : e.kind === 'modify' ? [] : e.perRank;
 
-// ---------------------------------------------------------------- данные перков и талантов
-for (const cls of Object.keys(CLASSES) as ClassId[]) {
+const ALL_CLASSES = Object.keys(CLASSES) as ClassId[];
+const TIERED = ALL_CLASSES.filter((c) => !isBranched(CLASSES[c]));
+const BRANCHED = ALL_CLASSES.filter((c) => isBranched(CLASSES[c]));
+
+/** Проверки одного таланта: ранги, их значения, перевод эффекта. */
+const checkTalent = (t: TalentEffect, id: string): void => {
+  if (t.kind === 'modify') {
+    ok(t.perRank.length >= 1 && t.perRank.length <= 5, `${id}: рангов ${t.perRank.length}`);
+    ok(
+      t.perRank.every((patch) => Object.keys(patch).length > 0),
+      `${id}: каждый ранг правит числа перка`,
+    );
+    ok(`talent.${id}.desc` in ru && `talent.${id}.desc` in en, `описание таланта-правки ${id}`);
+    return;
+  }
+  const v = rankValues(t);
+  ok(v.length >= 1 && v.length <= 5, `${id}: рангов ${v.length}`);
+  // значения суммарные, значит строго возрастают
+  ok(
+    v.every((x, i) => i === 0 || x > v[i - 1]),
+    `${id}: значения рангов возрастают (${v.join('/')})`,
+  );
+  if (t.kind === 'chance')
+    ok(t.power.length === v.length, `${id}: у каждого ранга есть и шанс, и сила`);
+  ok(`tal.${t.fx}` in ru && `tal.${t.fx}` in en, `перевод эффекта таланта tal.${t.fx}`);
+};
+
+// ---------------------------------------------------------------- классы с ветками и «Основа»
+ok(
+  BRANCHED.length === 10 && TIERED.length === 8,
+  'маг и охотник — классы с ветками, воин и наёмник — с ярусами',
+);
+for (const cls of BRANCHED) {
+  const def = CLASSES[cls];
+  if (!isBranched(def)) continue;
+  ok(`class.${cls}.name` in ru && `class.${cls}.name` in en, `перевод названия класса ${cls}`);
+  if (def.stage === 0) {
+    ok(def.branches.length === 0, `${cls}: у базового класса нет перков — сразу выбор подкласса`);
+    continue;
+  }
+  ok(def.branches.length >= 1, `${cls}: есть ветки`);
+  for (const b of def.branches) {
+    ok('perk' in b.steps[0], `${cls}/${b.id}: ветка начинается с перка`);
+    ok(
+      `branch.${cls}.${b.id}` in ru && `branch.${cls}.${b.id}` in en,
+      `перевод ветки ${cls}/${b.id}`,
+    );
+    for (const st of b.steps) if ('talent' in st) checkTalent(st.talent.effect, st.talent.id);
+  }
+  for (const b of def.branches) {
+    const perks = b.steps.filter((st) => 'perk' in st).length;
+    ok(perks >= 1 && perks <= 2, `${cls}/${b.id}: перков в ветке ${perks} (1–2)`);
+  }
+}
+for (const h of HEROES) {
+  const base = h.classes.find((c) => c.stage === 0)!;
+  if (!isBranched(base)) {
+    ok(!h.baseTree, `${h.lineage.id}: у линейки с ярусами нет «Основы»`);
+    continue;
+  }
+  const places = basePlacesOf(base.id);
+  ok(h.baseTree?.length === 6 && places.length >= 24, `${h.lineage.id}: «Основа» — шесть ярусов`);
+  for (let tier = 1; tier <= 6; tier++) {
+    const paths = new Set(places.filter((p) => p.tier === tier).map((p) => p.path));
+    ok(paths.size === 3, `${h.lineage.id}: на ярусе «Основы» ${tier} все три пути`);
+  }
+  ok(
+    places.some((p) => p.talent.effect.kind === 'bonus' && p.talent.effect.fx === 'hpPct'),
+    `${h.lineage.id}: в «Основе» есть запас здоровья`,
+  );
+  for (const p of places) checkTalent(p.talent.effect, p.talent.id);
+}
+
+// ---------------------------------------------------------------- классы с ярусами: перки и таланты
+for (const cls of TIERED) {
   const perks = perksOfClass(cls);
   const stage = CLASSES[cls].stage;
   ok(
@@ -86,19 +165,7 @@ for (const cls of Object.keys(CLASSES) as ClassId[]) {
   ok(variedTiers >= 2, `${cls}: цепочки разной длины минимум на двух ярусах (${variedTiers})`);
   const ranks = talents.reduce((a, t) => a + maxRank(t.talent.effect), 0);
   ok(ranks >= 30 && ranks <= 50, `${cls}: суммарно рангов ${ranks} (ожидалось 30–50)`);
-  for (const { talent: t } of talents) {
-    const v = rankValues(t.effect);
-    ok(v.length >= 1 && v.length <= 5, `${t.id}: рангов ${v.length}`);
-    // значения суммарные, значит строго возрастают
-    ok(
-      v.every((x, i) => i === 0 || x > v[i - 1]),
-      `${t.id}: значения рангов возрастают (${v.join('/')})`,
-    );
-    if (t.effect.kind === 'chance')
-      ok(t.effect.power.length === v.length, `${t.id}: у каждого ранга есть и шанс, и сила`);
-    const fx = t.effect.fx;
-    ok(`tal.${fx}` in ru && `tal.${fx}` in en, `перевод эффекта таланта tal.${fx}`);
-  }
+  for (const { talent: t } of talents) checkTalent(t.effect, t.id);
 }
 ok(
   new Set(TALENT_PLACES.map((t) => t.id)).size === TALENT_PLACES.length,
@@ -108,16 +175,14 @@ ok(new Set(TALENTS.map((t) => t.id)).size === TALENTS.length, 'id таланто
 // таланты-синергии: прокачка между способностями усиливает сами способности
 {
   const fx = (cls: ClassId, f: string): boolean =>
-    placesOfClass(cls).some((t) => t.talent.effect.fx === f);
-  ok(fx('pyromancer', 'abilityIgnite'), 'пиромант: талант «любая способность поджигает»');
-  ok(fx('necromancer', 'killBlast'), 'некромант: талант «взрыв трупа»');
-  const withSyn = (Object.keys(CLASSES) as ClassId[]).filter((c) =>
-    placesOfClass(c).some((t) => isSynergy(t.talent.effect)),
+    placesOfClass(cls).some((t) => t.talent.effect.kind !== 'modify' && t.talent.effect.fx === f);
+  const withSyn = TIERED.filter((c) => placesOfClass(c).some((t) => isSynergy(t.talent.effect)));
+  ok(
+    withSyn.length === TIERED.length,
+    `у каждого класса с ярусами есть талант-синергия (${withSyn.length})`,
   );
-  ok(withSyn.length === 16, `у каждого класса есть талант-синергия (${withSyn.length})`);
   // у каждого класса есть талант на запас здоровья: иначе живучесть держится только на броне
-  for (const c of Object.keys(CLASSES) as ClassId[])
-    ok(fx(c, 'hpPct'), `${c}: в дереве есть запас здоровья`);
+  for (const c of TIERED) ok(fx(c, 'hpPct'), `${c}: в дереве есть запас здоровья`);
 }
 ok(new Set(PERKS.map((p) => p.id)).size === PERKS.length, 'id перков уникальны');
 // у каждой механики с кнопкой — класс в реестре боя; пассивки и базовые действия работают в правилах боя
@@ -144,23 +209,32 @@ for (const a of ABILITY_LIST) {
   if (hasButton(a)) ok(a.target !== undefined, `${a.id}: у кнопки задана цель`);
   if (a.cost === FULL_BAR)
     ok(!!a.once, `${a.id}: способность за всю шкалу применяется раз за комнату`);
-  // числа способности — положительные: множители, ходы, штуки
-  const nums = Object.values(a.params as Record<string, number | readonly number[]>).flat();
-  ok(
-    nums.every((n) => Number.isFinite(n) && n > 0),
-    `${a.id}: числа способности положительные (${nums.join(', ')})`,
-  );
+  // числа способности на каждом уровне — положительные: множители, ходы, штуки (удар без урона — 0)
+  for (let level = 1; level <= levelsOf(a); level++) {
+    const params = abilityAtLevel(a, level).params as Record<string, number | readonly number[]>;
+    const nums = Object.entries(params)
+      .filter(([k]) => !(a.behavior === 'strike' && k === 'dmg'))
+      .flatMap(([, v]) => v);
+    ok(
+      nums.every((n) => Number.isFinite(n) && n > 0),
+      `${a.id}/${level}: числа способности положительные (${nums.join(', ')})`,
+    );
+  }
 }
 ok(
   Object.keys(ABILITY_FX).every((id) => id in ABILITY_BY_ID),
   'во вспышках способностей нет способностей, которых нет в игре',
 );
-// базовое действие осталось у лучника (выстрел) и наёмника (удар в спину);
-// воин бьёт рукой, а маг вообще не бьёт — только молнией по кнопке
+// базовая атака у всех — рука; дальнее базовое действие — перк: выстрел лучника и арбалетчика,
+// удар в спину наёмника
 const basics = PERKS.filter((p) => p.ability.kind === 'basic').map((p) => p.classId);
 ok(
-  basics.length === 2 && !basics.includes('warrior') && !basics.includes('mage'),
-  `базовые действия линеек: ${basics.join(',')}`,
+  JSON.stringify(basics.sort()) === JSON.stringify(['bowman', 'crossbowman', 'mercenary']),
+  `базовые действия: ${basics.join(',')}`,
+);
+ok(
+  PERKS.filter((p) => p.ability.kind === 'basic').every((p) => !!p.ability.attack),
+  'базовое действие называет свой стиль атаки',
 );
 
 // ---------------------------------------------------------------- этажи и враги
@@ -304,25 +378,39 @@ ok(
   Object.keys(en).every((k) => k in ru),
   'в английском словаре нет лишних ключей',
 );
-for (const cls of classesOfLineage('warrior'))
-  ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
+for (const cls of ALL_CLASSES) ok(`class.${cls}.name` in ru, `перевод названия класса ${cls}`);
 
 // тексты контента — в словарях по id сущности, числа описаний — только плейсхолдерами
 {
   const dict = { ru: ru as Record<string, string>, en: en as Record<string, string> };
   const holes = (text: string): string[] => [...text.matchAll(/\{(\w+)\}/g)].map((m) => m[1]);
   const bareDigits = (text: string): boolean => /\d/.test(text.replace(/\{\w+\}/g, ''));
-  for (const p of ABILITY_LIST) {
-    const values = abilityValues(p);
+  /** Текст с плейсхолдерами: все есть в значениях, голых цифр нет. */
+  const checkText = (key: string, values: Record<string, unknown>): void => {
     for (const lang of ['ru', 'en'] as const) {
-      const desc = dict[lang][`ability.${p.id}.desc`] ?? '';
-      const missing = holes(desc).filter((h) => !(h in values));
-      ok(
-        !missing.length,
-        `${p.id}/${lang}: числа описания есть у способности (${missing.join(', ')})`,
-      );
-      ok(!bareDigits(desc), `${p.id}/${lang}: в описании нет чисел мимо плейсхолдеров`);
+      const text = dict[lang][key] ?? '';
+      ok(text !== '', `${key}/${lang}: текст есть`);
+      const missing = holes(text).filter((h) => !(h in values));
+      ok(!missing.length, `${key}/${lang}: числа текста есть у сущности (${missing.join(', ')})`);
+      ok(!bareDigits(text), `${key}/${lang}: нет чисел мимо плейсхолдеров`);
     }
+  };
+  const levelKeys: string[] = [];
+  for (const p of ABILITY_LIST) {
+    checkText(`ability.${p.id}.desc`, abilityValues(p));
+    // каждый уровень перка со второго — своя строка «что добавляет уровень»
+    for (let level = 2; level <= levelsOf(p); level++) {
+      levelKeys.push(`ability.${p.id}.lv${level}`);
+      checkText(`ability.${p.id}.lv${level}`, abilityValues(abilityAtLevel(p, level)));
+    }
+  }
+  const modifyKeys: string[] = [];
+  for (const t of TALENTS) {
+    const e = t.effect;
+    if (e.kind !== 'modify') continue;
+    modifyKeys.push(`talent.${t.id}.desc`);
+    for (let rank = 1; rank <= e.perRank.length; rank++)
+      checkText(`talent.${t.id}.desc`, abilityValues(withPatch(e.ability, patchAt(e, rank)!)));
   }
   const named = [
     ...TALENTS.map((t) => `talent.${t.id}.name`),
@@ -345,6 +433,8 @@ for (const cls of classesOfLineage('warrior'))
   // в словарях нет текстов сущностей, которых уже нет в игре
   const known = new Set([
     ...named,
+    ...levelKeys,
+    ...modifyKeys,
     ...ABILITY_LIST.flatMap((a) => [`ability.${a.id}.name`, `ability.${a.id}.desc`]),
   ]);
   const orphans = Object.keys(ru)

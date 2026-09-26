@@ -1,3 +1,4 @@
+import type { ArmedPick } from '../../application/game/interfaces/ArmedPick';
 import type { CellRejection } from '../../application/game/interfaces/CellRejection';
 import type { IGameRenderer } from '../../application/game/interfaces/IGameRenderer';
 import type { TutorialStep } from '../../application/game/interfaces/TutorialStep';
@@ -22,6 +23,12 @@ export class PhaserRenderer implements IGameRenderer {
     active: 'game.perk_active',
     cooldown: 'game.cooldown',
     gold: 'game.no_gold_perk',
+    invalid: 'game.trap_skill_bad',
+  };
+  private static readonly PICK_HINT: Record<'one' | 'two' | 'skill', TKey> = {
+    one: 'game.pick_target',
+    two: 'game.pick_two',
+    skill: 'game.pick_skill',
   };
 
   constructor(
@@ -65,7 +72,7 @@ export class PhaserRenderer implements IGameRenderer {
         this.hud.flashResource();
         return;
       case 'melee':
-        // маг вообще не бьёт рукой — подсказываем, что нужна кнопка способности
+        // рукой не достать — подсказываем, что нужна кнопка способности
         this.sound.play('error');
         if (v) this.animations.hit.jolt(v);
         this.hud.note(t('game.no_melee'), HEX.gold, 22);
@@ -85,11 +92,11 @@ export class PhaserRenderer implements IGameRenderer {
     this.sound.play('error');
   }
 
-  armed(pick: 'one' | 'two' | null): void {
+  armed(pick: ArmedPick): void {
     this.sound.play('click');
     this.hud.refreshAbilities();
     this.board.showTargets(this.battle);
-    if (pick) this.hud.note(t(pick === 'two' ? 'game.pick_two' : 'game.pick_target'), HEX.gold, 24);
+    if (pick) this.hud.note(t(PhaserRenderer.PICK_HINT[pick]), HEX.gold, 24);
   }
 
   firstOfTwo(): void {

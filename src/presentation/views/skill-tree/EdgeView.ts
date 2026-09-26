@@ -23,6 +23,11 @@ export class EdgeView {
     this.img.setDisplaySize(len, 7);
   }
 
+  /** Связь на текущей вкладке дерева видна, на другой — спрятана. */
+  setVisible(on: boolean): void {
+    this.img.setVisible(on);
+  }
+
   paint(sa: NodeState, sb: NodeState): void {
     const done = (s: NodeState): boolean => s === 'owned';
     if (done(sa) && done(sb)) this.img.setTint(this.color).setAlpha(0.95);

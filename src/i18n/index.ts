@@ -1,13 +1,16 @@
 import {
   ABILITY_BY_ID,
+  abilityAtLevel,
   type AbilityDef,
   type EnemyDef,
   type ItemDef,
   maxRank,
+  patchAt,
   powerAt,
   type TalentDef,
   type TalentEffect,
   valueAt,
+  withPatch,
 } from '../domain/catalog';
 import type { Trait } from '../domain/progression';
 import type { AchievementDef } from '../domain/rewards';
@@ -34,6 +37,9 @@ export const t = (key: TKey, params?: Record<string, string | number>): string =
 export const abilityName = (a: AbilityDef): string => t(`ability.${a.id}.name` as TKey);
 export const abilityDesc = (a: AbilityDef): string =>
   t(`ability.${a.id}.desc` as TKey, abilityValues(a));
+/** Что добавляет уровень перка `level` (со второго): строка `ability.<id>.lv<уровень>`. */
+export const abilityLevelDesc = (a: AbilityDef, level: number): string =>
+  t(`ability.${a.id}.lv${level}` as TKey, abilityValues(abilityAtLevel(a, level)));
 export const talentName = (td: TalentDef): string => t(`talent.${td.id}.name` as TKey);
 export const enemyName = (e: EnemyDef): string => t(`enemy.${e.id}.name` as TKey);
 export const itemName = (it: ItemDef): string => t(`item.${it.id}.name` as TKey);
@@ -42,13 +48,26 @@ export const achievementDesc = (a: AchievementDef): string =>
   t(`ach.${a.id}.desc` as TKey, { target: a.target, floor: a.floor ?? '' });
 
 /** Строка эффекта таланта на ранге («+18% к урону»); у пары — `{chance}` и `{power}`. */
-export const talentEffect = (e: TalentEffect, rank: number): string =>
-  t(
+export const talentEffect = (e: TalentEffect, rank: number): string => {
+  if (e.kind === 'modify') return '';
+  return t(
     `tal.${e.fx}` as TKey,
     e.kind === 'chance'
       ? { chance: valueAt(e, rank), power: powerAt(e, rank) }
       : { v: valueAt(e, rank) },
   );
+};
+
+/**
+ * Строка таланта на ранге: у правки перка — своё описание (`talent.<id>.desc`) с числами правки
+ * этого ранга, у остальных — строка эффекта.
+ */
+export const talentLine = (def: TalentDef, rank: number): string => {
+  const e = def.effect;
+  if (e.kind !== 'modify') return talentEffect(e, rank);
+  const patch = patchAt(e, rank) ?? {};
+  return t(`talent.${def.id}.desc` as TKey, abilityValues(withPatch(e.ability, patch)));
+};
 
 /**
  * Описание таланта в панели: что даёт сейчас и что даст следующий ранг.
@@ -56,10 +75,10 @@ export const talentEffect = (e: TalentEffect, rank: number): string =>
  */
 export const talentDesc = (def: TalentDef, rank: number): string => {
   const lines: string[] = [];
-  if (rank > 0) lines.push(`${t('skill.now')}: ${talentEffect(def.effect, rank)}`);
+  if (rank > 0) lines.push(`${t('skill.now')}: ${talentLine(def, rank)}`);
   if (rank < maxRank(def.effect)) {
     const label = rank > 0 ? t('skill.next') : t('skill.rank_one');
-    lines.push(`${label}: ${talentEffect(def.effect, rank + 1)}`);
+    lines.push(`${label}: ${talentLine(def, rank + 1)}`);
   }
   return lines.join('\n');
 };

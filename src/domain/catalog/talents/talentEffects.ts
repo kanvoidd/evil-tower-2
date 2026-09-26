@@ -1,3 +1,6 @@
+import type { AbilityBehaviorId } from '../abilities/interfaces/AbilityBehaviorId';
+import type { AbilityBehaviorParams } from '../abilities/interfaces/AbilityBehaviorParams';
+import type { AbilityDef, AbilityDefOf } from '../abilities/interfaces/AbilityDef';
 import type { TalentBonusFx } from './interfaces/TalentBonusFx';
 import type { TalentChanceFx } from './interfaces/TalentChanceFx';
 import type { TalentEffect } from './interfaces/TalentEffect';
@@ -17,11 +20,20 @@ export const synergy = (fx: TalentSynergyFx, perRank: readonly number[]): Talent
   perRank,
 });
 
-/** Пара «шанс / сила» по рангам: `chanceAndPower('boltEcho', { chance: [15, 30], power: [50, 70] })`. */
+/** Пара «шанс / сила» по рангам: `chanceAndPower('basicEcho', { chance: [25], power: [60] })`. */
 export const chanceAndPower = (
   fx: TalentChanceFx,
   ranks: { readonly chance: readonly number[]; readonly power: readonly number[] },
 ): TalentEffect => ({ kind: 'chance', fx, chance: ranks.chance, power: ranks.power });
+
+/**
+ * Правка перка по рангам: `modify(ignite, [{ burstAt: 4, burstMul: Ratio.of(1) }])` — числа ранга
+ * заменяют числа способности у героя. Вид чисел проверяется по механике способности.
+ */
+export const modify = <B extends AbilityBehaviorId>(
+  ability: AbilityDefOf<B>,
+  perRank: readonly Partial<AbilityBehaviorParams[B]>[],
+): TalentEffect => ({ kind: 'modify', ability: ability as AbilityDef, perRank });
 
 /** Меняет ли талант полученные способности (значок молнии в дереве). */
 export const isSynergy = (e: TalentEffect): boolean => e.kind !== 'bonus';

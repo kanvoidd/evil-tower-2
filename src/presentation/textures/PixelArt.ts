@@ -312,6 +312,14 @@ export const HEROES: Record<string, Draw> = {
     hat: hats.wizard(K.blue, K.blueD),
     weapon: weapons.staff(K.cyan),
   }),
+  arcanist: hero({
+    body: K.teal,
+    bodyD: K.blueD,
+    legs: K.teal,
+    robe: true,
+    hat: hats.wizard(K.teal, K.blueD, K.cyan),
+    weapon: weapons.staff(K.cyan, K.goldD),
+  }),
   magister: hero({
     body: K.purple,
     bodyD: K.purpleD,
@@ -321,7 +329,7 @@ export const HEROES: Record<string, Draw> = {
     weapon: weapons.staff(K.purpleL, K.goldD),
     extra: (g) => g.mrect(5, 10, 1, 2, K.gold),
   }),
-  necromancer: hero({
+  warlock: hero({
     body: K.purpleD,
     bodyD: K.black,
     legs: K.purpleD,
@@ -331,7 +339,7 @@ export const HEROES: Record<string, Draw> = {
     weapon: weapons.skullStaff(),
     extra: (g) => g.mdot(6, 4, K.greenL),
   }),
-  pyromancer: hero({
+  elementalist: hero({
     body: K.red,
     bodyD: K.redD,
     legs: K.red,
@@ -341,7 +349,7 @@ export const HEROES: Record<string, Draw> = {
     extra: (g) => g.mrect(5, 10, 1, 2, K.orange),
   }),
 
-  archer: hero({
+  hunter: hero({
     body: K.green,
     bodyD: K.greenD,
     legs: K.brown,
@@ -349,7 +357,15 @@ export const HEROES: Record<string, Draw> = {
     weapon: weapons.bow(),
     cape: K.greenD,
   }),
-  hawkeye: hero({
+  bowman: hero({
+    body: K.green,
+    bodyD: K.greenD,
+    legs: K.brownD,
+    hat: hats.hood(K.green, K.greenD),
+    weapon: weapons.bow(K.gold),
+    cape: K.brown,
+  }),
+  beastmaster: hero({
     body: K.greenD,
     bodyD: K.brownD,
     legs: K.brownD,
@@ -358,7 +374,7 @@ export const HEROES: Record<string, Draw> = {
     cape: K.brown,
     extra: (g) => g.rect(9, 0, 1, 2, K.redL).rect(10, 1, 1, 1, K.white),
   }),
-  arrowgod: hero({
+  huntsman: hero({
     body: K.gold,
     bodyD: K.goldD,
     legs: K.greenD,
@@ -367,7 +383,7 @@ export const HEROES: Record<string, Draw> = {
     cape: K.green,
     extra: (g) => g.mdot(6, 4, K.cyan),
   }),
-  sniper: hero({
+  crossbowman: hero({
     body: K.brownD,
     bodyD: K.black,
     legs: K.brownD,

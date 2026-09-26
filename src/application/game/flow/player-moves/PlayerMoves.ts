@@ -6,6 +6,7 @@ import {
 } from '../../../../domain/catalog';
 import type { CellIndex } from '../../../../domain/shared';
 import { GameCommandHandler } from '../../GameCommandHandler';
+import type { ArmedPick } from '../../interfaces/ArmedPick';
 import type { CellRejection } from '../../interfaces/CellRejection';
 import { FlowPart } from '../flow-part/FlowPart';
 
@@ -25,10 +26,18 @@ export class PlayerMoves extends FlowPart {
     this.d.view.clearHand();
     // «заряжено»: ход не потрачен, ждём выбора цели
     if (battle.armed || res.events.every((e) => e.type === 'armed')) {
-      this.d.view.armed(battle.armed ? (battle.armed.target === 'two' ? 'two' : 'one') : null);
+      this.d.view.armed(this.pickOf());
       return;
     }
     void this.parts.turns.turn(res.events);
+  }
+
+  /** Что игрок выбирает дальше: цель, вторую карту или способность для «Взведённой ловушки». */
+  private pickOf(): ArmedPick {
+    const armed = this.d.battle.armed;
+    if (!armed) return null;
+    if (armed.behavior === 'armed_trap') return this.d.battle.trapSkill ? 'one' : 'skill';
+    return armed.target === 'two' ? 'two' : 'one';
   }
 
   onCell(cell: CellIndex): void {

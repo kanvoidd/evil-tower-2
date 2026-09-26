@@ -17,17 +17,41 @@ export const CLASSES = Object.fromEntries(CLASS_LIST.map((c) => [c.id, c])) as R
 export const CLASS_ORDER: ClassId[] = CLASS_LIST.map((c) => c.id);
 
 export const lineageOf = (id: ClassId): LineageId => CLASSES[id].lineage;
-export const baseClassOf = (l: LineageId): ClassId => l;
 
-/** Классы линейки в порядке развития: базовый, второй, два финальных. */
+/** Классы линейки в порядке развития: базовый, следующие ступени. */
 export const classesOfLineage = (l: LineageId): ClassId[] =>
   CLASS_ORDER.filter((id) => CLASSES[id].lineage === l);
 
+/** Базовый класс линейки — с него начинает новый герой. */
+export const baseClassOf = (l: LineageId): ClassId =>
+  classesOfLineage(l).find((id) => CLASSES[id].stage === 0)!;
+
+/** Финальные классы линейки с ярусами (у линеек с ветками их пока нет). */
 export const terminalsOf = (l: LineageId): ClassId[] =>
   classesOfLineage(l).filter((id) => CLASSES[id].stage === 2);
 
+/** Вторая ступень линейки с ярусами. */
 export const secondOf = (l: LineageId): ClassId =>
   classesOfLineage(l).find((id) => CLASSES[id].stage === 1)!;
+
+/** Классы, в которые ведёт метаморфоза из `id`. */
+export const childrenOf = (id: ClassId): ClassId[] =>
+  CLASS_ORDER.filter((c) => CLASSES[c].parents.includes(id));
+
+/**
+ * Соседи по выбору: классы, в которые ведёт та же метаморфоза (финалы воина, подклассы мага).
+ * Из соседей герой выбирает один — остальные закрываются.
+ */
+export const siblingsOf = (id: ClassId): ClassId[] => {
+  const own = CLASSES[id].parents;
+  if (!own.length) return [];
+  return CLASS_ORDER.filter(
+    (c) =>
+      c !== id &&
+      CLASSES[c].parents.length === own.length &&
+      CLASSES[c].parents.every((p) => own.includes(p)),
+  );
+};
 
 /** База линейки с прибавками класса. */
 const withBonuses = (base: Stats, bonuses: Partial<Stats>): Stats => {
@@ -49,11 +73,11 @@ export const CLASS_DEFINITIONS = Object.fromEntries(
         id: c.id,
         lineage,
         stage: c.stage,
-        parent: c.parent,
+        parents: c.parents,
         baseStats: withBonuses(lineage.base, c.bonuses),
         abilities: PERKS.filter((p) => p.classId === c.id),
         talents: placesOfClass(c.id),
-        next: CLASS_LIST.filter((x) => x.parent === c.id).map((x) => x.id),
+        next: childrenOf(c.id),
       },
     ];
   }),

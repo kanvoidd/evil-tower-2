@@ -1,10 +1,12 @@
 import { DEFAULT_AUTO_USE } from '../../../combat';
 import type { Lang } from '../../../shared';
 import type { SaveData } from '../interfaces/SaveData';
+import { PROFESSION_TREES } from '../migrations/profession-rework/professionTrees';
 
 /** Документ сохранения нового игрока. */
 export const freshSave = (lang: Lang, now: number): SaveData => ({
   v: 2,
+  treeVersion: PROFESSION_TREES,
   savedAt: 0,
   createdAt: now,
   lang,

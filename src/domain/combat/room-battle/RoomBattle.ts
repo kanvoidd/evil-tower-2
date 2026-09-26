@@ -19,6 +19,7 @@ import type { BattleInit } from './interfaces/BattleInit';
 import type { BattleTotals } from './interfaces/BattleTotals';
 import type { IBattleSession } from './interfaces/IBattleSession';
 import type { PerkReadiness } from './interfaces/PerkReadiness';
+import type { TrapView } from './interfaces/TrapView';
 import type { TurnResult } from './interfaces/TurnResult';
 import { DamageCalc } from './parts/damage-calc/DamageCalc';
 import { EnemyDeath } from './parts/enemy-death/EnemyDeath';
@@ -28,9 +29,9 @@ import { HeroUpkeep } from './parts/hero-upkeep/HeroUpkeep';
 import type { RoomParts } from './parts/interfaces/RoomParts';
 import { PerkActions } from './parts/perk-actions/PerkActions';
 import { PlayerActions } from './parts/player-actions/PlayerActions';
-import { Rewind } from './parts/rewind/Rewind';
 import { RoomFlow } from './parts/room-flow/RoomFlow';
 import { RoomLoot } from './parts/room-loot/RoomLoot';
+import { RoomTraps } from './parts/room-traps/RoomTraps';
 import { StatusEffects } from './parts/status-effects/StatusEffects';
 import { RoomState } from './room-state/RoomState';
 
@@ -38,7 +39,7 @@ import { RoomState } from './room-state/RoomState';
  * Бой в одной комнате — фасад для сцены, тестов и симулятора (`IBattleSession`). Правил здесь
  * нет: они в частях боя (`parts/`) над общим состоянием комнаты (`RoomState`) — урон, удары
  * и гибель врагов, статусы, действия героя, добыча, ответ врагов, способности, течение хода,
- * откат. Поле и колода — у движка (`IEngine`), карты создаёт фабрика — обоих даёт
+ * ловушки. Поле и колода — у движка (`IEngine`), карты создаёт фабрика — обоих даёт
  * `RoomBattleFactory`.
  */
 export class RoomBattle implements IBattleSession {
@@ -59,7 +60,7 @@ export class RoomBattle implements IBattleSession {
     parts.enemyTurn = new EnemyTurn(state, parts);
     parts.perks = new PerkActions(state, parts);
     parts.flow = new RoomFlow(state, parts);
-    parts.rewind = new Rewind(state, parts);
+    parts.traps = new RoomTraps(state, parts);
     this.state = state;
     this.parts = parts;
   }
@@ -168,6 +169,26 @@ export class RoomBattle implements IBattleSession {
 
   get armed(): AbilityDef | null {
     return this.state.armed;
+  }
+
+  get trapSkill(): AbilityDef | null {
+    return this.state.trapSkill;
+  }
+
+  get trapDelay(): number {
+    return this.state.trapDelay;
+  }
+
+  get traps(): readonly TrapView[] {
+    return this.state.traps.map((t) => ({ cell: t.cell, ability: t.ability.id, turns: t.turns }));
+  }
+
+  chargeOf(p: AbilityDef): number {
+    return this.state.charges[p.id] ?? 0;
+  }
+
+  canArmWith(trap: AbilityDef, p: AbilityDef): boolean {
+    return this.parts.perks.canArmWith(trap, p);
   }
 
   /** Поле боя — у движка; правила его только читают, а меняют командами движка. */

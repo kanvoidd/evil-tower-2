@@ -2,10 +2,16 @@ import type Phaser from 'phaser';
 
 import type { SkillTreeCommand } from '../../../application/skill-tree/interfaces/SkillTreeCommand';
 import type { SkillTreeQuery } from '../../../application/skill-tree/SkillTreeQuery';
-import { FULL_BAR } from '../../../domain/catalog';
+import {
+  abilityAtLevel,
+  type AbilityDef,
+  FULL_BAR,
+  type TieredPerkSlot,
+} from '../../../domain/catalog';
 import { classTraits, type NodeState, type TreeNode } from '../../../domain/progression';
 import {
   abilityDesc,
+  abilityLevelDesc,
   abilityName,
   describeTrait,
   fmt,
@@ -31,11 +37,18 @@ import { NodeView } from './NodeView';
 
 /**
  * Нижняя панель дерева: что за узел выбран, его цена и кнопка — купить, улучшить или отказаться
- * от финального класса. Кнопки отдают команды; что можно купить, решает приложение.
+ * от выбранного класса. Кнопки отдают команды; что можно купить, решает приложение.
  */
 export class SkillInfoPanel {
   /** Высота панели — дерево панорамируется над ней. */
   static readonly H = 306;
+  /** Подписи мест перков в классе с ярусами. */
+  private static readonly SLOT_KEY: Readonly<Record<TieredPerkSlot, TKey>> = {
+    start: 'skill.perk_start',
+    p2: 'skill.perk_p2',
+    p3: 'skill.perk_p3',
+    legend: 'skill.perk_legend',
+  };
 
   readonly root: Phaser.GameObjects.Container;
 
@@ -103,7 +116,9 @@ export class SkillInfoPanel {
     if (n.kind === 'perk' && n.owner !== this.query.activeClass) {
       desc += `\n${t('skill.from_class', { c: t(`class.${n.owner}.name` as TKey) })}`;
     }
-    if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class'))
+    if (st === 'locked' && n.kind === 'class' && this.query.tree.shape === 'branched')
+      desc += `\n${t('skill.gate_branch')}`;
+    else if (st === 'locked' && (n.kind === 'perk' || n.kind === 'class') && !n.branch)
       desc += `\n${t('skill.gate')}`;
     const descText = txt(this.scene, 158, y0 + 104, desc, 21, {
       origin: [0, 0],
@@ -155,7 +170,8 @@ export class SkillInfoPanel {
       return { btn, status: '', statusColor: HEX.textDim };
     }
     if (st === 'blocked') return { btn: null, status: t('skill.blocked'), statusColor: HEX.bad };
-    return { btn: null, status: t('skill.locked'), statusColor: HEX.textDim };
+    const locked = n.branch ? t('skill.locked_step') : t('skill.locked');
+    return { btn: null, status: locked, statusColor: HEX.textDim };
   }
 
   /** Цена в душах, строка состояния и кнопка — в нижнем ряду панели. */
@@ -194,9 +210,12 @@ export class SkillInfoPanel {
     if (n.kind === 'talent') {
       const def = q.talent(n);
       const rank = q.rank(n);
+      const where = n.branch
+        ? SkillInfoPanel.branchLabel(n)
+        : t('skill.tier_label', { n: n.tier!, path: t(`path.${n.path}` as TKey) });
       return {
         title: talentName(def.talent),
-        sub: `${t('skill.tier_label', { n: n.tier!, path: t(`path.${n.path}` as TKey) })} · ${t('skill.rank', { n: rank, max: q.maxRank(n) })}`,
+        sub: `${where} · ${t('skill.rank', { n: rank, max: q.maxRank(n) })}`,
         desc: talentDesc(def.talent, rank),
         tex: `tal_${n.path}`,
         iconKey: NodeView.talentIcon(n),
@@ -204,15 +223,16 @@ export class SkillInfoPanel {
     }
     if (n.kind === 'perk') {
       const perk = q.perk(n)!.ability;
-      const slotKey = (
-        {
-          start: 'skill.perk_start',
-          p2: 'skill.perk_p2',
-          p3: 'skill.perk_p3',
-          legend: 'skill.perk_legend',
-        } as const
-      )[n.slot!];
-      const lines: string[] = [abilityDesc(perk)];
+      const level = q.rank(n);
+      const max = q.maxRank(n);
+      const sub = n.branch
+        ? SkillInfoPanel.branchLabel(n) +
+          (max > 1 ? ` · ${t('skill.level', { n: level, max })}` : '')
+        : t(SkillInfoPanel.SLOT_KEY[n.slot as TieredPerkSlot]);
+      const lines: string[] = [
+        abilityDesc(abilityAtLevel(perk, Math.max(1, level))),
+        ...SkillInfoPanel.levelLines(perk, level, max),
+      ];
       if (perk.kind === 'passive') lines.push(t('skill.passive'));
       else if (perk.kind === 'basic') lines.push(t('skill.basic'));
       if (perk.cost !== undefined && perk.kind !== 'passive') {
@@ -225,7 +245,7 @@ export class SkillInfoPanel {
       if (perk.once) lines.push(t('skill.once'));
       return {
         title: abilityName(perk),
-        sub: t(slotKey),
+        sub,
         desc: lines.join('\n'),
         tex: abilityIcon(perk.id),
       };
@@ -233,7 +253,7 @@ export class SkillInfoPanel {
     if (n.kind === 'class') {
       return {
         title: t(`class.${n.classId}.name` as TKey),
-        sub: t('skill.class'),
+        sub: q.isChoice(n) && q.tree.shape === 'branched' ? t('skill.subclass') : t('skill.class'),
         desc: classTraits(n.classId!, 3)
           .map((tr) => `• ${describeTrait(tr)}`)
           .join('\n'),
@@ -241,5 +261,20 @@ export class SkillInfoPanel {
       };
     }
     return { title: t('skill.evo'), sub: '', desc: t('skill.evo_desc'), tex: 'evo_gate' };
+  }
+
+  /** Ветка класса, в которой стоит узел. */
+  private static branchLabel(n: TreeNode): string {
+    return t('skill.branch', { b: t(`branch.${n.owner}.${n.branch}` as TKey) });
+  }
+
+  /** Уровни перка со второго: изученные — галочкой, следующий — стрелкой. */
+  private static levelLines(perk: AbilityDef, level: number, max: number): string[] {
+    const out: string[] = [];
+    for (let l = 2; l <= max; l++) {
+      const mark = l <= level ? '✓' : l === level + 1 ? '→' : '·';
+      out.push(`${mark} ${t('skill.level', { n: l, max })}: ${abilityLevelDesc(perk, l)}`);
+    }
+    return out;
   }
 }

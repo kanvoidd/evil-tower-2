@@ -13,7 +13,6 @@ import {
   type IDefenseModifier,
   type IHeroDamageModifier,
   type ITargetDamageModifier,
-  KillBonus,
   KillStackDefense,
   KillTurnDefense,
   LowHpBonus,
@@ -22,6 +21,7 @@ import {
   RageBonus,
   ResourceDefense,
   ScarDefense,
+  StillAimBonus,
   WoundedEnemyReduction,
 } from '../../../combat';
 import { Percent, type Ratio } from '../../../shared';
@@ -34,12 +34,13 @@ type TalentSum = (fx: TalentFx) => number;
  * их применяет: порядок сложения и округлений — часть баланса. Талант без рангов надбавки не даёт.
  */
 export class StatModifiers {
-  /** Надбавки к урону героя: «Кровь кипит», за убийства, за золото, «Резня», защита в урон. */
+  /**
+   * Надбавки к урону героя: «Кровь кипит», за золото, «Резня», защита в урон, «Затаившийся стрелок».
+   */
   static damage(g: TalentSum, passives: readonly AbilityDef[]): IHeroDamageModifier[] {
     const out: IHeroDamageModifier[] = [];
     const share = StatModifiers.share;
     if (g('rageDmg') > 0) out.push(new RageBonus(share(g('rageDmg'))));
-    if (g('killDmg') > 0) out.push(new KillBonus(share(g('killDmg'))));
     if (g('goldDmg') > 0) out.push(new GoldBonus(share(g('goldDmg'))));
     const carnage = withBehavior(passives, 'carnage');
     if (carnage) {
@@ -47,6 +48,8 @@ export class StatModifiers {
       out.push(new CarnageBonus(perKill, cap));
     }
     if (g('defDmg') > 0) out.push(new ArmorToDamage(share(g('defDmg'))));
+    const still = withBehavior(passives, 'still_aim');
+    if (still) out.push(new StillAimBonus(still.params.perStack, still.params.maxStacks));
     return out;
   }
 

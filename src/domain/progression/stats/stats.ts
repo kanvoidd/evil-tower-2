@@ -1,18 +1,20 @@
 import {
+  abilityAtLevel,
+  type AbilityDef,
   CLASSES,
   type ClassId,
   type EquipmentSave,
   hasButton,
   ITEM_BY_ID,
   LINEAGES,
-  PERK_BY_ID,
+  withPatch,
 } from '../../catalog';
 import { ATTACK_STRATEGIES, CombatBalance, type PlayerStats } from '../../combat';
 import { Percent, Ratio } from '../../shared';
-import { activePerkIds, learnedTalents, TREES } from '../skill-tree';
+import { learnedTalents, ownedPerks, TREES } from '../skill-tree';
 import type { LineageSave } from '../skill-tree/interfaces/LineageSave';
 import { StatModifiers } from './stat-modifiers/StatModifiers';
-import { talentBonuses, talentPowers } from './talent-bonuses/talentBonuses';
+import { abilityPatches, talentBonuses, talentPowers } from './talent-bonuses/talentBonuses';
 
 export interface Loadout {
   classId: ClassId;
@@ -40,10 +42,14 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
   const g = (k: keyof typeof tb): number => tb[k] ?? 0;
   const g2 = (k: keyof typeof tb2): number => tb2[k] ?? 0;
 
-  // Способности не теряются при метаморфозе: у финального класса в руках весь путь линейки.
-  const owned = activePerkIds(tree, l.lineage, l.classId)
-    .map((p) => PERK_BY_ID[p]?.ability)
-    .filter((a) => a !== undefined);
+  // Способности не теряются при метаморфозе: у следующего класса в руках весь путь линейки.
+  // Числа способности — её уровня перка с правками изученных талантов.
+  const patches = abilityPatches(learned);
+  const owned: AbilityDef[] = ownedPerks(tree, l.lineage).map(({ perk, level }) => {
+    const a = abilityAtLevel(perk.ability, level);
+    const patch = patches.get(a.id);
+    return patch ? withPatch(a, patch) : a;
+  });
   const basic = owned.find((a) => a.kind === 'basic');
   const passiveList = owned.filter((a) => a.kind === 'passive');
   const passives = new Set(passiveList.map((a) => a.behavior));
@@ -72,7 +78,7 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     luck: lin.base.luck + (cls.bonuses.luck ?? 0),
     resMax: Math.max(1, Math.round(lin.resMax * (1 + asRatio(g('resMaxPct'))))),
     regen: lin.resRegen,
-    attack: ATTACK_STRATEGIES[lin.attack],
+    attack: ATTACK_STRATEGIES[basic?.attack ?? lin.attack],
     rangedCost: basic?.cost ?? 0,
     critMin: CombatBalance.critMulMin,
     critMax: CombatBalance.critMulMax + asRatio(g('critMul')),
@@ -84,12 +90,9 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     execute: asRatio(g('execute')),
     pierce: Ratio.of(Math.min(1, asRatio(g('pierce')))),
     doubleStrike: Percent.of(g('doubleStrike')),
-    ignite: asRatio(g('ignite')),
     everyThird: g('everyThird') > 0,
-    roomCrit: g('roomCrit') > 0,
     lifesteal: Ratio.of(0),
 
-    abilityIgnite: Percent.of(g('abilityIgnite')),
     abilityStun: Percent.of(g('abilityStun')),
     abilitySplash: asRatio(g('abilitySplash')),
     abilityPoison: asRatio(g('abilityPoison')),
@@ -98,14 +101,11 @@ export const buildPlayerStats = (l: Loadout): PlayerStats => {
     abilityLifesteal: asRatio(g('abilityLifesteal')),
     abilityRefund: asRatio(g('abilityRefund')),
     abilityShield: asRatio(g('abilityShield')),
-    killBlast: asRatio(g('killBlast')),
     splitChance: asRatio(g('basicSplit')),
     splitDmg: asRatio(g2('basicSplit')),
-    echoChance: asRatio(g('boltEcho')),
-    echoDmg: asRatio(g2('boltEcho')),
-    lightningPower: asRatio(g('lightningPower')),
-    shotPower: asRatio(g('shotPower')),
-    chainPower: asRatio(g('chainPower')),
+    echoChance: asRatio(g('basicEcho')),
+    echoDmg: asRatio(g2('basicEcho')),
+    overcharge: asRatio(g('overcharge')),
     perkCostDown: g('perkCostDown'),
 
     startShieldPct: asRatio(g('startShield')),

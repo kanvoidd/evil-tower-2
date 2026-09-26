@@ -14,6 +14,8 @@ export interface HeroView {
   readonly gold: Gold;
   /** Действует «защита на ход после убийства». */
   readonly killDefenseActive: boolean;
+  /** Ходов подряд герой простоял на месте («Затаившийся стрелок»). */
+  readonly stillTurns: number;
   /** Защита героя с учётом надбавок. */
   defense(): number;
 }

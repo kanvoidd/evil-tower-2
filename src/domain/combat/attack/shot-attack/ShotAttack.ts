@@ -1,12 +1,11 @@
-import type { AbilityBehaviorId } from '../../../catalog';
 import type { CellIndex } from '../../../shared';
 import { Grid } from '../../engine/grid/Grid';
 import type { BasicMode } from '../interfaces/BasicMode';
 import type { IAttackStrategy } from '../interfaces/IAttackStrategy';
 
 /**
- * Рукой и выстрелом через карту по прямой (лучник). «Косой прицел» добавляет диагонали,
- * «Орлиный глаз» — соседние клетки.
+ * Рукой и выстрелом через карту по прямой — стиль базовых перков охотника («Сквозной выстрел»,
+ * «Залп болтом»).
  */
 export class ShotAttack implements IAttackStrategy {
   readonly melee = true;
@@ -15,10 +14,7 @@ export class ShotAttack implements IAttackStrategy {
   readonly guaranteedCrit = false;
   readonly style = 'shot' as const;
 
-  reaches(from: CellIndex, to: CellIndex, passives: ReadonlySet<AbilityBehaviorId>): boolean {
-    if (Grid.dist(from, to) === 2 && Grid.sameLine(from, to)) return true;
-    if (passives.has('diagonal') && Grid.diagonals(from).includes(to)) return true;
-    if (passives.has('eagle_eye') && Grid.neighbors(from).includes(to)) return true;
-    return false;
+  reaches(from: CellIndex, to: CellIndex): boolean {
+    return Grid.dist(from, to) === 2 && Grid.sameLine(from, to);
   }
 }

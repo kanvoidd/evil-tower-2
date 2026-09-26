@@ -5,14 +5,12 @@ import type { Card } from '../../../card/Card';
 import { Grid } from '../../../engine/grid/Grid';
 import { RoomPart } from '../room-part/RoomPart';
 
-/** Гибель врага: добыча, таланты «за убийство», взрывы, призраки, переход клейма. */
+/** Гибель врага: добыча, таланты «за убийство», взрыв заражённого, слуга, переход клейма. */
 export class EnemyDeath extends RoomPart {
   /** Талант «здоровье за убийства» срабатывает на каждое такое по счёту убийство… */
   static readonly KILL_HP_EVERY = 10;
   /** …и прибавляет не больше этой доли максимума здоровья. */
   static readonly KILL_HP_CAP = 0.3;
-  /** Горящий враг, погибая, поджигает соседей на столько ходов. */
-  static readonly BURN_SPREAD_TURNS = 2;
 
   killEnemy(cell: CellIndex): void {
     const enemy = this.state.cards[cell];
@@ -20,9 +18,8 @@ export class EnemyDeath extends RoomPart {
     const def = this.state.enemies[enemy.defId];
     this.state.emit({ type: 'kill', cell, uid: enemy.uid });
     this.state.engine.clear(cell);
-    // «Призрачные слуги»: на месте заражённого встаёт призрак (не больше двух на поле)
-    if (enemy.haunt && this.ghostCount() < this.state.paramsOf('ghosts').maxGhosts)
-      this.raiseGhost(cell);
+    // «Мёртвый слуга»: на месте заражённого встаёт его мёртвая версия
+    if (enemy.infect && this.state.ability('dead_servant')) this.raiseServant(cell, enemy);
     else this.state.engine.vacate(cell);
     this.state.totals.kills++;
     this.state.killsRoom++;
@@ -72,45 +69,44 @@ export class EnemyDeath extends RoomPart {
     this.state.emit({ type: 'heal', amount: add, hp: this.state.hp, source: 'perk' });
   }
 
-  /** Что убийство вызывает вокруг: осколки, возврат цены, переход клейма, взрыв трупа, огонь. */
+  /** Что убийство вызывает вокруг: возврат цены, переход клейма, взрыв заражённого. */
   private killEchoes(cell: CellIndex, enemy: Card): void {
     const s = this.state.stats;
-    // «Взрыв плоти»: любое убийство разлетается осколками по соседям
-    if (s.killBlast > 0) {
-      const blast = Math.max(1, Math.round(enemy.maxHp * s.killBlast));
-      this.parts.hits.splashNeighbors(cell, blast);
-    }
     // «Отработанный удар»: убийство способностью возвращает часть её цены
     if (this.state.inAbility && s.abilityRefund > 0 && this.state.abilityCost > 0) {
       this.parts.upkeep.gain(Math.max(1, Math.round(this.state.abilityCost * s.abilityRefund)));
     }
     if (s.passives.has('chain_mark') && enemy.mark > 0) this.parts.status.jumpMark(cell);
-    // взрыв трупа: взрывается тот, кого пометили; соседи, помеченные тоже, рвутся цепью
-    if (enemy.corpse) {
-      const blast = Math.max(
-        1,
-        Math.round(enemy.maxHp * this.parts.damage.pp(this.state.paramsOf('corpse_blast').blast)),
-      );
-      this.state.emit({ type: 'fx', cells: [cell], style: 'corpse' });
-      this.parts.hits.splashNeighbors(cell, blast);
-    }
-    if (enemy.burn > 0) {
-      for (const n of Grid.neighbors(cell)) {
-        if (this.state.cards[n]?.kind === 'enemy')
-          this.parts.status.applyBurn(n, enemy.burnDmg, EnemyDeath.BURN_SPREAD_TURNS);
-      }
+    if (enemy.infect) this.blightBlast(cell, enemy, enemy.infect);
+  }
+
+  /**
+   * «Выстрел скверны»: заражённый, умирая, взрывается на долю своего здоровья по соседям;
+   * «Распространение» с шансом заражает выживших соседей тем же.
+   */
+  private blightBlast(cell: CellIndex, enemy: Card, infect: NonNullable<Card['infect']>): void {
+    const blast = Math.max(1, Math.round(enemy.maxHp * this.parts.damage.pp(infect.blast)));
+    this.state.emit({ type: 'fx', cells: [cell], style: 'corpse' });
+    this.parts.hits.splashNeighbors(cell, blast);
+    if (infect.spread <= 0) return;
+    for (const n of Grid.neighbors(cell)) {
+      if (this.state.cards[n]?.kind !== 'enemy') continue;
+      if (this.state.rng.chance(infect.spread))
+        this.parts.status.applyInfect(n, infect.blast, infect.spread);
     }
   }
 
-  private ghostCount(): number {
-    return this.state.cards.filter((c) => c?.kind === 'ghost').length;
-  }
-
-  /** Призрак встаёт на месте заражённого врага и три хода бьёт соседей. */
-  private raiseGhost(cell: CellIndex): void {
+  /** Слуга встаёт на месте заражённого врага: доля его здоровья и удара, живёт несколько ходов. */
+  private raiseServant(cell: CellIndex, enemy: Card): void {
+    const p = this.state.paramsOf('dead_servant');
     this.state.engine.put(
       cell,
-      this.state.factory.createGhost(this.state.paramsOf('ghosts').turns),
+      this.state.factory.createServant(
+        enemy.defId,
+        Math.round(enemy.maxHp * p.hp),
+        Math.round(enemy.atk * p.dmg),
+        p.turns,
+      ),
     );
   }
 }

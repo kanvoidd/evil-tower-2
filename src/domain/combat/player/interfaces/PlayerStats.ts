@@ -35,9 +35,9 @@ export interface PlayerStats {
   luck: number;
   resMax: number;
   regen: number;
-  /** Стиль боя линейки: бьёт ли герой рукой и чем достаёт дальнего врага. */
+  /** Стиль боя: бьёт ли герой рукой и чем достаёт дальнего врага (линейка или базовый перк). */
   attack: IAttackStrategy;
-  /** Цена базового действия линейки в ресурсе. */
+  /** Цена базового дальнего действия в ресурсе. */
   rangedCost: number;
   /** Границы случайного множителя крита. */
   critMin: number;
@@ -52,13 +52,10 @@ export interface PlayerStats {
   execute: Ratio;
   pierce: Ratio;
   doubleStrike: Percent;
-  ignite: Ratio;
   everyThird: boolean;
-  roomCrit: boolean;
   lifesteal: Ratio;
 
   // ---- синергии: меняют уже полученные способности
-  abilityIgnite: Percent;
   abilityStun: Percent;
   abilitySplash: Ratio;
   abilityPoison: Ratio;
@@ -67,18 +64,15 @@ export interface PlayerStats {
   abilityLifesteal: Ratio;
   abilityRefund: Ratio;
   abilityShield: Ratio;
-  killBlast: Ratio;
-  /** «Раздвоение молнии»: шанс задеть второго врага и доля урона по нему. */
+  /** «Двойной наконечник»: шанс задеть второго врага и доля урона по нему. */
   splitChance: Ratio;
   splitDmg: Ratio;
   perkCostDown: number;
-  /** «Раздвоение молнии»: шанс второго разряда по той же цели и его доля урона. */
+  /** «Поддержка с воздуха»: шанс второго удара по той же цели после базовой атаки и его доля урона. */
   echoChance: Ratio;
   echoDmg: Ratio;
-  /** Усиление отдельных заклинаний мага. */
-  lightningPower: Ratio;
-  shotPower: Ratio;
-  chainPower: Ratio;
+  /** «Перегрузка»: прибавка к урону способностей при полной шкале ресурса (растёт с её долей). */
+  overcharge: Ratio;
 
   // ---- таланты пути здоровья
   startShieldPct: Ratio;
@@ -110,7 +104,10 @@ export interface PlayerStats {
   /** Снижения входящего удара. */
   reductions: readonly IDamageReduction[];
 
-  /** Все способности героя: кнопки, пассивки и базовое действие линейки. */
+  /**
+   * Все способности героя: кнопки, пассивки и базовые действия — с числами его уровня перка и
+   * правками талантов.
+   */
   allAbilities: AbilityDef[];
   /** Способности с кнопкой на поле боя (в порядке слотов). */
   abilities: AbilityDef[];

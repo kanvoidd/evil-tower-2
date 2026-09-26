@@ -1,30 +1,14 @@
+import { Ratio } from '../../../../shared';
 import { defineAbility } from '../../../abilities/defineAbility';
 
-// Способности, которые открывает «Магистр». Где они стоят в дереве — `perks` в classes/magister.ts.
+// Способности, которые открывает «Магистр». Где они стоят — ветка в classes/magister.ts.
 
-/** «Перестановка». */
-export const swap = defineAbility({
-  id: 'swap',
-  behavior: 'swap',
-  cost: 2,
-  target: 'two',
-  cooldown: 5,
-});
-
-/** «Жребий колоды». */
-export const deckDraw = defineAbility({
-  id: 'deck_draw',
-  behavior: 'deck_draw',
-  cost: 3,
-  target: 'any_card',
-  cooldown: 4,
-});
-
-/** «Откат времени». */
-export const rewind = defineAbility({
-  id: 'rewind',
-  behavior: 'rewind',
-  cost: 6,
+/** «Магический щит»: щит на долю максимального здоровья. */
+export const magicShield = defineAbility({
+  id: 'magic_shield',
+  behavior: 'ward',
+  params: { shield: Ratio.of(0.35) },
+  cost: 4,
   target: 'self',
-  once: true,
+  cooldown: 4,
 });

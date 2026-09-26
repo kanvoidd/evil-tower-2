@@ -107,8 +107,8 @@ const playRoom = (
 for (const lin of LINEAGE_ORDER) {
   const tree = TREES[lin];
   const ls = newLineageSave(tree);
-  // берём финальный класс со всеми способностями и талантами — самый сложный случай
-  const terminal = tree.terminals[0];
+  // берём последний класс линейки со всеми способностями и талантами — самый сложный случай
+  const terminal = tree.shape === 'tiered' ? tree.terminals[0] : tree.transitional[0];
   for (const n of tree.nodes) {
     if (n.kind === 'talent') ls.ranks[n.id] = n.ranks ?? 1;
     if (n.kind === 'class' || n.kind === 'perk') ls.ranks[n.id] = 1;

@@ -1,4 +1,4 @@
-import type { EnemyDef } from '../../../catalog';
+import type { AbilityDef, EnemyDef } from '../../../catalog';
 import type { CellIndex, Rng } from '../../../shared';
 import type { Card } from '../../card/Card';
 import type { IEngine } from '../../engine/interfaces/IEngine';
@@ -20,6 +20,8 @@ export interface AbilityContext {
   readonly rng: Rng;
   /** Первая из двух карт «Перестановки». */
   readonly swapFirst: CellIndex | null;
+  /** Доля шкалы ресурса в момент применения способности (до оплаты). */
+  castShare(): number;
   enemyCells(): CellIndex[];
   /** Клетка за целью по линии от героя; `Grid.NO_CELL` — край поля. */
   behindCell(from: CellIndex, to: CellIndex): CellIndex;
@@ -47,9 +49,29 @@ export interface AbilityContext {
 
   // ---- статусы
   applyStun(cell: CellIndex, turns?: number): void;
-  applyBurn(cell: CellIndex, dmg: number, turns: number): void;
+  /** Поджог: `ticks` тиков по `dmg` копятся к уже горящим. */
+  applyBurn(cell: CellIndex, dmg: number, ticks: number): void;
+  /** Взрыв горения: цель получает `selfMul`, соседи — `splashMul` накопленного горения. */
+  explodeBurn(cell: CellIndex, selfMul: number, splashMul: number): void;
+  applyWeaken(cell: CellIndex, share: number, turns: number): void;
+  applyArmorBreak(cell: CellIndex, share: number, turns: number): void;
+  applyBleed(cell: CellIndex, dmg: number, turns: number): void;
+  applyInfect(cell: CellIndex, blast: number, spread: number): void;
   /** Клеймо сработало: не-босс гибнет, босс теряет долю здоровья. */
   reapMarked(cell: CellIndex, bossHpShare: number): void;
+
+  // ---- щит, заряд, ловушки
+  /** Прибавить щит (временное здоровье). */
+  addShield(amount: number): void;
+  /** «Ледяной доспех»: прибавка к защите и ответный удар на `turns` ходов. */
+  setWard(defense: number, thorns: number, turns: number): void;
+  /** Держится ли «Ледяной доспех». */
+  readonly wardActive: boolean;
+  /** Накопленный заряд способности и его сброс после выстрела. */
+  chargeOf(abilityId: string): number;
+  resetCharge(abilityId: string): void;
+  hasTrap(cell: CellIndex): boolean;
+  placeSnare(cell: CellIndex, ability: AbilityDef): void;
 
   // ---- длящиеся эффекты героя
   /** Накопленное ослабление атаки врагов («Боевой клич»). */
@@ -60,6 +82,4 @@ export interface AbilityContext {
   reaping: number;
   /** Ходов без ответа врагов («Дымовая завеса»). */
   noCounter: number;
-  /** «Откат времени»: вернуть снимок начала хода. */
-  restoreSnapshot(): void;
 }

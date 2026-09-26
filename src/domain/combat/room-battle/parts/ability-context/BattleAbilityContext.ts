@@ -1,4 +1,4 @@
-import type { EnemyDef } from '../../../../catalog';
+import type { AbilityDef, EnemyDef } from '../../../../catalog';
 import type { CellIndex, Rng } from '../../../../shared';
 import type { AbilityContext } from '../../../abilities';
 import type { Card } from '../../../card/Card';
@@ -41,6 +41,10 @@ export class BattleAbilityContext implements AbilityContext {
 
   get swapFirst(): CellIndex | null {
     return this.state.swapFirst;
+  }
+
+  castShare(): number {
+    return this.parts.damage.castShare();
   }
 
   enemyCells(): CellIndex[] {
@@ -103,8 +107,60 @@ export class BattleAbilityContext implements AbilityContext {
     this.parts.status.applyStun(cell, turns);
   }
 
-  applyBurn(cell: CellIndex, dmg: number, turns: number): void {
-    this.parts.status.applyBurn(cell, dmg, turns);
+  applyBurn(cell: CellIndex, dmg: number, ticks: number): void {
+    this.parts.status.applyBurn(cell, dmg, ticks);
+  }
+
+  explodeBurn(cell: CellIndex, selfMul: number, splashMul: number): void {
+    this.parts.status.explodeBurn(cell, selfMul, splashMul);
+  }
+
+  applyWeaken(cell: CellIndex, share: number, turns: number): void {
+    this.parts.status.applyWeaken(cell, share, turns);
+  }
+
+  applyArmorBreak(cell: CellIndex, share: number, turns: number): void {
+    this.parts.status.applyArmorBreak(cell, share, turns);
+  }
+
+  applyBleed(cell: CellIndex, dmg: number, turns: number): void {
+    this.parts.status.applyBleed(cell, dmg, turns);
+  }
+
+  applyInfect(cell: CellIndex, blast: number, spread: number): void {
+    this.parts.status.applyInfect(cell, blast, spread);
+  }
+
+  addShield(amount: number): void {
+    if (amount <= 0) return;
+    this.state.shield += amount;
+    this.state.emit({ type: 'shield', now: this.state.shield });
+  }
+
+  setWard(defense: number, thorns: number, turns: number): void {
+    this.state.wardDefense = defense;
+    this.state.wardThorns = thorns;
+    this.state.wardTurns = turns;
+  }
+
+  get wardActive(): boolean {
+    return this.state.wardTurns > 0;
+  }
+
+  chargeOf(abilityId: string): number {
+    return this.state.charges[abilityId] ?? 0;
+  }
+
+  resetCharge(abilityId: string): void {
+    delete this.state.charges[abilityId];
+  }
+
+  hasTrap(cell: CellIndex): boolean {
+    return this.parts.traps.hasTrap(cell);
+  }
+
+  placeSnare(cell: CellIndex, ability: AbilityDef): void {
+    this.parts.traps.placeSnare(cell, ability);
   }
 
   reapMarked(cell: CellIndex, bossHpShare: number): void {
@@ -141,9 +197,5 @@ export class BattleAbilityContext implements AbilityContext {
 
   set noCounter(v: number) {
     this.state.noCounter = v;
-  }
-
-  restoreSnapshot(): void {
-    this.parts.rewind.restoreSnapshot();
   }
 }

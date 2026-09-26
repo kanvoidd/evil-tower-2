@@ -14,6 +14,7 @@ import type { Action } from './Action';
 import type { BattleCarryStats } from './BattleCarryStats';
 import type { BattleTotals } from './BattleTotals';
 import type { PerkReadiness } from './PerkReadiness';
+import type { TrapView } from './TrapView';
 
 /** Что сцена и подсказки могут узнать о бое. Только чтение: менять бой можно лишь действиями игрока. */
 export interface IBattleState {
@@ -35,6 +36,11 @@ export interface IBattleState {
   readonly consumables: Readonly<Record<ConsumableId, number>>;
   readonly totals: Readonly<BattleTotals>;
   readonly armed: AbilityDef | null;
+  /** «Взведённая ловушка» заряжена: выбранная для неё способность и задержка в ходах. */
+  readonly trapSkill: AbilityDef | null;
+  readonly trapDelay: number;
+  /** Ловушки на поле. */
+  readonly traps: readonly TrapView[];
   readonly enemiesLeft: number;
   readonly totalEnemies: number;
   readonly killsLeft: number;
@@ -46,6 +52,10 @@ export interface IBattleState {
   perkTargetOk(p: AbilityDef, cell: CellIndex): boolean;
   perkCostOf(p: AbilityDef): number;
   cooldownOf(p: AbilityDef): number;
+  /** Накопленный заряд способности («Заряд» магического выстрела). */
+  chargeOf(p: AbilityDef): number;
+  /** Можно ли выбрать способность `p` для «Взведённой ловушки» `trap`. */
+  canArmWith(trap: AbilityDef, p: AbilityDef): boolean;
   strikeDamage(atk: number): number;
   healPotionAmount(): number;
   artifactDamage(): number;

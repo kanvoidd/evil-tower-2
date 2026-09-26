@@ -7,9 +7,7 @@ import { RoomPart } from '../room-part/RoomPart';
 
 /** Удары по врагам: уворот, броня, синергии способностей, урон и его последствия. */
 export class EnemyHits extends RoomPart {
-  /** «Живое пламя»: поджог от способности жжёт этой долей её удара… */
-  static readonly ABILITY_BURN_SHARE = 0.3;
-  /** …столько ходов. Столько же держатся яд от способностей и поджог от талантов удара. */
+  /** Столько ходов держится яд от таланта способностей. */
   static readonly DOT_TURNS = 3;
 
   /** Один удар по врагу. Возвращает true, если враг погиб. */
@@ -29,18 +27,11 @@ export class EnemyHits extends RoomPart {
   }
 
   /**
-   * Таланты-синергии: они меняют уже полученные способности, поэтому «Живое пламя» пироманта
-   * заставляет поджигать даже цепную молнию, взятую ещё магом.
+   * Таланты-синергии: они меняют уже полученные способности, поэтому талант, взятый позже,
+   * действует и на способность прежнего класса.
    */
   private abilityRiders(cell: CellIndex, enemy: Card, dmg: number): void {
     const s = this.state.stats;
-    if (s.abilityIgnite > 0 && this.state.rng.chance(Percent.toRatio(s.abilityIgnite))) {
-      this.parts.status.applyBurn(
-        cell,
-        Math.max(1, Math.round(dmg * EnemyHits.ABILITY_BURN_SHARE)),
-        EnemyHits.DOT_TURNS,
-      );
-    }
     if (s.abilityStun > 0 && this.state.rng.chance(Percent.toRatio(s.abilityStun)))
       this.parts.status.applyStun(cell);
     if (s.abilityPoison > 0) {
@@ -85,8 +76,6 @@ export class EnemyHits extends RoomPart {
       hp: Math.max(0, executed ? 0 : enemy.hp),
     });
     if (direct) this.directRiders(cell, enemy, def, dealt);
-    // кукла вуду: половина урона расходится по остальным врагам
-    if (enemy.link && dealt > 0) this.voodooShare(cell, dealt);
     if (enemy.hp <= 0 || executed) {
       this.parts.deaths.killEnemy(cell);
       return true;
@@ -100,7 +89,7 @@ export class EnemyHits extends RoomPart {
     return enemy.hp > 0 && execute > 0 && !def?.boss && enemy.hp / enemy.maxHp <= execute;
   }
 
-  /** Последствия удара героя: вампиризм, поджог, ярость и шипы врага. */
+  /** Последствия удара героя: вампиризм, ярость и шипы врага. */
   private directRiders(
     cell: CellIndex,
     enemy: Card,
@@ -110,25 +99,11 @@ export class EnemyHits extends RoomPart {
     const s = this.state.stats;
     if (s.lifesteal > 0 && dealt > 0)
       this.parts.upkeep.heal(Math.max(1, Math.round(dealt * s.lifesteal)), 'lifesteal');
-    if (s.ignite > 0)
-      this.parts.status.applyBurn(
-        cell,
-        this.parts.damage.spellDamage(s.ignite),
-        EnemyHits.DOT_TURNS,
-      );
     if (def?.enrage && enemy.hp > 0) {
       enemy.atk = Math.round(enemy.atk + enemy.baseAtk * def.enrage);
     }
     if (def?.thorns && enemy.hp > 0)
       this.parts.enemyTurn.hurtPlayer(Math.max(1, Math.round(dealt * def.thorns)), cell, true);
-  }
-
-  private voodooShare(cell: CellIndex, dealt: number): void {
-    const share = Math.max(1, Math.round(dealt * this.state.paramsOf('voodoo').share));
-    for (const i of Grid.CELLS) {
-      const other = this.state.cards[i];
-      if (i !== cell && other?.kind === 'enemy') this.damageEnemy(i, share, false);
-    }
   }
 
   splashNeighbors(cell: CellIndex, dmg: number): void {

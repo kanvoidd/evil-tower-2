@@ -1,16 +1,20 @@
 /**
  * Правила дерева прокачки над купленным (`LineageSave`): состояние узлов, цены, покупка,
- * отказ от финального класса, изученные таланты и доступные способности. Что таланты дают,
- * дерево не знает — это считают характеристики героя (`stats/talent-bonuses`).
+ * отказ от класса, изученные таланты и доступные способности. Что таланты дают, дерево не
+ * знает — это считают характеристики героя (`stats/talent-bonuses`).
  */
 import {
+  childrenOf,
   CLASSES,
   classesOfLineage,
   type ClassId,
+  isBranched,
   PERK_BY_ID,
+  type PerkDef,
   perkId,
+  perksOfClass,
   placesOfClass,
-  SLOT_ORDER,
+  siblingsOf,
   TALENT_PLACE_BY_ID,
   type TalentPlace,
 } from '../../catalog';
@@ -29,6 +33,8 @@ export const talentOfNode = (n: TreeNode): TalentPlace => TALENT_PLACE_BY_ID[n.t
 
 export const perkIdOfNode = (n: TreeNode): string => perkId(n.owner, n.slot!);
 
+export const perkOfNode = (n: TreeNode): PerkDef => PERK_BY_ID[perkIdOfNode(n)];
+
 /** Стартовая способность бесплатна и не хранится в сохранении: она выводится из «класс открыт». */
 export const newLineageSave = (tree: Tree): LineageSave => ({
   ranks: { [tree.classNode[tree.base].id]: 1 },
@@ -43,6 +49,9 @@ export const isMaxed = (s: LineageSave, n: TreeNode): boolean => rankOf(s, n.id)
 
 export const isClassOwned = (tree: Tree, s: LineageSave, classId: ClassId): boolean =>
   rankOf(s, tree.classNode[classId].id) > 0;
+
+/** Стартовый перк класса с ярусами: бесплатен и открывается вместе с классом. */
+const isStartPerk = (n: TreeNode): boolean => n.kind === 'perk' && n.slot === 'start';
 
 /** Классы линейки, которые игрок уже открыл. */
 export const openedClasses = (tree: Tree, s: LineageSave): ClassId[] =>
@@ -61,38 +70,58 @@ export const currentClassOf = (tree: Tree, s: LineageSave): ClassId => {
 
 /**
  * Узел «выполнен» для открытия дочерних. У таланта это максимальный ранг: цепочка линейная,
- * поэтому максимум у последнего таланта означает, что вся цепочка пройдена.
+ * поэтому максимум у последнего таланта означает, что вся цепочка пройдена. У перка хватает
+ * первого уровня — следующие уровни не держат ветку.
  */
 const satisfied = (tree: Tree, s: LineageSave, id: string): boolean => {
   const n = tree.byId.get(id);
   if (!n) return false;
   if (n.kind === 'talent') return isMaxed(s, n);
-  if (n.kind === 'perk' && n.slot === 'start') return isClassOwned(tree, s, n.owner);
+  if (isStartPerk(n)) return isClassOwned(tree, s, n.owner);
   if (n.kind === 'evo') return n.parents.some((p) => satisfied(tree, s, p));
   return rankOf(s, n.id) > 0;
 };
 
-/** Таланта: изучен до конца, частично, доступен (ворота открыты) или закрыт. */
-const talentState = (s: LineageSave, n: TreeNode, gateOpen: boolean): NodeState => {
+/** Узла с рангами (талант, перк с уровнями): изучен до конца, частично, доступен или закрыт. */
+const rankedState = (s: LineageSave, n: TreeNode, gateOpen: boolean): NodeState => {
   const rank = rankOf(s, n.id);
   if (rank >= maxRankOf(n)) return 'owned';
   if (rank > 0) return 'partial';
   return gateOpen ? 'available' : 'locked';
 };
 
-/** Финальный класс закрыт, если герой уже выбрал соседний финал своей линейки. */
-const siblingTaken = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
-  if (CLASSES[n.classId!].stage !== 2) return false;
-  const sibling = tree.terminals.find((c) => c !== n.classId);
-  return !!sibling && isClassOwned(tree, s, sibling);
+/** Класс закрыт, если герой уже выбрал соседний класс той же метаморфозы (финал, подкласс). */
+const siblingTaken = (tree: Tree, s: LineageSave, n: TreeNode): boolean =>
+  siblingsOf(n.classId!).some((c) => isClassOwned(tree, s, c));
+
+/**
+ * Ветка закрыта, если класс позволяет развивать только одну (стихия элементалиста), а в другой
+ * его ветке уже что-то изучено.
+ */
+const branchTaken = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
+  const cls = CLASSES[n.owner];
+  if (!n.branch || !isBranched(cls) || cls.branchChoice !== 'one') return false;
+  return tree.nodes.some(
+    (o) => o.owner === n.owner && o.branch && o.branch !== n.branch && rankOf(s, o.id) > 0,
+  );
+};
+
+/**
+ * Покупка узла — выбор ветки: класс развивает только одну ветку (стихия элементалиста), а в его
+ * ветках ещё ничего не изучено. Такой выбор делает игрок, а не автопрокачка.
+ */
+export const opensBranchChoice = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
+  const cls = CLASSES[n.owner];
+  if (!n.branch || !isBranched(cls) || cls.branchChoice !== 'one') return false;
+  return !tree.nodes.some((o) => o.owner === n.owner && o.branch && rankOf(s, o.id) > 0);
 };
 
 export const nodeState = (tree: Tree, s: LineageSave, n: TreeNode): NodeState => {
   if (n.kind === 'evo') return satisfied(tree, s, n.id) ? 'owned' : 'locked';
-  if (n.kind === 'perk' && n.slot === 'start')
-    return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';
+  if (isStartPerk(n)) return isClassOwned(tree, s, n.owner) ? 'owned' : 'locked';
   const gateOpen = n.parents.length === 0 || n.parents.some((p) => satisfied(tree, s, p));
-  if (n.kind === 'talent') return talentState(s, n, gateOpen);
+  if (rankOf(s, n.id) === 0 && branchTaken(tree, s, n)) return 'blocked';
+  if (n.kind === 'talent' || maxRankOf(n) > 1) return rankedState(s, n, gateOpen);
   if (rankOf(s, n.id) > 0) return 'owned';
   if (n.kind === 'class' && siblingTaken(tree, s, n)) return 'blocked';
   return gateOpen ? 'available' : 'locked';
@@ -104,17 +133,19 @@ export const canInvest = (tree: Tree, s: LineageSave, n: TreeNode): boolean => {
   return st === 'available' || st === 'partial';
 };
 
-export const isPurchasable = (n: TreeNode): boolean =>
-  n.kind !== 'evo' && !(n.kind === 'perk' && n.slot === 'start');
+export const isPurchasable = (n: TreeNode): boolean => n.kind !== 'evo' && !isStartPerk(n);
 
-/** Цена следующего шага: у таланта — очередной ранг, у способности и класса — вся покупка. */
+/** Цена следующего шага: у таланта — очередной ранг, у перка — очередной уровень, у класса — метаморфоза. */
 export const costOf = (s: LineageSave, n: TreeNode): Souls => {
+  const next = rankOf(s, n.id) + 1;
   if (n.kind === 'talent') {
-    const next = rankOf(s, n.id) + 1;
     if (next > maxRankOf(n)) return Souls.of(0);
-    return SOUL_PRICING.talentRank(n.owner, n.tier!, next);
+    return SOUL_PRICING.talentRank(talentOfNode(n), next);
   }
-  if (n.kind === 'perk') return SOUL_PRICING.perk(n.owner, n.slot!);
+  if (n.kind === 'perk') {
+    if (next > maxRankOf(n)) return Souls.of(0);
+    return SOUL_PRICING.perk(perkOfNode(n), next);
+  }
   if (n.kind === 'class') return SOUL_PRICING.metamorphosis(n.classId!);
   return Souls.of(0);
 };
@@ -134,12 +165,25 @@ export const applyBuy = (_tree: Tree, s: LineageSave, n: TreeNode): void => {
   s.last = n.id;
 };
 
+/**
+ * Отказаться можно от класса, выбранного из нескольких (финал воина, подкласс мага), пока герой
+ * не ушёл из него дальше.
+ */
 export const canCancelMetamorphosis = (tree: Tree, s: LineageSave, classId: ClassId): boolean =>
-  CLASSES[classId].stage === 2 &&
   isClassOwned(tree, s, classId) &&
-  tree.terminals.includes(classId);
+  siblingsOf(classId).length > 0 &&
+  !childrenOf(classId).some((c) => isClassOwned(tree, s, c));
 
-/** Сбрасывает ветку финального класса. Возвращает часть потраченного опыта душ. */
+/** Сколько вложено в узел класса (без самой метаморфозы). */
+const spentOn = (s: LineageSave, n: TreeNode): number => {
+  const rank = rankOf(s, n.id);
+  if (rank <= 0) return 0;
+  if (n.kind === 'talent') return SOUL_PRICING.talentTotal(talentOfNode(n), rank);
+  if (n.kind === 'perk' && !isStartPerk(n)) return SOUL_PRICING.perkTotal(perkOfNode(n), rank);
+  return 0;
+};
+
+/** Сбрасывает ветку класса. Возвращает часть потраченного опыта душ. */
 export const applyCancelMetamorphosis = (
   tree: Tree,
   s: LineageSave,
@@ -147,15 +191,13 @@ export const applyCancelMetamorphosis = (
 ): { refund: Souls } => {
   let spent: number = SOUL_PRICING.metamorphosis(classId);
   for (const n of tree.nodes) {
-    if (n.owner !== classId) continue;
-    const rank = rankOf(s, n.id);
-    if (rank <= 0) continue;
-    if (n.kind === 'talent') spent += SOUL_PRICING.talentTotal(n.owner, n.tier!, rank);
-    else if (n.kind === 'perk' && n.slot !== 'start') spent += SOUL_PRICING.perk(n.owner, n.slot!);
+    if (n.owner !== classId || n.tab !== 'profession' || n.kind === 'class') continue;
+    spent += spentOn(s, n);
     delete s.ranks[n.id];
   }
   delete s.ranks[tree.classNode[classId].id];
-  s.last = tree.classNode[CLASSES[classId].parent!].id;
+  const parent = CLASSES[classId].parents.find((p) => isClassOwned(tree, s, p))!;
+  s.last = tree.classNode[parent].id;
   return { refund: SOUL_PRICING.refund(spent) };
 };
 
@@ -171,24 +213,33 @@ export const learnedTalents = (tree: Tree, s: LineageSave): LearnedTalent[] =>
 export const talentPointsSpent = (tree: Tree, s: LineageSave): number =>
   tree.nodes.reduce((a, n) => a + (n.kind === 'talent' ? rankOf(s, n.id) : 0), 0);
 
+/** Перк героя и его уровень. */
+export interface OwnedPerk {
+  readonly perk: PerkDef;
+  readonly level: number;
+}
+
 /**
- * Способности, доступные герою: все купленные в линейке плюс бесплатные стартовые каждого
- * открытого класса. Метаморфоза ничего не забирает — у пироманта в руках и заклинания мага,
- * и приёмы магистра, и своё пламя.
+ * Перки, доступные герою, с уровнями: все купленные в линейке плюс бесплатные стартовые каждого
+ * открытого класса. Метаморфоза ничего не забирает — у переходного класса в руках и перки
+ * подкласса, и свои.
  */
-export const activePerkIds = (tree: Tree, s: LineageSave, _active: ClassId): string[] => {
-  const order = classesOfLineage(tree.id);
-  const ids: string[] = [];
-  for (const cls of order) {
-    for (const slot of SLOT_ORDER) {
-      const n = tree.byId.get(`perk/${cls}/${slot}`);
-      if (!n || !PERK_BY_ID[perkId(cls, slot)]) continue;
-      const owned = slot === 'start' ? isClassOwned(tree, s, cls) : rankOf(s, n.id) > 0;
-      if (owned) ids.push(perkId(cls, slot));
+export const ownedPerks = (tree: Tree, s: LineageSave): OwnedPerk[] => {
+  const out: OwnedPerk[] = [];
+  for (const cls of classesOfLineage(tree.id)) {
+    for (const perk of perksOfClass(cls)) {
+      const n = tree.byId.get(`perk/${cls}/${perk.slot}`);
+      if (!n) continue;
+      const level = perk.slot === 'start' ? (isClassOwned(tree, s, cls) ? 1 : 0) : rankOf(s, n.id);
+      if (level > 0) out.push({ perk, level });
     }
   }
-  return ids;
+  return out;
 };
+
+/** Id перков героя по порядку (для сводок и проверок). */
+export const activePerkIds = (tree: Tree, s: LineageSave): string[] =>
+  ownedPerks(tree, s).map((o) => o.perk.id);
 
 /** Есть ли что купить прямо сейчас (для красной точки на иконке героя). */
 export const anyAffordable = (tree: Tree, s: LineageSave, souls: Souls): boolean =>

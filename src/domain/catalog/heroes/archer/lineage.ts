@@ -1,6 +1,9 @@
 import type { LineageDef } from '../interfaces/LineageDef';
 
-/** Лучник · концентрация. Пассивка линейки — самый высокий шанс крита. */
+/**
+ * Охотник · концентрация. Пассивка линейки — самый высокий шанс крита. Рукой охотник бьёт,
+ * как и все; дальний выстрел, звери и ловушки — у подклассов.
+ */
 export const archerLineage: LineageDef = {
   id: 'archer',
   resource: 'concentration',
@@ -9,6 +12,6 @@ export const archerLineage: LineageDef = {
   resRegen: 2,
   goldBonus: 0,
   artifacts: false,
-  attack: 'shot',
+  attack: 'hand',
   cheatDeathPrice: { drainsResource: false, goldShare: 0 },
 };

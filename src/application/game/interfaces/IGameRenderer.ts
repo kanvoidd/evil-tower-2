@@ -1,4 +1,5 @@
 import type { AbilityDef, ConsumableId } from '../../../domain/catalog';
+import type { ArmedPick } from './ArmedPick';
 import type { CellRejection } from './CellRejection';
 import type { TutorialStep } from './TutorialStep';
 
@@ -21,7 +22,7 @@ export interface IGameRenderer {
   /** Действие запрещено без пояснений (например, чужой расходник). */
   deny(): void;
   /** Заряд способности изменился: `one`/`two` — ждём одну или две цели, `null` — заряд снят. */
-  armed(pick: 'one' | 'two' | null): void;
+  armed(pick: ArmedPick): void;
   /** Первое из двух касаний «Перестановки»: ход ещё не сделан. */
   firstOfTwo(): void;
   /** Расходник применился сам. */

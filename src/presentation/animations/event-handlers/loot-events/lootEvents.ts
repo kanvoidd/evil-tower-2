@@ -7,7 +7,7 @@ import type { EventHandlers } from '../interfaces/EventHandler';
 /** Добыча и расходы: золото и души в кошель комнаты, лечение, сундуки, подбор, поломка, трата. */
 export const lootEvents: Pick<
   EventHandlers,
-  'gold' | 'souls' | 'heal' | 'chest' | 'pickup' | 'break' | 'spend'
+  'gold' | 'souls' | 'value' | 'heal' | 'chest' | 'pickup' | 'break' | 'spend'
 > = {
   /** Золото копится в кошеле комнаты и попадёт в кошелёк героя, только когда комната будет пройдена. */
   gold(ev, { anims, hud, sound }) {
@@ -21,6 +21,13 @@ export const lootEvents: Pick<
       Math.min(6, Math.ceil(ev.amount / 8)),
     );
     sound.play('coin');
+  },
+
+  /** Кучку золота смяли — на карточке новый номинал. */
+  value(ev, { board, anims }) {
+    const v = board.view(ev.uid);
+    v?.label?.setText(`+${ev.value}`);
+    if (v) anims.hit.blink(v);
   },
 
   /** Души, как и золото, копятся до конца комнаты: гибель в ней не приносит ничего. */
